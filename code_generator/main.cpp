@@ -103,6 +103,12 @@ enum class BitwiseOps{
 	BitwiseShiftRight = 7,
 };
 
+enum class BitfieldOps{
+	BitCheck = 1,
+	BitReset = 2,
+	BitSet = 3,
+};
+
 class CodeGenerator;
 
 class CpuDefinition{
@@ -731,7 +737,7 @@ void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerat
 				val = generator.load_hl8();
 				time = 16;
 			}else
-				val = generator.get_register_value8((Register8)operand);
+				val = generator.get_register_value8(operand);
 			FlagSettings fs;
 			switch (operation){
 				case BitwiseOps::RotateLeft:
@@ -756,14 +762,29 @@ void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerat
 					break;
 				case BitwiseOps::ArithmeticShiftRight:
 					val = generator.arithmetic_shift_right(val);
+					fs = { FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::Reset, FlagSetting::OldBit0 };
 					break;
 				case BitwiseOps::None:
 					assert(false);
 				case BitwiseOps::BitwiseShiftRight:
 					val = generator.bitwise_shift_right(val);
+					fs = { FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::Reset, FlagSetting::OldBit0 };
 					break;
 			}
-			generator.set_flags();
+			if (operand == Register8::None)
+				generator.store_hl8(val);
+			else
+				generator.write_register8(operand, val);
+			generator.set_flags(fs);
+			generator.take_time(time);
+			return;
+		}
+		// xx00xxxx
+		if (match_opcode(opcode, "xx000xxx")){
+			assert((opcode & 0xC0) == 0);
+			auto operation = (BitfieldOps)((opcode >> 6) & 3);
+			auto operand = (Register8)(opcode & 7);
+			
 		}
 		return;
 	}
