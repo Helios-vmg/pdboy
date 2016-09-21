@@ -109,6 +109,13 @@ enum class BitfieldOps{
 	BitSet = 3,
 };
 
+enum class ProcessorFlags{
+	Zero = 0,
+	Subtract = 1,
+	HalfCarry = 2,
+	Carry = 3,
+};
+
 class CodeGenerator;
 
 class CpuDefinition{
@@ -213,6 +220,7 @@ public:
 	virtual uintptr_t bitwise_shift_right(uintptr_t val) = 0;
 	virtual uintptr_t get_bit_value(uintptr_t val, unsigned bit) = 0;
 	virtual uintptr_t set_bit_value(uintptr_t val, unsigned bit, bool on) = 0;
+	virtual std::pair<uintptr_t, uintptr_t> perform_decimal_adjustment(uintptr_t val) = 0;
 };
 
 void CodeGenerator::generate(){
@@ -285,6 +293,17 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 				auto imm = generator.load_program_counter8();
 				generator.add_PC(imm);
 				generator.take_time(8);
+				return;
+			}
+		case 0x27:
+			{
+				// Handle DAA A
+				auto val = generator.get_register_value8(Register8::A);
+				auto pair = generator.perform_decimal_adjustment(val);
+				generator.write_register8(Register8::A, pair.first);
+				// TODO: Flag carry = !!value_of(pair.second)
+				generator.set_flags({ FlagSetting::IfZero, FlagSetting::Keep, FlagSetting::Reset, FlagSetting::IfNonZero });
+				generator.take_time(4);
 				return;
 			}
 		case 0x2F:
@@ -792,18 +811,24 @@ void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerat
 			time = 16;
 		}else
 			val = generator.get_register_value8(register_operand);
+		FlagSettings fs = { FlagSetting::Keep, FlagSetting::Keep, FlagSetting::Keep, FlagSetting::Keep };
 		switch (operation){
 			case BitfieldOps::BitCheck:
-				val = generator.get
+				val = generator.get_bit_value(val, bit_operand);
+				fs = { FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::Set, FlagSetting::Keep };
 				break;
 			case BitfieldOps::BitReset:
+				val = generator.set_bit_value(val, bit_operand, false);
 				break;
 			case BitfieldOps::BitSet:
+				val = generator.set_bit_value(val, bit_operand, true);
 				break;
 			default:
 				assert(false);
 				break;
 		}
+		generator.set_flags(fs);
+		generator.take_time(time);
 		return;
 	}
 	if (first_opcode == 0x10 && opcode == 0x00){
