@@ -79,6 +79,7 @@
     <ClCompile Include="CodeGenerator.cpp" />
     <ClCompile Include="CpuDefinition.cpp" />
     <ClCompile Include="FlagSetting.cpp" />
+    <ClCompile Include="InterpreterCodeGenerator.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -86,6 +87,7 @@
     <ClInclude Include="CodeGenerator.h" />
     <ClInclude Include="CpuDefinition.h" />
     <ClInclude Include="FlagSetting.h" />
+    <ClInclude Include="InterpreterCodeGenerator.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

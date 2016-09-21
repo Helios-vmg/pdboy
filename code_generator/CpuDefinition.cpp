@@ -269,7 +269,10 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 			generator.store_mem8(mem, val);
 			time = 12;
 		} else{
-			generator.inc_register8(operand);
+			if (decrement)
+				generator.dec_register8(operand);
+			else
+				generator.inc_register8(operand);
 			val = generator.get_register_value8(operand);
 			time = 8;
 		}
@@ -497,7 +500,7 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		if (load)
 			generator.write_A(generator.load_ff00_offset8(offset));
 		else
-			generator.store_mem_ff008(offset, generator.get_A());
+			generator.store_mem_ff00_8(offset, generator.get_A());
 
 		generator.take_time(using_C ? 8 : 12);
 		return;
