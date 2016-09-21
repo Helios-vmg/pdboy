@@ -32,8 +32,8 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 			{
 				// Handle SP -> (imm16)16
 				auto imm = generator.load_program_counter16();
-				auto mem = generator.load_mem16(imm);
-				generator.write_register16(Register16::SP, mem);
+				auto val = generator.get_register_value16(Register16::SP);
+				generator.store_mem16(imm, val);
 				generator.take_time(20);
 				return;
 			}
