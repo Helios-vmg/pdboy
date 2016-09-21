@@ -1,6 +1,7 @@
 #include <memory>
 #include <cassert>
 #include <cstring>
+#include <array>
 
 enum class Register8{
 	B  =  0,
@@ -64,19 +65,38 @@ Register16 to_Register16(Register16B reg){
 	assert(false);
 }
 
-enum class FlagSetting{
-	Reset,
-	Set,
-	Keep,
-	Flip,
-	IfZero,
-	IfNonZero,
-	IfCarry,
-	IfNoCarry,
-	OldBit0,
-	OldBit7,
-	DontCare,
+class FlagSetting{
+public:
+	enum class Operation{
+		Reset,
+		Set,
+		Keep,
+		Flip,
+		IfZero,
+		IfNonZero,
+		DontCare
+	} op;
+	uintptr_t src_value;
+	FlagSetting(Operation op, uintptr_t src = 0): op(op), src_value(src){}
+
+	static FlagSetting Reset;
+	static FlagSetting Set;
+	static FlagSetting Keep;
+	static FlagSetting Flip;
+	static FlagSetting IfZero(uintptr_t val){
+		return FlagSetting(Operation::IfZero, val);
+	}
+	static FlagSetting IfNonZero(uintptr_t val){
+		return FlagSetting(Operation::IfNonZero, val);
+	}
+	static FlagSetting DontCare;
 };
+
+FlagSetting FlagSetting::Reset(Operation::Reset);
+FlagSetting FlagSetting::Set(Operation::Set);
+FlagSetting FlagSetting::Keep(Operation::Keep);
+FlagSetting FlagSetting::Flip(Operation::Flip);
+FlagSetting FlagSetting::DontCare(Operation::DontCare);
 
 struct FlagSettings{
 	FlagSetting zero,
@@ -180,14 +200,14 @@ public:
 	void inc_register16(Register16A reg){
 		this->inc_register16(to_Register16(reg));
 	}
-	virtual void add8(uintptr_t) = 0;
-	virtual void add_carry(uintptr_t) = 0;
-	virtual void sub(uintptr_t) = 0;
-	virtual void sub_carry(uintptr_t) = 0;
-	virtual void and(uintptr_t) = 0;
-	virtual void xor(uintptr_t) = 0;
-	virtual void or(uintptr_t) = 0;
-	virtual void cmp(uintptr_t) = 0;
+	virtual std::array<uintptr_t, 3> add8(uintptr_t) = 0;
+	virtual std::array<uintptr_t, 3> add_carry(uintptr_t) = 0;
+	virtual std::array<uintptr_t, 3> sub(uintptr_t) = 0;
+	virtual std::array<uintptr_t, 3> sub_carry(uintptr_t) = 0;
+	virtual uintptr_t and(uintptr_t) = 0;
+	virtual uintptr_t xor(uintptr_t) = 0;
+	virtual uintptr_t or(uintptr_t) = 0;
+	virtual std::array<uintptr_t, 3> cmp(uintptr_t) = 0;
 	virtual void set_flags(const FlagSettings &) = 0;
 	virtual uintptr_t inc_temp(uintptr_t) = 0;
 	virtual uintptr_t dec_temp(uintptr_t) = 0;
@@ -221,6 +241,7 @@ public:
 	virtual uintptr_t get_bit_value(uintptr_t val, unsigned bit) = 0;
 	virtual uintptr_t set_bit_value(uintptr_t val, unsigned bit, bool on) = 0;
 	virtual std::pair<uintptr_t, uintptr_t> perform_decimal_adjustment(uintptr_t val) = 0;
+	virtual uintptr_t swap_nibbles(uintptr_t val) = 0;
 };
 
 void CodeGenerator::generate(){
@@ -300,9 +321,10 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 				// Handle DAA A
 				auto val = generator.get_register_value8(Register8::A);
 				auto pair = generator.perform_decimal_adjustment(val);
-				generator.write_register8(Register8::A, pair.first);
+				val = pair.first;
+				generator.write_register8(Register8::A, val);
 				// TODO: Flag carry = !!value_of(pair.second)
-				generator.set_flags({ FlagSetting::IfZero, FlagSetting::Keep, FlagSetting::Reset, FlagSetting::IfNonZero });
+				generator.set_flags({ FlagSetting::IfZero(val), FlagSetting::Keep, FlagSetting::Reset, FlagSetting::IfNonZero(pair.second)});
 				generator.take_time(4);
 				return;
 			}
@@ -442,10 +464,14 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		// Handle rotations
 		bool left = (opcode >> 3) & 1;
 		bool through_carry = (opcode >> 4) & 1;
+		auto old_a = generator.get_register_value8(Register8::A);
 		generator.rotate_A(left, through_carry);
+		auto new_a = generator.get_register_value8(Register8::A);
+		auto old_bit_7 = generator.get_bit_value(old_a, 7);
+		auto old_bit_0 = generator.get_bit_value(old_a, 0);
 		FlagSettings flags[] = {
-			{ FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::Reset, FlagSetting::OldBit7 },
-			{ FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::Reset, FlagSetting::OldBit0 },
+			{ FlagSetting::IfZero(new_a), FlagSetting::Reset, FlagSetting::Reset, FlagSetting::IfNonZero(old_bit_7) },
+			{ FlagSetting::IfZero(new_a), FlagSetting::Reset, FlagSetting::Reset, FlagSetting::IfNonZero(old_bit_0) },
 		};
 		generator.set_flags(flags[(int)!left]);
 		generator.take_time(4);
@@ -504,9 +530,9 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		bool decrement = (opcode & 1) == 1;
 		auto operand = (Register8)((opcode >> 3) & 7);
 		unsigned time;
+		uintptr_t val;
 		if (operand == Register8::None){
 			auto mem = generator.load_hl8();
-			uintptr_t val;
 			if (decrement)
 				val = generator.dec_temp(mem);
 			else
@@ -515,11 +541,12 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 			time = 12;
 		}else{
 			generator.inc_register8(operand);
+			val = generator.get_register_value8(operand);
 			time = 8;
 		}
 		generator.set_flags(
 			{
-				FlagSetting::IfZero,
+				FlagSetting::IfZero(val),
 				(decrement ? FlagSetting::Set : FlagSetting::Reset),
 				FlagSetting::DontCare,
 				FlagSetting::Keep
@@ -581,15 +608,6 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 	// 10xxxxxx
 	// 11xxx110
 	if (match_opcode(opcode, "10xxxxxx") || match_opcode(opcode, "11xxx110")){
-		FlagSettings flags[] = {
-			{ FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::DontCare, FlagSetting::IfCarry },
-			{ FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::DontCare, FlagSetting::IfCarry },
-			{ FlagSetting::IfZero, FlagSetting::Set, FlagSetting::DontCare, FlagSetting::IfNoCarry },
-			{ FlagSetting::IfZero, FlagSetting::Set, FlagSetting::DontCare, FlagSetting::IfNoCarry },
-			{ FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::Set, FlagSetting::Reset },
-			{ FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::Reset, FlagSetting::Reset },
-			{ FlagSetting::IfZero, FlagSetting::Set, FlagSetting::DontCare, FlagSetting::IfNoCarry },
-		};
 		auto operation = (opcode >> 3) & 7;
 		auto operand = (Register8)(opcode & 7);
 		auto immediate = (opcode & 0x40) == 0x40;
@@ -601,33 +619,67 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 				val = generator.get_register_value8(operand);
 		}else
 			val = generator.load_program_counter8();
+		std::array<uintptr_t, 3> array = { 0, 0, 0 };
 		switch (operation){
 			case 0:
-				generator.add8(val);
+				array = generator.add8(val);
+				val = array[0];
 				break;
 			case 1:
-				generator.add_carry(val);
+				array = generator.add_carry(val);
+				val = array[0];
 				break;
 			case 2:
-				generator.sub(val);
+				array = generator.sub(val);
+				val = array[0];
 				break;
 			case 3:
-				generator.sub_carry(val);
+				array = generator.sub_carry(val);
+				val = array[0];
 				break;
 			case 4:
-				generator.and(val);
+				val = generator.and(val);
 				break;
 			case 5:
-				generator.xor(val);
+				val = generator.xor(val);
 				break;
 			case 6:
-				generator.or(val);
+				val = generator.or(val);
 				break;
 			case 7:
-				generator.cmp(val);
+				array = generator.cmp(val);
+				val = array[0];
 				break;
 		}
-		generator.set_flags(flags[operation]);
+		auto if_zero = FlagSetting::IfZero(val);
+		FlagSetting half_carry = FlagSetting::Keep,
+			carry = FlagSetting::Reset;
+		if (array[0]){
+			half_carry = FlagSetting::IfNonZero(array[1]);
+			carry = FlagSetting::IfNonZero(array[2]);
+		}
+		FlagSettings fs = { FlagSetting::Keep, FlagSetting::Keep, FlagSetting::Keep, FlagSetting::Keep };
+		switch (operation){
+			case 0:
+			case 1:
+				fs = { if_zero, FlagSetting::Reset, half_carry, carry };
+				break;
+			case 2:
+			case 3:
+				fs = { if_zero, FlagSetting::Set, half_carry, carry };
+				break;
+			case 4:
+				fs = { if_zero, FlagSetting::Reset, FlagSetting::Set, carry };
+				break;
+			case 5:
+			case 6:
+				fs = { if_zero, FlagSetting::Reset, FlagSetting::Reset, carry };
+				break;
+			case 7:
+				fs = { if_zero, FlagSetting::Set, half_carry, carry };
+				break;
+		}
+		generator.set_flags(fs);
 		generator.take_time(operand == Register8::None ? 8 : 4);
 	}
 
@@ -678,7 +730,6 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		// Handle conditional relative and absolute jumps.
 		bool absolute = (opcode & 0x80) == 0x80;
 		auto type = (ConditionalJumpType)((opcode >> 3) & 3);
-		uintptr_t imm;
 		if (absolute){
 			auto imm = generator.load_program_counter16();
 			generator.set_PC_if(imm, type);
@@ -732,18 +783,17 @@ void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerat
 			auto operand = (Register8)(opcode & 7);
 			unsigned time = 8;
 			uintptr_t val;
-			auto reg = generator.get_register_value8(Register8::A);
 			if (operand == Register8::None){
 				val = generator.load_hl8();
 				time = 16;
 			}else
 				val = generator.get_register_value8((Register8)operand);
-			generator.write_register8(Register8::A, val);
+			val = generator.swap_nibbles(val);
 			if (operand == Register8::None)
-				generator.store_hl8(reg);
+				generator.store_hl8(val);
 			else
-				generator.write_register8((Register8)operand, reg);
-			generator.set_flags({ FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::Reset, FlagSetting::Reset });
+				generator.write_register8((Register8)operand, val);
+			generator.set_flags({ FlagSetting::IfZero(val), FlagSetting::Reset, FlagSetting::Reset, FlagSetting::Reset });
 			generator.take_time(time);
 			return;
 		}
@@ -759,44 +809,46 @@ void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerat
 				time = 16;
 			}else
 				val = generator.get_register_value8(operand);
-			FlagSettings fs;
+			auto carry = FlagSetting::Reset;
+			auto old_bit_7 = FlagSetting::IfNonZero(generator.get_bit_value(val, 7));
+			auto old_bit_0 = FlagSetting::IfNonZero(generator.get_bit_value(val, 0));
 			switch (operation){
 				case BitwiseOps::RotateLeft:
 					val = generator.rotate_left(val);
-					fs = { FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::Reset, FlagSetting::OldBit7 };
+					carry = old_bit_7;
 					break;
 				case BitwiseOps::RotateRight:
 					val = generator.rotate_right(val);
-					fs = { FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::Reset, FlagSetting::OldBit0 };
+					carry = old_bit_0;
 					break;
 				case BitwiseOps::RotateLeftThroughCarry:
 					val = generator.rotate_left_through_carry(val);
-					fs = { FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::Reset, FlagSetting::OldBit7 };
+					carry = old_bit_7;
 					break;
 				case BitwiseOps::RotateRightThroughCarry:
 					val = generator.rotate_right_through_carry(val);
-					fs = { FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::Reset, FlagSetting::OldBit0 };
+					carry = old_bit_0;
 					break;
 				case BitwiseOps::ShiftLeft:
 					val = generator.shift_left(val);
-					fs = { FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::Reset, FlagSetting::OldBit7 };
+					carry = old_bit_7;
 					break;
 				case BitwiseOps::ArithmeticShiftRight:
 					val = generator.arithmetic_shift_right(val);
-					fs = { FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::Reset, FlagSetting::OldBit0 };
+					carry = old_bit_0;
 					break;
 				case BitwiseOps::None:
 					assert(false);
 				case BitwiseOps::BitwiseShiftRight:
 					val = generator.bitwise_shift_right(val);
-					fs = { FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::Reset, FlagSetting::OldBit0 };
+					carry = old_bit_0;
 					break;
 			}
 			if (operand == Register8::None)
 				generator.store_hl8(val);
 			else
 				generator.write_register8(operand, val);
-			generator.set_flags(fs);
+			generator.set_flags({ FlagSetting::IfZero(val), FlagSetting::Reset, FlagSetting::Reset, carry });
 			generator.take_time(time);
 			return;
 		}
@@ -815,7 +867,7 @@ void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerat
 		switch (operation){
 			case BitfieldOps::BitCheck:
 				val = generator.get_bit_value(val, bit_operand);
-				fs = { FlagSetting::IfZero, FlagSetting::Reset, FlagSetting::Set, FlagSetting::Keep };
+				fs = { FlagSetting::IfZero(val), FlagSetting::Reset, FlagSetting::Set, FlagSetting::Keep };
 				break;
 			case BitfieldOps::BitReset:
 				val = generator.set_bit_value(val, bit_operand, false);
