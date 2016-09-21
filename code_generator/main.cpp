@@ -211,6 +211,8 @@ public:
 	virtual uintptr_t shift_left(uintptr_t val) = 0;
 	virtual uintptr_t arithmetic_shift_right(uintptr_t val) = 0;
 	virtual uintptr_t bitwise_shift_right(uintptr_t val) = 0;
+	virtual uintptr_t get_bit_value(uintptr_t val, unsigned bit) = 0;
+	virtual uintptr_t set_bit_value(uintptr_t val, unsigned bit, bool on) = 0;
 };
 
 void CodeGenerator::generate(){
@@ -779,12 +781,28 @@ void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerat
 			generator.take_time(time);
 			return;
 		}
-		// xx00xxxx
-		if (match_opcode(opcode, "xx000xxx")){
-			assert((opcode & 0xC0) == 0);
-			auto operation = (BitfieldOps)((opcode >> 6) & 3);
-			auto operand = (Register8)(opcode & 7);
-			
+
+		auto operation = (BitfieldOps)((opcode >> 6) & 3);
+		auto register_operand = (Register8)(opcode & 7);
+		auto bit_operand = (opcode >> 3) & 7;
+		unsigned time = 8;
+		uintptr_t val;
+		if (register_operand == Register8::None){
+			val = generator.load_hl8();
+			time = 16;
+		}else
+			val = generator.get_register_value8(register_operand);
+		switch (operation){
+			case BitfieldOps::BitCheck:
+				val = generator.get
+				break;
+			case BitfieldOps::BitReset:
+				break;
+			case BitfieldOps::BitSet:
+				break;
+			default:
+				assert(false);
+				break;
 		}
 		return;
 	}
