@@ -10,7 +10,6 @@ public:
 		Flip,
 		IfZero,
 		IfNonZero,
-		DontCare
 	} op;
 	uintptr_t src_value;
 	FlagSetting(Operation op, uintptr_t src = 0): op(op), src_value(src){}
@@ -25,7 +24,6 @@ public:
 	static FlagSetting IfNonZero(uintptr_t val){
 		return FlagSetting(Operation::IfNonZero, val);
 	}
-	static FlagSetting DontCare;
 };
 
 struct FlagSettings{

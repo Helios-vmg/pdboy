@@ -51,7 +51,15 @@ public:
 			val ^= mask;
 		this->set(Register8::Flags, val);
 	}
-	void set_flags(bool zero, bool subtract, bool half_carry, bool carry){
+	void set_flags(int zero, int subtract, int half_carry, int carry){
+		if (zero < 0)
+			zero = this->get(Flags::Zero) - (zero + 1);
+		if (subtract < 0)
+			subtract = this->get(Flags::Subtract) - (zero + 1);
+		if (half_carry < 0)
+			half_carry = this->get(Flags::HalfCarry) - (zero + 1);
+		if (carry < 0)
+			carry = this->get(Flags::Carry) - (zero + 1);
 		unsigned val =
 			((unsigned)zero       << (unsigned)Flags::Zero) |
 			((unsigned)subtract   << (unsigned)Flags::Subtract) |

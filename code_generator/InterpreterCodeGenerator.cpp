@@ -1,4 +1,5 @@
 #include "InterpreterCodeGenerator.h"
+#include "FlagSetting.h"
 #include <iomanip>
 
 static std::string get_temp_name(unsigned i){
@@ -10,6 +11,11 @@ static std::string get_temp_name(unsigned i){
 template <typename T>
 static T *copy(const T &x){
 	return new T(x);
+}
+
+template <typename T, size_t N>
+static constexpr size_t array_length(const T (&)[N]){
+	return N;
 }
 
 static const char *to_string(Register8 reg){
@@ -154,7 +160,7 @@ uintptr_t InterpreterCodeGenerator::load_mem8(uintptr_t val){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto name = get_temp_name(n++);
-	s << "\tauto " << name << " = this->memory_controller.load8(" << (std::string *)val << ");\n";
+	s << "\tauto " << name << " = this->memory_controller.load8(" << *(std::string *)val << ");\n";
 	auto ret = copy(name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -165,7 +171,7 @@ uintptr_t InterpreterCodeGenerator::load_mem16(uintptr_t val){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto name = get_temp_name(n++);
-	s << "\tauto " << name << " = this->memory_controller.load16(" << (std::string *)val << ");\n";
+	s << "\tauto " << name << " = this->memory_controller.load16(" << *(std::string *)val << ");\n";
 	auto ret = copy(name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -176,7 +182,7 @@ uintptr_t InterpreterCodeGenerator::load_ff00_offset8(uintptr_t val){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto name = get_temp_name(n++);
-	s << "\tauto " << name << " = this->memory_controller.load16(0xFF00 + " << (std::string *)val << ");\n";
+	s << "\tauto " << name << " = this->memory_controller.load16(0xFF00 + " << *(std::string *)val << ");\n";
 	auto ret = copy(name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -198,7 +204,7 @@ uintptr_t InterpreterCodeGenerator::load_sp_offset16(uintptr_t val){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto name = get_temp_name(n++);
-	s << "\tauto " << name << " = this->memory_controller.load16(this->registers.sp() + " << (std::string *)val << ");\n";
+	s << "\tauto " << name << " = this->memory_controller.load16(this->registers.sp() + " << *(std::string *)val << ");\n";
 	auto ret = copy(name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -207,7 +213,7 @@ uintptr_t InterpreterCodeGenerator::load_sp_offset16(uintptr_t val){
 void InterpreterCodeGenerator::write_register8(Register8 reg, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->registers.set(" << to_string(reg) << ", " << (std::string *)val << ");\n";
+	s << "\tthis->registers.set(" << to_string(reg) << ", " << *(std::string *)val << ");\n";
 }
 
 void InterpreterCodeGenerator::write_register16_literal(Register16 reg, unsigned val){
@@ -219,31 +225,31 @@ void InterpreterCodeGenerator::write_register16_literal(Register16 reg, unsigned
 void InterpreterCodeGenerator::write_register16(Register16 reg, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->registers.set(" << to_string(reg) << ", " << (std::string *)val << ");\n";
+	s << "\tthis->registers.set(" << to_string(reg) << ", " << *(std::string *)val << ");\n";
 }
 
 void InterpreterCodeGenerator::store_hl8(uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->memory_controller.store8(this->registers.get(Register16::HL), " << (std::string *)val << ");\n";
+	s << "\tthis->memory_controller.store8(this->registers.get(Register16::HL), " << *(std::string *)val << ");\n";
 }
 
 void InterpreterCodeGenerator::store_mem8(uintptr_t mem, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->memory_controller.store8(" << (std::string *)mem << ", " << (std::string *)val << ");\n";
+	s << "\tthis->memory_controller.store8(" << *(std::string *)mem << ", " << *(std::string *)val << ");\n";
 }
 
 void InterpreterCodeGenerator::store_mem16(uintptr_t mem, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->memory_controller.store16(" << (std::string *)mem << ", " << (std::string *)val << ");\n";
+	s << "\tthis->memory_controller.store16(" << *(std::string *)mem << ", " << *(std::string *)val << ");\n";
 }
 
 void InterpreterCodeGenerator::store_mem_ff00_8(uintptr_t offset, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->memory_controller.store8(0xFF00 + " << (std::string *)offset << ", " << (std::string *)val << ");\n";
+	s << "\tthis->memory_controller.store8(0xFF00 + " << *(std::string *)offset << ", " << *(std::string *)val << ");\n";
 }
 
 void InterpreterCodeGenerator::take_time(unsigned cycles){
@@ -288,23 +294,140 @@ void InterpreterCodeGenerator::inc_register16(Register16 reg){
 	s << "\tthis->registers.set(" << to_string(reg) << ", this->registers.get(" << to_string(reg) << ") + 1);\n";
 }
 
-std::array<uintptr_t, 3> InterpreterCodeGenerator::add8(uintptr_t){}
+std::array<uintptr_t, 3> InterpreterCodeGenerator::add8(uintptr_t valA, uintptr_t valB){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
+	auto carrybits_name = get_temp_name(n++);
+	auto half_carry_name = get_temp_name(n++);
+	auto full_carry_name = get_temp_name(n++);
+	auto &valA_name = *(std::string *)valA;
+	auto &valB_name = *(std::string *)valB;
+	s
+		<< "\tauto " << result_name << " = " << valA_name << " + " << valB_name << ";\n"
+		<< "\tauto " << carrybits_name << " = " << valA_name << " ^ " << valB_name << " ^ " << result_name << ";\n"
+		<< "\tauto " << half_carry_name << " = " << carrybits_name << " & 0x10;\n"
+		<< "\tauto " << full_carry_name << " = " << carrybits_name << " & 0x100;\n";
 
-std::array<uintptr_t, 3> InterpreterCodeGenerator::add_carry(uintptr_t){}
+	std::string *retp[] = { copy(result_name), copy(half_carry_name), copy(full_carry_name) };
+	std::array<uintptr_t, 3> ret;
+	for (auto i = 3; i--;){
+		this->temporary_values.push_back(retp[i]);
+		ret[i] = (uintptr_t)retp[i];
+	}
+	return ret;
+}
 
-std::array<uintptr_t, 3> InterpreterCodeGenerator::sub(uintptr_t){}
+std::array<uintptr_t, 3> InterpreterCodeGenerator::add8_carry(uintptr_t valA, uintptr_t valB){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto carry_name = get_temp_name(n++);
+	auto temp_name = get_temp_name(n++);
+	auto &valB_name = *(std::string *)valB;
+	s
+		<< "\tauto " << carry_name << " = this->registers.get(Flags::Carry);\n"
+		<< "\tauto " << temp_name << " = " << valB_name << " + " << carry_name << ";\n";
+	auto temp = copy(temp_name);
+	this->temporary_values.push_back(temp);
+	return this->add8(valA, (uintptr_t)temp);
+}
 
-std::array<uintptr_t, 3> InterpreterCodeGenerator::sub_carry(uintptr_t){}
+std::array<uintptr_t, 3> InterpreterCodeGenerator::sub8(uintptr_t valA, uintptr_t valB){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto negated_name = get_temp_name(n++);
+	s << "\tauto " << negated_name << " = 0xFF & (1 + ~" << valB << ");\n";
+	auto temp = copy(negated_name);
+	this->temporary_values.push_back(temp);
+	return this->add8(valA, (uintptr_t)temp);
+}
 
-uintptr_t InterpreterCodeGenerator::and (uintptr_t){}
+std::array<uintptr_t, 3> InterpreterCodeGenerator::sub8_carry(uintptr_t valA, uintptr_t valB){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto negated_name = get_temp_name(n++);
+	s << "\tauto " << negated_name << " = 0xFF & (1 + ~" << valB << ");\n";
+	auto temp = copy(negated_name);
+	this->temporary_values.push_back(temp);
+	return this->add8_carry(valA, (uintptr_t)temp);
+}
 
-uintptr_t InterpreterCodeGenerator::xor (uintptr_t){}
+uintptr_t InterpreterCodeGenerator::and8(uintptr_t valA, uintptr_t valB){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
+	s << "\tauto " << result_name << " = " << *(std::string *)valA << " & " << *(std::string *)valA << ";\n";
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
+}
 
-uintptr_t InterpreterCodeGenerator::or (uintptr_t){}
+uintptr_t InterpreterCodeGenerator::xor8(uintptr_t valA, uintptr_t valB){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
+	s << "\tauto " << result_name << " = " << *(std::string *)valA << " ^ " << *(std::string *)valA << ";\n";
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
+}
 
-std::array<uintptr_t, 3> InterpreterCodeGenerator::cmp(uintptr_t){}
+uintptr_t InterpreterCodeGenerator::or8(uintptr_t valA, uintptr_t valB){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
+	s << "\tauto " << result_name << " = " << *(std::string *)valA << " | " << *(std::string *)valA << ";\n";
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
+}
 
-void InterpreterCodeGenerator::set_flags(const FlagSettings &){}
+std::array<uintptr_t, 3> InterpreterCodeGenerator::cmp8(uintptr_t valA, uintptr_t valB){
+	return this->sub8(valA, valB);
+}
+
+static void to_string(std::ostream &s, const FlagSetting &setting){
+	switch (setting.op){
+		case FlagSetting::Operation::Reset:
+			s << "0";
+			break;
+		case FlagSetting::Operation::Set:
+			s << "1";
+			break;
+		case FlagSetting::Operation::Keep:
+			s << "-1";
+			break;
+		case FlagSetting::Operation::Flip:
+			s << "-2";
+			break;
+		case FlagSetting::Operation::IfNonZero:
+			s << "!";
+		case FlagSetting::Operation::IfZero:
+			s << "!(" << *(std::string *)setting.src_value << ")";
+			break;
+	}
+}
+
+void InterpreterCodeGenerator::set_flags(const FlagSettings &settings){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	s << "\tthis->registers.set_flags(";
+	to_string(s, settings.zero);
+	s << ", ";
+	to_string(s, settings.subtract);
+	s << ", ";
+	to_string(s, settings.half_carry);
+	s << ", ";
+	to_string(s, settings.carry);
+	s << ");\n";
+}
 
 uintptr_t InterpreterCodeGenerator::inc_temp(uintptr_t){}
 

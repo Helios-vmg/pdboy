@@ -66,14 +66,14 @@ public:
 	void inc_register16(Register16A reg){
 		this->inc_register16(to_Register16(reg));
 	}
-	virtual std::array<uintptr_t, 3> add8(uintptr_t) = 0;
-	virtual std::array<uintptr_t, 3> add_carry(uintptr_t) = 0;
-	virtual std::array<uintptr_t, 3> sub(uintptr_t) = 0;
-	virtual std::array<uintptr_t, 3> sub_carry(uintptr_t) = 0;
-	virtual uintptr_t and (uintptr_t) = 0;
-	virtual uintptr_t xor (uintptr_t) = 0;
-	virtual uintptr_t or (uintptr_t) = 0;
-	virtual std::array<uintptr_t, 3> cmp(uintptr_t) = 0;
+	virtual std::array<uintptr_t, 3> add8(uintptr_t, uintptr_t) = 0;
+	virtual std::array<uintptr_t, 3> add8_carry(uintptr_t, uintptr_t) = 0;
+	virtual std::array<uintptr_t, 3> sub8(uintptr_t, uintptr_t) = 0;
+	virtual std::array<uintptr_t, 3> sub8_carry(uintptr_t, uintptr_t) = 0;
+	virtual uintptr_t and8 (uintptr_t, uintptr_t) = 0;
+	virtual uintptr_t xor8 (uintptr_t, uintptr_t) = 0;
+	virtual uintptr_t or8 (uintptr_t, uintptr_t) = 0;
+	virtual std::array<uintptr_t, 3> cmp8(uintptr_t, uintptr_t) = 0;
 	virtual void set_flags(const FlagSettings &) = 0;
 	virtual uintptr_t inc_temp(uintptr_t) = 0;
 	virtual uintptr_t dec_temp(uintptr_t) = 0;

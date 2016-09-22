@@ -351,38 +351,41 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 				val = generator.get_register_value8(operand);
 		} else
 			val = generator.load_program_counter8();
+		uintptr_t regA = generator.get_register_value8(Register8::A);
 		std::array<uintptr_t, 3> array = { 0, 0, 0 };
 		switch (operation){
 			case 0:
-				array = generator.add8(val);
+				array = generator.add8(regA, val);
 				val = array[0];
 				break;
 			case 1:
-				array = generator.add_carry(val);
+				array = generator.add8_carry(regA, val);
 				val = array[0];
 				break;
 			case 2:
-				array = generator.sub(val);
+				array = generator.sub8(regA, val);
 				val = array[0];
 				break;
 			case 3:
-				array = generator.sub_carry(val);
+				array = generator.sub8_carry(regA, val);
 				val = array[0];
 				break;
 			case 4:
-				val = generator. and (val);
+				val = generator.and8(regA, val);
 				break;
 			case 5:
-				val = generator. xor (val);
+				val = generator.xor8(regA, val);
 				break;
 			case 6:
-				val = generator. or (val);
+				val = generator.or8(regA, val);
 				break;
 			case 7:
-				array = generator.cmp(val);
+				array = generator.cmp8(regA, val);
 				val = array[0];
 				break;
 		}
+		if (operation != 7)
+			generator.write_register8(Register8::A, val);
 		auto if_zero = FlagSetting::IfZero(val);
 		FlagSetting half_carry = FlagSetting::Keep,
 			carry = FlagSetting::Reset;
