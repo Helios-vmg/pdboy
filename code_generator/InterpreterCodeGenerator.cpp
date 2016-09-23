@@ -171,12 +171,12 @@ uintptr_t InterpreterCodeGenerator::load_program_counter8(){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
-	auto result_name = get_temp_name(n++);
 	auto temp_name = get_temp_name(n++);
+	auto result_name = get_temp_name(n++);
 	s
 		<< TEMPDECL << temp_name << " = this->registers.pc();\n"
-		<< TEMPDECL << result_name << " = this->memory_controller.load8(" << temp_name << ");\n"
-		<< "\tthis->registers.set(Register16::PC, " << temp_name << " + 1);\n";
+		<< "\tthis->registers.set(Register16::PC, " << temp_name << " + 1);\n"
+		<< TEMPDECL << result_name << " = this->memory_controller.load8(" << temp_name << ");\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -186,12 +186,12 @@ uintptr_t InterpreterCodeGenerator::load_program_counter16(){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
-	auto result_name = get_temp_name(n++);
 	auto temp_name = get_temp_name(n++);
+	auto result_name = get_temp_name(n++);
 	s
 		<< TEMPDECL << temp_name << " = this->registers.pc();\n"
-		<< TEMPDECL << result_name << " = this->memory_controller.load16(" << temp_name << ");\n"
-		<< "\tthis->registers.set(Register16::PC, " << temp_name << " + 2);\n";
+		<< "\tthis->registers.set(Register16::PC, " << temp_name << " + 2);\n"
+		<< TEMPDECL << result_name << " = this->memory_controller.load16(" << temp_name << ");\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
