@@ -536,7 +536,7 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		return;
 	}
 
-	generator.halt();
+	generator.stop();
 }
 
 void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerator &generator){

@@ -799,7 +799,7 @@ void InterpreterCodeGenerator::require_equals(uintptr_t a, uintptr_t b){
 
 	s
 		<< "\tif (" << temp_to_string(a) << " != " << temp_to_string(b) << ")\n"
-		<< "\t\tthis->halt();\n";
+		<< "\t\tthis->stop();\n";
 }
 
 void InterpreterCodeGenerator::do_nothing_if(uintptr_t val, bool invert){
