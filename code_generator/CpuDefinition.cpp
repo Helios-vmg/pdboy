@@ -41,7 +41,9 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 			{
 				// Handle imm8 + PC -> PC
 				auto imm = generator.load_program_counter8();
-				generator.add_PC(imm);
+				auto val = generator.get_register_value16(Register16::PC);
+				val = generator.add16(val, imm)[0];
+				generator.write_register16(Register16::PC, val);
 				generator.take_time(8);
 				return;
 			}
@@ -59,9 +61,14 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 			}
 		case 0x2F:
 			// Handle ~A -> A
-			generator.flip_A();
-			generator.take_time(4);
-			return;
+			{
+				auto val = generator.get_register_value8(Register8::A);
+				val = generator.bitwise_not(val);
+				generator.write_register8(Register8::A, val);
+				generator.set_flags({ FlagSetting::Keep, FlagSetting::Set, FlagSetting::Set, FlagSetting::Keep });
+				generator.take_time(4);
+				return;
+			}
 		case 0x37:
 			// Handle 1 -> CarryFlag
 			generator.set_flags({ FlagSetting::Keep, FlagSetting::Reset, FlagSetting::Reset, FlagSetting::Set });
@@ -113,7 +120,10 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 			{
 				// Handle imm16 + SP -> SP
 				auto imm = generator.load_program_counter16();
-				generator.add_SP(imm);
+				auto reg = generator.get_register_value16(Register16::SP);
+				auto sum = generator.add16(reg, imm);
+				generator.write_register16(Register16::SP, sum[0]);
+				generator.set_flags({ FlagSetting::Reset, FlagSetting::Reset, FlagSetting::IfNonZero(sum[1]), FlagSetting::IfNonZero(sum[2]) });
 				generator.take_time(16);
 				return;
 			}
@@ -191,18 +201,20 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 	// 000xx111
 	if (match_opcode(opcode, "000xx111")){
 		// Handle rotations
-		bool left = (opcode >> 3) & 1;
-		bool through_carry = (opcode >> 4) & 1;
-		auto old_a = generator.get_register_value8(Register8::A);
-		generator.rotate_A(left, through_carry);
-		auto new_a = generator.get_register_value8(Register8::A);
-		auto old_bit_7 = generator.get_bit_value(old_a, 7);
-		auto old_bit_0 = generator.get_bit_value(old_a, 0);
-		FlagSettings flags[] = {
-			{ FlagSetting::IfZero(new_a), FlagSetting::Reset, FlagSetting::Reset, FlagSetting::IfNonZero(old_bit_7) },
-			{ FlagSetting::IfZero(new_a), FlagSetting::Reset, FlagSetting::Reset, FlagSetting::IfNonZero(old_bit_0) },
-		};
-		generator.set_flags(flags[(int)!left]);
+		bool left = !((opcode >> 3) & 1);
+		bool through_carry = !((opcode >> 4) & 1);
+		auto val = generator.get_register_value8(Register8::A);
+		auto old_a = val;
+		val = generator.rotate8(val, left, through_carry);
+		FlagSettings fs = { FlagSetting::IfZero(val), FlagSetting::Reset, FlagSetting::Reset, FlagSetting::Keep };
+		if (left){
+			auto old_bit_7 = generator.get_bit_value(old_a, 7);
+			fs.carry = FlagSetting::IfNonZero(old_bit_7);
+		}else{
+			auto old_bit_0 = generator.get_bit_value(old_a, 0);
+			fs.carry = FlagSetting::IfNonZero(old_bit_0);
+		}
+		generator.set_flags(fs);
 		generator.take_time(4);
 	}
 
@@ -247,8 +259,13 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 	// 00xx1001
 	if (match_opcode(opcode, "00xx1001")){
 		// Handle reg16 + HL -> HL
-		auto reg = (Register16A)((opcode >> 4) & 3);
-		generator.add16(reg);
+		auto reg = to_Register16((Register16A)((opcode >> 4) & 3));
+		auto hl = generator.get_register_value16(Register16::HL);
+		auto val = generator.get_register_value16(reg);
+		auto array = generator.add16_using_carry_modulo_16(val, hl);
+		val = array[0];
+		generator.write_register16(Register16::HL, val);
+		generator.set_flags({ FlagSetting::IfZero(val), FlagSetting::Reset, FlagSetting::IfNonZero(array[1]), FlagSetting::IfNonZero(array[2]) });
 		generator.take_time(8);
 		return;
 	}
@@ -263,24 +280,25 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		if (operand == Register8::None){
 			auto mem = generator.load_hl8();
 			if (decrement)
-				val = generator.dec_temp(mem);
+				val = generator.minus_1(mem);
 			else
-				val = generator.inc_temp(mem);
+				val = generator.plus_1(mem);
 			generator.store_mem8(mem, val);
 			time = 12;
 		} else{
-			if (decrement)
-				generator.dec_register8(operand);
-			else
-				generator.inc_register8(operand);
 			val = generator.get_register_value8(operand);
-			time = 8;
+			if (decrement)
+				val = generator.minus_1(val);
+			else
+				val = generator.plus_1(val);
+			generator.write_register8(operand, val);
+			time = 4;
 		}
 		generator.set_flags(
 		{
 			FlagSetting::IfZero(val),
 			(decrement ? FlagSetting::Set : FlagSetting::Reset),
-			FlagSetting::DontCare,
+			FlagSetting::IfZero(generator.and8(val, generator.imm(0x0F))),
 			FlagSetting::Keep
 		}
 		);
@@ -468,9 +486,9 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		if (absolute){
 			auto imm = generator.load_program_counter16();
 			generator.set_PC_if(imm, type);
-		} else{
+		}else{
 			auto imm = generator.load_program_counter8();
-			generator.add_PC_if(imm, type);
+			generator.add8_PC_if(imm, type);
 		}
 		generator.take_time(absolute ? 12 : 8);
 		return;
@@ -513,30 +531,11 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 
 void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerator &generator){
 	if (first_opcode == 0xCB){
-		// 00110xxx
-		if (match_opcode(opcode, "00110xxx")){
-			auto operand = (Register8)(opcode & 7);
-			unsigned time = 8;
-			uintptr_t val;
-			if (operand == Register8::None){
-				val = generator.load_hl8();
-				time = 16;
-			} else
-				val = generator.get_register_value8((Register8)operand);
-			val = generator.swap_nibbles(val);
-			if (operand == Register8::None)
-				generator.store_hl8(val);
-			else
-				generator.write_register8((Register8)operand, val);
-			generator.set_flags({ FlagSetting::IfZero(val), FlagSetting::Reset, FlagSetting::Reset, FlagSetting::Reset });
-			generator.take_time(time);
-			return;
-		}
 		// 00xxxxxx
 		if (match_opcode(opcode, "00xxxxxx")){
 			auto operation = (BitwiseOps)((opcode >> 3) & 7);
 			auto operand = (Register8)(opcode & 7);
-			assert(operation != BitwiseOps::None);
+			assert(operation != BitwiseOps::Swap);
 			unsigned time = 8;
 			uintptr_t val;
 			if (operand == Register8::None){
@@ -549,19 +548,19 @@ void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerat
 			auto old_bit_0 = FlagSetting::IfNonZero(generator.get_bit_value(val, 0));
 			switch (operation){
 				case BitwiseOps::RotateLeft:
-					val = generator.rotate_left(val);
+					val = generator.rotate8(val, true, false);
 					carry = old_bit_7;
 					break;
 				case BitwiseOps::RotateRight:
-					val = generator.rotate_right(val);
+					val = generator.rotate8(val, false, false);
 					carry = old_bit_0;
 					break;
 				case BitwiseOps::RotateLeftThroughCarry:
-					val = generator.rotate_left_through_carry(val);
+					val = generator.rotate8(val, true, true);
 					carry = old_bit_7;
 					break;
 				case BitwiseOps::RotateRightThroughCarry:
-					val = generator.rotate_right_through_carry(val);
+					val = generator.rotate8(val, false, true);
 					carry = old_bit_0;
 					break;
 				case BitwiseOps::ShiftLeft:
@@ -572,7 +571,8 @@ void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerat
 					val = generator.arithmetic_shift_right(val);
 					carry = old_bit_0;
 					break;
-				case BitwiseOps::None:
+				case BitwiseOps::Swap:
+					val = generator.swap_nibbles(val);
 					assert(false);
 				case BitwiseOps::BitwiseShiftRight:
 					val = generator.bitwise_shift_right(val);

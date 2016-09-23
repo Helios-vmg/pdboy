@@ -67,6 +67,7 @@ public:
 			((unsigned)carry      << (unsigned)Flags::Carry);
 		this->set(Register8::Flags, val);
 	}
+	void set_flags_bit_twiddling(unsigned mode_mask, unsigned value_mask);
 	unsigned sp() const{
 		return this->get(Register16::SP);
 	}

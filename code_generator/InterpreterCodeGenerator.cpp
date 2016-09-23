@@ -1,6 +1,11 @@
 #include "InterpreterCodeGenerator.h"
 #include "FlagSetting.h"
 #include <iomanip>
+#include <type_traits>
+
+#define TEMPTYPE "unsigned"
+#define TEMPDECL "\t" TEMPTYPE " "
+#define CONSTTEMPDECL "\tconst " TEMPTYPE " "
 
 static std::string get_temp_name(unsigned i){
 	std::stringstream stream;
@@ -60,6 +65,17 @@ static const char *to_string(Register16 reg){
 	}
 }
 
+template <typename T>
+static typename std::enable_if<std::is_integral<T>::value, std::string>::type to_string(T n){
+	std::stringstream s;
+	s << n;
+	return s.str();
+}
+
+static const std::string &temp_to_string(uintptr_t p){
+	return *(std::string *)p;
+}
+
 InterpreterCodeGenerator::~InterpreterCodeGenerator(){
 	for (auto p : this->temporary_values)
 		delete p;
@@ -105,7 +121,7 @@ uintptr_t InterpreterCodeGenerator::load_program_counter8(){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto name = get_temp_name(n++);
-	s << "\tauto " << name << " = this->memory_controller.load8(this->registers.pc());\n";
+	s << TEMPDECL << name << " = this->memory_controller.load8(this->registers.pc());\n";
 	auto ret = copy(name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -116,7 +132,7 @@ uintptr_t InterpreterCodeGenerator::load_program_counter16(){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto name = get_temp_name(n++);
-	s << "\tauto " << name << " = this->memory_controller.load16(this->registers.pc());\n";
+	s << TEMPDECL << name << " = this->memory_controller.load16(this->registers.pc());\n";
 	auto ret = copy(name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -127,7 +143,7 @@ uintptr_t InterpreterCodeGenerator::get_register_value8(Register8 reg){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto name = get_temp_name(n++);
-	s << "\tauto " << name << " = this->registers.get(" << to_string(reg) << ");\n";
+	s << TEMPDECL << name << " = this->registers.get(" << to_string(reg) << ");\n";
 	auto ret = copy(name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -138,7 +154,7 @@ uintptr_t InterpreterCodeGenerator::get_register_value16(Register16 reg){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto name = get_temp_name(n++);
-	s << "\tauto " << name << " = this->registers.get(" << to_string(reg) << ");\n";
+	s << TEMPDECL << name << " = this->registers.get(" << to_string(reg) << ");\n";
 	auto ret = copy(name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -149,7 +165,7 @@ uintptr_t InterpreterCodeGenerator::load_hl8(){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto name = get_temp_name(n++);
-	s << "\tauto " << name << " = this->memory_controller.load8(this->registers.get(Register16::HL));\n";
+	s << TEMPDECL << name << " = this->memory_controller.load8(this->registers.get(Register16::HL));\n";
 	auto ret = copy(name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -160,7 +176,7 @@ uintptr_t InterpreterCodeGenerator::load_mem8(uintptr_t val){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto name = get_temp_name(n++);
-	s << "\tauto " << name << " = this->memory_controller.load8(" << *(std::string *)val << ");\n";
+	s << TEMPDECL << name << " = this->memory_controller.load8(" << temp_to_string(val) << ");\n";
 	auto ret = copy(name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -171,7 +187,7 @@ uintptr_t InterpreterCodeGenerator::load_mem16(uintptr_t val){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto name = get_temp_name(n++);
-	s << "\tauto " << name << " = this->memory_controller.load16(" << *(std::string *)val << ");\n";
+	s << TEMPDECL << name << " = this->memory_controller.load16(" << temp_to_string(val) << ");\n";
 	auto ret = copy(name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -182,7 +198,7 @@ uintptr_t InterpreterCodeGenerator::load_ff00_offset8(uintptr_t val){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto name = get_temp_name(n++);
-	s << "\tauto " << name << " = this->memory_controller.load16(0xFF00 + " << *(std::string *)val << ");\n";
+	s << TEMPDECL << name << " = this->memory_controller.load16(0xFF00 + " << temp_to_string(val) << ");\n";
 	auto ret = copy(name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -193,7 +209,7 @@ uintptr_t InterpreterCodeGenerator::load_ff00_offset8(uintptr_t val){
 //	auto &s = *back.function_contents;
 //	auto &n = back.temporary_index;
 //	auto name = get_temp_name(n++);
-//	s << "\tauto " << name << " = this->memory_controller.load16(this->registers.sp() + " << (std::string *)val << ");\n";
+//	s << TEMPDECL << name << " = this->memory_controller.load16(this->registers.sp() + " << (std::string *)val << ");\n";
 //	auto ret = copy(name);
 //	this->temporary_values.push_back(ret);
 //	return (uintptr_t)ret;
@@ -204,7 +220,7 @@ uintptr_t InterpreterCodeGenerator::load_sp_offset16(uintptr_t val){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto name = get_temp_name(n++);
-	s << "\tauto " << name << " = this->memory_controller.load16(this->registers.sp() + " << *(std::string *)val << ");\n";
+	s << TEMPDECL << name << " = this->memory_controller.load16(this->registers.sp() + " << temp_to_string(val) << ");\n";
 	auto ret = copy(name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -213,7 +229,7 @@ uintptr_t InterpreterCodeGenerator::load_sp_offset16(uintptr_t val){
 void InterpreterCodeGenerator::write_register8(Register8 reg, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->registers.set(" << to_string(reg) << ", " << *(std::string *)val << ");\n";
+	s << "\tthis->registers.set(" << to_string(reg) << ", " << temp_to_string(val) << ");\n";
 }
 
 void InterpreterCodeGenerator::write_register16_literal(Register16 reg, unsigned val){
@@ -225,37 +241,43 @@ void InterpreterCodeGenerator::write_register16_literal(Register16 reg, unsigned
 void InterpreterCodeGenerator::write_register16(Register16 reg, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->registers.set(" << to_string(reg) << ", " << *(std::string *)val << ");\n";
+	s << "\tthis->registers.set(" << to_string(reg) << ", " << temp_to_string(val) << ");\n";
 }
 
 void InterpreterCodeGenerator::store_hl8(uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->memory_controller.store8(this->registers.get(Register16::HL), " << *(std::string *)val << ");\n";
+	s << "\tthis->memory_controller.store8(this->registers.get(Register16::HL), " << temp_to_string(val) << ");\n";
 }
 
 void InterpreterCodeGenerator::store_mem8(uintptr_t mem, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->memory_controller.store8(" << *(std::string *)mem << ", " << *(std::string *)val << ");\n";
+	s << "\tthis->memory_controller.store8(" << temp_to_string(mem) << ", " << temp_to_string(val) << ");\n";
 }
 
 void InterpreterCodeGenerator::store_mem16(uintptr_t mem, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->memory_controller.store16(" << *(std::string *)mem << ", " << *(std::string *)val << ");\n";
+	s << "\tthis->memory_controller.store16(" << temp_to_string(mem) << ", " << temp_to_string(val) << ");\n";
 }
 
 void InterpreterCodeGenerator::store_mem_ff00_8(uintptr_t offset, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->memory_controller.store8(0xFF00 + " << *(std::string *)offset << ", " << *(std::string *)val << ");\n";
+	s << "\tthis->memory_controller.store8(0xFF00 + " << temp_to_string(offset) << ", " << temp_to_string(val) << ");\n";
 }
 
 void InterpreterCodeGenerator::take_time(unsigned cycles){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	s << "\tthis->take_time(" << cycles << ");\n";
+}
+
+void InterpreterCodeGenerator::zero_flags(){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	s << "\tthis->set(Register8::Flags, 0);\n";
 }
 
 void InterpreterCodeGenerator::dec_register8(Register8 reg){
@@ -294,7 +316,7 @@ void InterpreterCodeGenerator::inc_register16(Register16 reg){
 	s << "\tthis->registers.set(" << to_string(reg) << ", this->registers.get(" << to_string(reg) << ") + 1);\n";
 }
 
-std::array<uintptr_t, 3> InterpreterCodeGenerator::add8(uintptr_t valA, uintptr_t valB){
+std::array<uintptr_t, 3> InterpreterCodeGenerator::add(uintptr_t valA, uintptr_t valB, unsigned modulo){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
@@ -302,13 +324,22 @@ std::array<uintptr_t, 3> InterpreterCodeGenerator::add8(uintptr_t valA, uintptr_
 	auto carrybits_name = get_temp_name(n++);
 	auto half_carry_name = get_temp_name(n++);
 	auto full_carry_name = get_temp_name(n++);
-	auto &valA_name = *(std::string *)valA;
-	auto &valB_name = *(std::string *)valB;
+	auto &valA_name = temp_to_string(valA);
+	auto &valB_name = temp_to_string(valB);
+	unsigned half_carry_mask, full_carry_mask;
+	if (modulo == 8){
+		half_carry_mask = 0x10;
+		full_carry_mask = 0x100;
+	}else if (modulo == 16){
+		half_carry_mask = 0x1000;
+		full_carry_mask = 0x10000;
+	}else
+		abort();
 	s
-		<< "\tauto " << result_name << " = " << valA_name << " + " << valB_name << ";\n"
-		<< "\tauto " << carrybits_name << " = " << valA_name << " ^ " << valB_name << " ^ " << result_name << ";\n"
-		<< "\tauto " << half_carry_name << " = " << carrybits_name << " & 0x10;\n"
-		<< "\tauto " << full_carry_name << " = " << carrybits_name << " & 0x100;\n";
+		<< TEMPDECL << result_name << " = " << valA_name << " + " << valB_name << ";\n"
+		<< TEMPDECL << carrybits_name << " = " << valA_name << " ^ " << valB_name << " ^ " << result_name << ";\n"
+		<< TEMPDECL << half_carry_name << " = " << carrybits_name << " & 0x10;\n"
+		<< TEMPDECL << full_carry_name << " = " << carrybits_name << " & 0x100;\n";
 
 	std::string *retp[] = { copy(result_name), copy(half_carry_name), copy(full_carry_name) };
 	std::array<uintptr_t, 3> ret;
@@ -325,10 +356,10 @@ std::array<uintptr_t, 3> InterpreterCodeGenerator::add8_carry(uintptr_t valA, ui
 	auto &n = back.temporary_index;
 	auto carry_name = get_temp_name(n++);
 	auto temp_name = get_temp_name(n++);
-	auto &valB_name = *(std::string *)valB;
+	auto &valB_name = temp_to_string(valB);
 	s
-		<< "\tauto " << carry_name << " = this->registers.get(Flags::Carry);\n"
-		<< "\tauto " << temp_name << " = " << valB_name << " + " << carry_name << ";\n";
+		<< TEMPDECL << carry_name << " = this->registers.get(Flags::Carry);\n"
+		<< TEMPDECL << temp_name << " = " << valB_name << " + " << carry_name << ";\n";
 	auto temp = copy(temp_name);
 	this->temporary_values.push_back(temp);
 	return this->add8(valA, (uintptr_t)temp);
@@ -339,7 +370,7 @@ std::array<uintptr_t, 3> InterpreterCodeGenerator::sub8(uintptr_t valA, uintptr_
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto negated_name = get_temp_name(n++);
-	s << "\tauto " << negated_name << " = 0xFF & (1 + ~" << valB << ");\n";
+	s << TEMPDECL << negated_name << " = 0xFF & (1 + ~" << valB << ");\n";
 	auto temp = copy(negated_name);
 	this->temporary_values.push_back(temp);
 	return this->add8(valA, (uintptr_t)temp);
@@ -350,7 +381,7 @@ std::array<uintptr_t, 3> InterpreterCodeGenerator::sub8_carry(uintptr_t valA, ui
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto negated_name = get_temp_name(n++);
-	s << "\tauto " << negated_name << " = 0xFF & (1 + ~" << valB << ");\n";
+	s << TEMPDECL << negated_name << " = 0xFF & (1 + ~" << valB << ");\n";
 	auto temp = copy(negated_name);
 	this->temporary_values.push_back(temp);
 	return this->add8_carry(valA, (uintptr_t)temp);
@@ -361,7 +392,7 @@ uintptr_t InterpreterCodeGenerator::and8(uintptr_t valA, uintptr_t valB){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
-	s << "\tauto " << result_name << " = " << *(std::string *)valA << " & " << *(std::string *)valA << ";\n";
+	s << TEMPDECL << result_name << " = " << temp_to_string(valA) << " & " << temp_to_string(valA) << ";\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -372,7 +403,7 @@ uintptr_t InterpreterCodeGenerator::xor8(uintptr_t valA, uintptr_t valB){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
-	s << "\tauto " << result_name << " = " << *(std::string *)valA << " ^ " << *(std::string *)valA << ";\n";
+	s << TEMPDECL << result_name << " = " << temp_to_string(valA) << " ^ " << temp_to_string(valA) << ";\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -383,7 +414,7 @@ uintptr_t InterpreterCodeGenerator::or8(uintptr_t valA, uintptr_t valB){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
-	s << "\tauto " << result_name << " = " << *(std::string *)valA << " | " << *(std::string *)valA << ";\n";
+	s << TEMPDECL << result_name << " = " << temp_to_string(valA) << " | " << temp_to_string(valA) << ";\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -393,84 +424,317 @@ std::array<uintptr_t, 3> InterpreterCodeGenerator::cmp8(uintptr_t valA, uintptr_
 	return this->sub8(valA, valB);
 }
 
-static void to_string(std::ostream &s, const FlagSetting &setting){
+static std::pair<std::string, std::string> to_string(const FlagSetting &setting){
+	std::string temp;
 	switch (setting.op){
 		case FlagSetting::Operation::Reset:
-			s << "0";
-			break;
+			return { "0", "0" };
 		case FlagSetting::Operation::Set:
-			s << "1";
-			break;
+			return { "0", "1" };
 		case FlagSetting::Operation::Keep:
-			s << "-1";
-			break;
+			return { "1", "0" };
 		case FlagSetting::Operation::Flip:
-			s << "-2";
-			break;
+			return { "1", "1" };
 		case FlagSetting::Operation::IfNonZero:
-			s << "!";
+			temp = "!";
 		case FlagSetting::Operation::IfZero:
-			s << "!(" << *(std::string *)setting.src_value << ")";
+			temp += "!(";
+			temp += temp_to_string(setting.src_value);
+			temp += ")";
 			break;
+		default:
+			abort();
 	}
+	return{ "0", temp };
 }
 
-void InterpreterCodeGenerator::set_flags(const FlagSettings &settings){
+void InterpreterCodeGenerator::set_flags(const FlagSettings &fs){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->registers.set_flags(";
-	to_string(s, settings.zero);
-	s << ", ";
-	to_string(s, settings.subtract);
-	s << ", ";
-	to_string(s, settings.half_carry);
-	s << ", ";
-	to_string(s, settings.carry);
-	s << ");\n";
+	std::pair<FlagSetting, const char *> settings[] = {
+		{fs.zero, "0"},
+		{fs.subtract, "1"},
+		{fs.half_carry, "2"},
+		{fs.carry, "3"},
+	};
+	std::sort(settings, settings + array_length(settings), [](auto &a, auto &b){ return (int)a.first.op < (int)b.first.op; });
+	int i = 0;
+	std::string A, B;
+	for (auto &setting : settings){
+		if (i++){
+			A += " | ";
+			B += " | ";
+		}
+
+		auto p = to_string(setting.first);
+
+		A += "((";
+		A += p.first;
+		A += ") << ";
+		A += setting.second;
+		A += ")";
+
+		B += "((";
+		B += p.second;
+		B += ") << ";
+		B += setting.second;
+		B += ")";
+	}
+	s << "\tthis->registers.set_flags(" << A << ", " << B << ");\n";
 }
 
-uintptr_t InterpreterCodeGenerator::inc_temp(uintptr_t){}
+uintptr_t InterpreterCodeGenerator::plus_1(uintptr_t val){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
+	s << TEMPDECL << result_name << " = " << temp_to_string(val) << " + 1;\n";
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
+}
 
-uintptr_t InterpreterCodeGenerator::dec_temp(uintptr_t){}
+uintptr_t InterpreterCodeGenerator::minus_1(uintptr_t val){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
+	s << TEMPDECL << result_name << " = " << temp_to_string(val) << " - 1;\n";
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
+}
 
-void InterpreterCodeGenerator::add16(Register16){}
+uintptr_t InterpreterCodeGenerator::bitwise_not(uintptr_t val){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
+	s << TEMPDECL << result_name << " = ~" << temp_to_string(val) << ";\n";
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
+}
 
-void InterpreterCodeGenerator::add_SP(uintptr_t){}
+void InterpreterCodeGenerator::disable_interrupts(){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	s << "\tthis->interrupt_toggle(false);\n";
+}
 
-void InterpreterCodeGenerator::flip_A(){}
+void InterpreterCodeGenerator::enable_interrupts(){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	s << "\tthis->interrupt_toggle(true);\n";
+}
 
-void InterpreterCodeGenerator::disable_interrupts(){}
+uintptr_t InterpreterCodeGenerator::rotate8(uintptr_t val, bool left, bool through_carry){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
+	auto carry_name = get_temp_name(n++);
+	if (left){
+		if (!through_carry){
+			s
+				<< TEMPDECL << carry_name << " = this->registers.get(Flags::Carry) ? 1U : 0U;\n"
+				<< TEMPDECL << result_name << " = (" << temp_to_string(val) << " << 1) | carry;\n";
+		}else{
+			auto bit_name = get_temp_name(n++);
+			s
+				<< TEMPDECL << bit_name << " = " << temp_to_string(val) << " & 0xFF;\n"
+				<< TEMPDECL << result_name << " = (" << bit_name << " << 1) | (" << bit_name << " >> 7);\n";
 
-void InterpreterCodeGenerator::enable_interrupts(){}
+		}
+	}else{
+		if (!through_carry){
+			s
+				<< TEMPDECL << carry_name << " = this->registers.get(Flags::Carry) ? 0x80U : 0U;\n"
+				<< TEMPDECL << result_name << " = (" << temp_to_string(val) << " >> 1) | carry;\n";
+		}else{
+			auto bit_name = get_temp_name(n++);
+			s
+				<< TEMPDECL << bit_name << " = " << temp_to_string(val) << " & 0xFF;\n"
+				<< TEMPDECL << result_name << " = (" << bit_name << " >> 1) | (" << bit_name << " << 7);\n";
+		}
+	}
 
-void InterpreterCodeGenerator::rotate_A(bool left, bool through_carry){}
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
+}
 
-void InterpreterCodeGenerator::add_PC(uintptr_t imm){}
+void InterpreterCodeGenerator::set_PC_if(uintptr_t val, ConditionalJumpType type){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
 
-void InterpreterCodeGenerator::set_PC_if(uintptr_t, ConditionalJumpType){}
+	const char *condition;
+	switch (type){
+		case ConditionalJumpType::NotZero:
+			condition = "\tif (!this->registers.get(Flags::Zero))\n";
+			break;
+		case ConditionalJumpType::Zero:
+			condition = "\tif (this->registers.get(Flags::Zero))\n";
+			break;
+		case ConditionalJumpType::NotCarry:
+			condition = "\tif (!this->registers.get(Flags::Carry))\n";
+			break;
+		case ConditionalJumpType::Carry:
+			condition = "\tif (this->registers.get(Flags::Carry))\n";
+			break;
+		default:
+			abort();
+	}
+	s << condition << "\t\tthis->registers.set(Register16::PC, " << temp_to_string(val) << ");\n";
+}
 
-void InterpreterCodeGenerator::add_PC_if(uintptr_t, ConditionalJumpType){}
+void InterpreterCodeGenerator::add8_PC_if(uintptr_t val, ConditionalJumpType type){
+	std::string temp = "(this->registers.pc())";
+	this->set_PC_if((uintptr_t)&temp, type);
+}
 
-void InterpreterCodeGenerator::stop(){}
+void InterpreterCodeGenerator::stop(){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	s << "\tthis->stop();";
+}
 
-uintptr_t InterpreterCodeGenerator::rotate_left(uintptr_t val){}
+uintptr_t InterpreterCodeGenerator::shift_left(uintptr_t val){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
 
-uintptr_t InterpreterCodeGenerator::rotate_right(uintptr_t val){}
+	s << TEMPDECL << result_name << " = " << temp_to_string(val) << " << 1;\n";
 
-uintptr_t InterpreterCodeGenerator::rotate_left_through_carry(uintptr_t val){}
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
+}
 
-uintptr_t InterpreterCodeGenerator::rotate_right_through_carry(uintptr_t val){}
+uintptr_t InterpreterCodeGenerator::arithmetic_shift_right(uintptr_t val){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
+	auto temp_name = get_temp_name(n++);
 
-uintptr_t InterpreterCodeGenerator::shift_left(uintptr_t val){}
+	s
+		<< TEMPDECL << temp_name << " = " << temp_to_string(val) << " & 0xFF;\n"
+		<< TEMPDECL << result_name << " = (" << temp_name << " & 0x80) | (" << temp_name << " >> 1);\n";
 
-uintptr_t InterpreterCodeGenerator::arithmetic_shift_right(uintptr_t val){}
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
+}
 
-uintptr_t InterpreterCodeGenerator::bitwise_shift_right(uintptr_t val){}
+uintptr_t InterpreterCodeGenerator::bitwise_shift_right(uintptr_t val){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
 
-uintptr_t InterpreterCodeGenerator::get_bit_value(uintptr_t val, unsigned bit){}
+	s << TEMPDECL << result_name << " = (" << temp_to_string(val) << " & 0xFF) >> 1;\n";
 
-uintptr_t InterpreterCodeGenerator::set_bit_value(uintptr_t val, unsigned bit, bool on){}
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
+}
 
-std::pair<uintptr_t, uintptr_t> InterpreterCodeGenerator::perform_decimal_adjustment(uintptr_t val){}
+uintptr_t InterpreterCodeGenerator::get_bit_value(uintptr_t val, unsigned bit){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
 
-uintptr_t InterpreterCodeGenerator::swap_nibbles(uintptr_t val){}
+	s << TEMPDECL << result_name << " = (" << temp_to_string(val);
+	if (bit)
+		s << " >> " << bit;
+	s << ") & 1;\n";
+
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
+}
+
+uintptr_t InterpreterCodeGenerator::set_bit_value(uintptr_t val, unsigned bit, bool on){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
+	auto mask_name = get_temp_name(n++);
+
+	s
+		<< CONSTTEMPDECL << mask_name << " = 1 << " << bit << ";\n"
+		<< TEMPDECL << result_name << " = " << temp_to_string(val);
+	if (!bit)
+		s << " & ~";
+	else
+		s << " | ";
+	s << mask_name << ";\n";
+
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
+}
+
+std::pair<uintptr_t, uintptr_t> InterpreterCodeGenerator::perform_decimal_adjustment(uintptr_t val){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
+	auto carry_name = get_temp_name(n++);
+
+	s
+		<< TEMPDECL << result_name << " = " << temp_to_string(val) << " & 0xFF;\n"
+		<< "\tif (!this->registers.get(Flags::Subtract)){\n"
+		<< "\t\tif (this->registers.get(Flags::HalfCarry) || (" << result_name << " & 0x0F) > 9)\n"
+		<< "\t\t\t" << result_name << " += 6;\n"
+		<< "\n"
+		<< "\t\tif (this->registers.get(Flags::Carry) || " << result_name << " > 0x9F)\n"
+		<< "\t\t\t" << result_name << " += 0x60;\n"
+		<< "\t}else{\n"
+		<< "\t\tif (this->registers.get(Flags::HalfCarry))\n"
+		<< "\t\t\t" << result_name << " = (" << result_name << " - 6) & 0xFF;\n"
+		<< "\n"
+		<< "\t\tif (this->registers.get(Flags::Carry))\n"
+		<< "\t\t\t" << result_name << " -= 0x60;\n"
+		<< "\t}\n";
+
+	s << TEMPDECL << carry_name << " = " << result_name << " & 0x100;\n";
+
+	auto ret0 = copy(result_name);
+	auto ret1 = copy(carry_name);
+	this->temporary_values.push_back(ret0);
+	this->temporary_values.push_back(ret1);
+	return { (uintptr_t)ret0, (uintptr_t)ret1 };
+}
+
+uintptr_t InterpreterCodeGenerator::swap_nibbles(uintptr_t val){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
+	auto temp_name = get_temp_name(n++);
+
+	s
+		<< TEMPDECL << temp_name << " = " << temp_to_string(val) << " & 0xFF;\n"
+		<< TEMPDECL << result_name << " = (" << temp_name << "<< 4) | (" << temp_name << " >> 4);\n";
+
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
+}
+
+uintptr_t InterpreterCodeGenerator::imm(unsigned val){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
+
+	s << TEMPDECL << result_name << " = " << val << ";\n";
+
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
+}

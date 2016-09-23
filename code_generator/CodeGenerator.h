@@ -67,28 +67,24 @@ public:
 		this->inc_register16(to_Register16(reg));
 	}
 	virtual std::array<uintptr_t, 3> add8(uintptr_t, uintptr_t) = 0;
+	virtual std::array<uintptr_t, 3> add16_using_carry_modulo_16(uintptr_t valA, uintptr_t valB) = 0;
 	virtual std::array<uintptr_t, 3> add8_carry(uintptr_t, uintptr_t) = 0;
 	virtual std::array<uintptr_t, 3> sub8(uintptr_t, uintptr_t) = 0;
 	virtual std::array<uintptr_t, 3> sub8_carry(uintptr_t, uintptr_t) = 0;
-	virtual uintptr_t and8 (uintptr_t, uintptr_t) = 0;
-	virtual uintptr_t xor8 (uintptr_t, uintptr_t) = 0;
-	virtual uintptr_t or8 (uintptr_t, uintptr_t) = 0;
+	virtual uintptr_t and8(uintptr_t, uintptr_t) = 0;
+	virtual uintptr_t xor8(uintptr_t, uintptr_t) = 0;
+	virtual uintptr_t or8(uintptr_t, uintptr_t) = 0;
 	virtual std::array<uintptr_t, 3> cmp8(uintptr_t, uintptr_t) = 0;
 	virtual void set_flags(const FlagSettings &) = 0;
-	virtual uintptr_t inc_temp(uintptr_t) = 0;
-	virtual uintptr_t dec_temp(uintptr_t) = 0;
-	virtual void add16(Register16) = 0;
-	void add16(Register16A reg){
-		this->add16(to_Register16(reg));
-	}
-	virtual void add_SP(uintptr_t) = 0;
-	virtual void flip_A() = 0;
+	virtual uintptr_t plus_1(uintptr_t) = 0;
+	virtual uintptr_t minus_1(uintptr_t) = 0;
+	virtual std::array<uintptr_t, 3> add16(uintptr_t valA, uintptr_t valB) = 0;
+	virtual uintptr_t bitwise_not(uintptr_t) = 0;
 	virtual void disable_interrupts() = 0;
 	virtual void enable_interrupts() = 0;
-	virtual void rotate_A(bool left, bool through_carry) = 0;
-	virtual void add_PC(uintptr_t imm) = 0;
+	virtual uintptr_t rotate8(uintptr_t, bool left, bool through_carry) = 0;
 	virtual void set_PC_if(uintptr_t, ConditionalJumpType) = 0;
-	virtual void add_PC_if(uintptr_t, ConditionalJumpType) = 0;
+	virtual void add8_PC_if(uintptr_t, ConditionalJumpType) = 0;
 	void push_PC(){
 		this->dec2_SP();
 		auto sp = this->get_register_value16(Register16::SP);
@@ -97,10 +93,6 @@ public:
 	}
 
 	virtual void stop() = 0;
-	virtual uintptr_t rotate_left(uintptr_t val) = 0;
-	virtual uintptr_t rotate_right(uintptr_t val) = 0;
-	virtual uintptr_t rotate_left_through_carry(uintptr_t val) = 0;
-	virtual uintptr_t rotate_right_through_carry(uintptr_t val) = 0;
 	virtual uintptr_t shift_left(uintptr_t val) = 0;
 	virtual uintptr_t arithmetic_shift_right(uintptr_t val) = 0;
 	virtual uintptr_t bitwise_shift_right(uintptr_t val) = 0;
@@ -108,4 +100,5 @@ public:
 	virtual uintptr_t set_bit_value(uintptr_t val, unsigned bit, bool on) = 0;
 	virtual std::pair<uintptr_t, uintptr_t> perform_decimal_adjustment(uintptr_t val) = 0;
 	virtual uintptr_t swap_nibbles(uintptr_t val) = 0;
+	virtual uintptr_t imm(unsigned val) = 0;
 };

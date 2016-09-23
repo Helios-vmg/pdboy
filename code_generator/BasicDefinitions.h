@@ -45,7 +45,7 @@ inline Register16 to_Register16(Register16A reg){
 		case Register16A::SP:
 			return Register16::SP;
 	}
-	assert(false);
+	abort();
 }
 
 inline Register16 to_Register16(Register16B reg){
@@ -59,7 +59,7 @@ inline Register16 to_Register16(Register16B reg){
 		case Register16B::HL:
 			return Register16::HL;
 	}
-	assert(false);
+	abort();
 }
 
 enum class ConditionalJumpType{
@@ -70,13 +70,13 @@ enum class ConditionalJumpType{
 };
 
 enum class BitwiseOps{
-	RotateLeft = 0,
-	RotateRight = 1,
-	RotateLeftThroughCarry = 2,
-	RotateRightThroughCarry = 3,
+	RotateLeftThroughCarry = 0,
+	RotateRightThroughCarry = 1,
+	RotateLeft = 2,
+	RotateRight = 3,
 	ShiftLeft = 4,
 	ArithmeticShiftRight = 5,
-	None = 6,
+	Swap = 6,
 	BitwiseShiftRight = 7,
 };
 
