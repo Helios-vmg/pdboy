@@ -74,3 +74,18 @@ void RegisterStore::set(Register16 reg, unsigned value){
 	this->set(lo, value & 0xFF);
 	this->set(hi, value >> 8);
 }
+
+void RegisterStore::set_flags(bool zero, bool subtract, bool half_carry, bool carry){
+	unsigned val =
+		((unsigned)zero << (unsigned)Flags::Zero) |
+		((unsigned)subtract << (unsigned)Flags::Subtract) |
+		((unsigned)half_carry << (unsigned)Flags::HalfCarry) |
+		((unsigned)carry << (unsigned)Flags::Carry);
+	this->set(Register8::Flags, val);
+}
+
+void RegisterStore::set_flags(unsigned mode_mask, unsigned value_mask){
+	auto value = this->get(Register8::Flags);
+	value = (~mode_mask & value_mask) | (mode_mask & (value ^ value_mask));
+	this->set(Register8::Flags, value);
+}
