@@ -475,9 +475,8 @@ static std::pair<std::string, std::string> to_string(const FlagSetting &setting)
 		case FlagSetting::Operation::IfNonZero:
 			temp = "!";
 		case FlagSetting::Operation::IfZero:
-			temp += "!(";
+			temp += "!";
 			temp += temp_to_string(setting.src_value);
-			temp += ")";
 			break;
 		default:
 			abort();
@@ -497,26 +496,43 @@ void InterpreterCodeGenerator::set_flags(const FlagSettings &fs){
 	std::sort(settings, settings + array_length(settings), [](auto &a, auto &b){ return (int)a.first.op < (int)b.first.op; });
 	int i = 0;
 	std::string A, B;
+	bool all_zero_a = true;
+	bool all_zero_b = true;
+	bool first_a = true;
+	bool first_b = true;
 	for (auto &setting : settings){
-		if (i++){
-			A += " | ";
-			B += " | ";
-		}
-
 		auto p = to_string(setting.first);
 
-		A += "((";
-		A += p.first;
-		A += ") << ";
-		A += setting.second;
-		A += ")";
+		bool zero_a = setting.first.op != FlagSetting::Operation::Keep && setting.first.op != FlagSetting::Operation::Keep;
+		if (!zero_a){
+			if (!first_a)
+				A += " | ";
+			A += "(";
+			A += p.first;
+			A += " << ";
+			A += setting.second;
+			A += ")";
+			first_a = false;
+			all_zero_a = false;
+		}
 
-		B += "((";
-		B += p.second;
-		B += ") << ";
-		B += setting.second;
-		B += ")";
+		bool zero_b = setting.first.op == FlagSetting::Operation::Reset || setting.first.op == FlagSetting::Operation::Keep;
+		if (!zero_b){
+			if (!first_b)
+				B += " | ";
+			B += "(";
+			B += p.second;
+			B += " << ";
+			B += setting.second;
+			B += ")";
+			first_b = false;
+			all_zero_b = false;
+		}
 	}
+	if (all_zero_a)
+		A = "0";
+	if (all_zero_b)
+		B = "0";
 	s << "\tthis->registers.set_flags(" << A << ", " << B << ");\n";
 }
 
