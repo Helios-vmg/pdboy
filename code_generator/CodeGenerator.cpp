@@ -12,14 +12,16 @@ void CodeGenerator::generate(){
 		{ 245, 252 },
 		{ 254, 256 },
 	};
-	for (auto r : ranges){
-		for (unsigned i = r.first; i < r.second; i++){
+	//for (auto r : ranges){
+	//	for (unsigned i = r.first; i < r.second; i++){
+	for (int i = 0; i < 0x100; i++){
 			this->begin_opcode_definition(i);
 			//this->load_program_counter8();
 			this->definition->generate(i, *this);
 			this->end_opcode_definition(i);
-		}
 	}
+	//	}
+	//}
 }
 
 void CodeGenerator::double_opcode(unsigned first_opcode){

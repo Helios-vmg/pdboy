@@ -742,3 +742,44 @@ void InterpreterCodeGenerator::dump_function_definitions(std::ostream &stream){
 			<< "}\n\n";
 	}
 }
+
+
+void InterpreterCodeGenerator::do_nothing_if(uintptr_t val, bool invert){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+
+	s << "\tif (";
+	if (invert)
+		s << "!";
+	s << temp_to_string(val) << ")\n"
+		<< "\t\treturn;\n";
+}
+
+uintptr_t InterpreterCodeGenerator::condition_to_value(ConditionalJumpType type){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
+
+	switch (type){
+		case ConditionalJumpType::NotZero:
+			s << TEMPDECL << result_name << " = !this->registers.get(Flags::Zero);\n";
+			break;
+		case ConditionalJumpType::Zero:
+			s << TEMPDECL << result_name << " = this->registers.get(Flags::Zero);\n";
+			break;
+		case ConditionalJumpType::NotCarry:
+			s << TEMPDECL << result_name << " = !this->registers.get(Flags::Carry);\n";
+			break;
+		case ConditionalJumpType::Carry:
+			s << TEMPDECL << result_name << " = this->registers.get(Flags::Carry);\n";
+			break;
+		default: break;
+
+
+	}
+
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
+}

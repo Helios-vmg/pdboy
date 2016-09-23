@@ -310,6 +310,7 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		}
 		);
 		generator.take_time(time);
+		return;
 	}
 
 	// 001xx010
@@ -441,6 +442,7 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		}
 		generator.set_flags(fs);
 		generator.take_time(operand == Register8::None ? 8 : 4);
+		return;
 	}
 
 	// 11xx0x01
@@ -506,7 +508,7 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		// Handle conditional calls.
 		auto type = (ConditionalJumpType)((opcode >> 3) & 3);
 		auto imm = generator.load_program_counter16();
-		//TODO: fix this
+		generator.do_nothing_if(generator.condition_to_value(type), true);
 		generator.push_PC();
 		generator.set_PC_if(imm, type);
 		generator.take_time(12);
@@ -535,6 +537,7 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		return;
 	}
 
+	generator.halt();
 }
 
 void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerator &generator){

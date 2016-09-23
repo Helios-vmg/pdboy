@@ -86,4 +86,6 @@ public:
 	uintptr_t swap_nibbles(uintptr_t val) override;
 	uintptr_t get_imm_value(unsigned val) override;
 	void require_equals(uintptr_t, uintptr_t) override;
+	void do_nothing_if(uintptr_t, bool invert = false) override;
+	uintptr_t condition_to_value(ConditionalJumpType) override;
 };

@@ -114,4 +114,6 @@ public:
 	virtual uintptr_t swap_nibbles(uintptr_t val) = 0;
 	virtual uintptr_t get_imm_value(unsigned val) = 0;
 	virtual void require_equals(uintptr_t,uintptr_t) = 0;
+	virtual void do_nothing_if(uintptr_t, bool invert = false) = 0;
+	virtual uintptr_t condition_to_value(ConditionalJumpType) = 0;
 };
