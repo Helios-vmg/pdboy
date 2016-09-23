@@ -61,7 +61,6 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 				auto pair = generator.perform_decimal_adjustment(val);
 				val = pair.first;
 				generator.write_register8(Register8::A, val);
-				// TODO: Flag carry = !!value_of(pair.second)
 				generator.set_flags({ FlagSetting::IfZero(val), FlagSetting::Keep, FlagSetting::Reset, FlagSetting::IfNonZero(pair.second) });
 				generator.take_time(4);
 				return;
