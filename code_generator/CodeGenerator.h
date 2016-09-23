@@ -1,6 +1,7 @@
 #pragma once
 #include <memory>
 #include "BasicDefinitions.h"
+#include <array>
 
 class CpuDefinition;
 struct FlagSettings;
@@ -54,23 +55,34 @@ public:
 	virtual void store_mem_ff00_8(uintptr_t mem, uintptr_t val) = 0;
 	virtual void take_time(unsigned) = 0;
 	virtual void zero_flags() = 0;
-	virtual void dec_register8(Register8 reg) = 0;
-	virtual void dec_register16(Register16 reg) = 0;
-	void dec_register16(Register16A reg){
-		this->dec_register16(to_Register16(reg));
+	void dec_register16(Register16 reg){
+		auto val = this->get_register_value16(reg);
+		val = this->minus_1(val);
+		this->write_register16(reg, val);
 	}
-	virtual void dec2_SP() = 0;
-	virtual void inc2_SP() = 0;
-	virtual void inc_register8(Register8 hl) = 0;
-	virtual void inc_register16(Register16 hl) = 0;
-	void inc_register16(Register16A reg){
-		this->inc_register16(to_Register16(reg));
+	void dec2_SP(){
+		auto val = this->get_register_value16(Register16::SP);
+		auto imm = this->get_imm_value(2);
+		val = this->sub16_no_carry(val, imm);
+		this->write_register16(Register16::SP, val);
+	}
+	void inc2_SP(){
+		auto val = this->get_register_value16(Register16::SP);
+		auto imm = this->get_imm_value(2);
+		val = this->add16(val, imm)[0];
+		this->write_register16(Register16::SP, val);
+	}
+	void inc_register16(Register16 reg){
+		auto val = this->get_register_value16(reg);
+		val = this->plus_1(val);
+		this->write_register16(reg, val);
 	}
 	virtual std::array<uintptr_t, 3> add8(uintptr_t, uintptr_t) = 0;
 	virtual std::array<uintptr_t, 3> add16_using_carry_modulo_16(uintptr_t valA, uintptr_t valB) = 0;
 	virtual std::array<uintptr_t, 3> add8_carry(uintptr_t, uintptr_t) = 0;
 	virtual std::array<uintptr_t, 3> sub8(uintptr_t, uintptr_t) = 0;
 	virtual std::array<uintptr_t, 3> sub8_carry(uintptr_t, uintptr_t) = 0;
+	virtual uintptr_t sub16_no_carry(uintptr_t, uintptr_t) = 0;
 	virtual uintptr_t and8(uintptr_t, uintptr_t) = 0;
 	virtual uintptr_t xor8(uintptr_t, uintptr_t) = 0;
 	virtual uintptr_t or8(uintptr_t, uintptr_t) = 0;
@@ -100,5 +112,6 @@ public:
 	virtual uintptr_t set_bit_value(uintptr_t val, unsigned bit, bool on) = 0;
 	virtual std::pair<uintptr_t, uintptr_t> perform_decimal_adjustment(uintptr_t val) = 0;
 	virtual uintptr_t swap_nibbles(uintptr_t val) = 0;
-	virtual uintptr_t imm(unsigned val) = 0;
+	virtual uintptr_t get_imm_value(unsigned val) = 0;
+	virtual void require_equals(uintptr_t,uintptr_t) = 0;
 };

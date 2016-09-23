@@ -1,4 +1,5 @@
 #include "CodeGenerator.h"
+#include <iostream>
 #include <map>
 #include <string>
 #include <vector>
@@ -13,6 +14,7 @@ class InterpreterCodeGenerator : public CodeGenerator{
 	};
 	std::vector<DefinitionContext> definition_stack;
 	std::vector<std::string *> temporary_values;
+	std::string class_name;
 
 	std::array<uintptr_t, 3> add(uintptr_t, uintptr_t, unsigned modulo = 8);
 protected:
@@ -21,8 +23,12 @@ protected:
 	void begin_double_opcode_definition(unsigned first, unsigned second) override;
 	void end_double_opcode_definition(unsigned first, unsigned second) override;
 public:
-	InterpreterCodeGenerator(std::shared_ptr<CpuDefinition> definition): CodeGenerator(definition){}
+	InterpreterCodeGenerator(std::shared_ptr<CpuDefinition> definition, const char *class_name): CodeGenerator(definition), class_name(class_name){}
 	~InterpreterCodeGenerator();
+	void dump_function_definitions(std::ostream &stream);
+
+
+	// Overrides:
 	void noop() override;
 	void halt() override;
 	uintptr_t load_program_counter8() override;
@@ -44,12 +50,6 @@ public:
 	void store_mem_ff00_8(uintptr_t mem, uintptr_t val) override;
 	void take_time(unsigned) override;
 	void zero_flags() override;
-	void dec_register8(Register8 reg) override;
-	void dec_register16(Register16 reg) override;
-	void dec2_SP() override;
-	void inc2_SP() override;
-	void inc_register8(Register8 reg) override;
-	void inc_register16(Register16 reg) override;
 	std::array<uintptr_t, 3> add8(uintptr_t a, uintptr_t b) override{
 		return this->add(a, b);
 	}
@@ -59,6 +59,7 @@ public:
 	std::array<uintptr_t, 3> add8_carry(uintptr_t, uintptr_t) override;
 	std::array<uintptr_t, 3> sub8(uintptr_t, uintptr_t) override;
 	std::array<uintptr_t, 3> sub8_carry(uintptr_t, uintptr_t) override;
+	uintptr_t sub16_no_carry(uintptr_t a, uintptr_t b);
 	uintptr_t and8(uintptr_t, uintptr_t) override;
 	uintptr_t xor8(uintptr_t, uintptr_t) override;
 	uintptr_t or8(uintptr_t, uintptr_t) override;
@@ -83,5 +84,6 @@ public:
 	uintptr_t set_bit_value(uintptr_t val, unsigned bit, bool on) override;
 	std::pair<uintptr_t, uintptr_t> perform_decimal_adjustment(uintptr_t val) override;
 	uintptr_t swap_nibbles(uintptr_t val) override;
-	uintptr_t imm(unsigned val) override;
+	uintptr_t get_imm_value(unsigned val) override;
+	void require_equals(uintptr_t, uintptr_t) override;
 };
