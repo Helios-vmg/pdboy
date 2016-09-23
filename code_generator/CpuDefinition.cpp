@@ -541,91 +541,91 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 }
 
 void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerator &generator){
-	if (first_opcode == 0xCB){
-		// 00xxxxxx
-		if (match_opcode(opcode, "00xxxxxx")){
-			auto operation = (BitwiseOps)((opcode >> 3) & 7);
-			auto operand = (Register8)(opcode & 7);
-			unsigned time = 8;
-			uintptr_t val;
-			if (operand == Register8::None){
-				val = generator.load_hl8();
-				time = 16;
-			}else
-				val = generator.get_register_value8(operand);
-			auto carry = FlagSetting::Reset;
-			auto old_bit_7 = FlagSetting::IfNonZero(generator.get_bit_value(val, 7));
-			auto old_bit_0 = FlagSetting::IfNonZero(generator.get_bit_value(val, 0));
-			switch (operation){
-				case BitwiseOps::RotateLeft:
-					val = generator.rotate8(val, true, false);
-					carry = old_bit_7;
-					break;
-				case BitwiseOps::RotateRight:
-					val = generator.rotate8(val, false, false);
-					carry = old_bit_0;
-					break;
-				case BitwiseOps::RotateLeftThroughCarry:
-					val = generator.rotate8(val, true, true);
-					carry = old_bit_7;
-					break;
-				case BitwiseOps::RotateRightThroughCarry:
-					val = generator.rotate8(val, false, true);
-					carry = old_bit_0;
-					break;
-				case BitwiseOps::ShiftLeft:
-					val = generator.shift_left(val);
-					carry = old_bit_7;
-					break;
-				case BitwiseOps::ArithmeticShiftRight:
-					val = generator.arithmetic_shift_right(val);
-					carry = old_bit_0;
-					break;
-				case BitwiseOps::Swap:
-					val = generator.swap_nibbles(val);
-					break;
-				case BitwiseOps::BitwiseShiftRight:
-					val = generator.bitwise_shift_right(val);
-					carry = old_bit_0;
-					break;
-			}
-			if (operand == Register8::None)
-				generator.store_hl8(val);
-			else
-				generator.write_register8(operand, val);
-			generator.set_flags({ FlagSetting::IfZero(val), FlagSetting::Reset, FlagSetting::Reset, carry });
-			generator.take_time(time);
-			return;
-		}
+	if (first_opcode != 0xCB)
+		abort();
 
-		auto operation = (BitfieldOps)((opcode >> 6) & 3);
-		auto register_operand = (Register8)(opcode & 7);
-		auto bit_operand = (opcode >> 3) & 7;
+	// 00xxxxxx
+	if (match_opcode(opcode, "00xxxxxx")){
+		auto operation = (BitwiseOps)((opcode >> 3) & 7);
+		auto operand = (Register8)(opcode & 7);
 		unsigned time = 8;
 		uintptr_t val;
-		if (register_operand == Register8::None){
+		if (operand == Register8::None){
 			val = generator.load_hl8();
 			time = 16;
 		}else
-			val = generator.get_register_value8(register_operand);
-		FlagSettings fs = { FlagSetting::Keep, FlagSetting::Keep, FlagSetting::Keep, FlagSetting::Keep };
+			val = generator.get_register_value8(operand);
+		auto carry = FlagSetting::Reset;
+		auto old_bit_7 = FlagSetting::IfNonZero(generator.get_bit_value(val, 7));
+		auto old_bit_0 = FlagSetting::IfNonZero(generator.get_bit_value(val, 0));
 		switch (operation){
-			case BitfieldOps::BitCheck:
-				val = generator.get_bit_value(val, bit_operand);
-				fs = { FlagSetting::IfZero(val), FlagSetting::Reset, FlagSetting::Set, FlagSetting::Keep };
+			case BitwiseOps::RotateLeft:
+				val = generator.rotate8(val, true, false);
+				carry = old_bit_7;
 				break;
-			case BitfieldOps::BitReset:
-				val = generator.set_bit_value(val, bit_operand, false);
+			case BitwiseOps::RotateRight:
+				val = generator.rotate8(val, false, false);
+				carry = old_bit_0;
 				break;
-			case BitfieldOps::BitSet:
-				val = generator.set_bit_value(val, bit_operand, true);
+			case BitwiseOps::RotateLeftThroughCarry:
+				val = generator.rotate8(val, true, true);
+				carry = old_bit_7;
 				break;
-			default:
-				abort();
+			case BitwiseOps::RotateRightThroughCarry:
+				val = generator.rotate8(val, false, true);
+				carry = old_bit_0;
+				break;
+			case BitwiseOps::ShiftLeft:
+				val = generator.shift_left(val);
+				carry = old_bit_7;
+				break;
+			case BitwiseOps::ArithmeticShiftRight:
+				val = generator.arithmetic_shift_right(val);
+				carry = old_bit_0;
+				break;
+			case BitwiseOps::Swap:
+				val = generator.swap_nibbles(val);
+				break;
+			case BitwiseOps::BitwiseShiftRight:
+				val = generator.bitwise_shift_right(val);
+				carry = old_bit_0;
 				break;
 		}
-		generator.set_flags(fs);
+		if (operand == Register8::None)
+			generator.store_hl8(val);
+		else
+			generator.write_register8(operand, val);
+		generator.set_flags({ FlagSetting::IfZero(val), FlagSetting::Reset, FlagSetting::Reset, carry });
 		generator.take_time(time);
 		return;
 	}
+
+	auto operation = (BitfieldOps)((opcode >> 6) & 3);
+	auto register_operand = (Register8)(opcode & 7);
+	auto bit_operand = (opcode >> 3) & 7;
+	unsigned time = 8;
+	uintptr_t val;
+	if (register_operand == Register8::None){
+		val = generator.load_hl8();
+		time = 16;
+	}else
+		val = generator.get_register_value8(register_operand);
+	FlagSettings fs = { FlagSetting::Keep, FlagSetting::Keep, FlagSetting::Keep, FlagSetting::Keep };
+	switch (operation){
+		case BitfieldOps::BitCheck:
+			val = generator.get_bit_value(val, bit_operand);
+			fs = { FlagSetting::IfZero(val), FlagSetting::Reset, FlagSetting::Set, FlagSetting::Keep };
+			break;
+		case BitfieldOps::BitReset:
+			val = generator.set_bit_value(val, bit_operand, false);
+			break;
+		case BitfieldOps::BitSet:
+			val = generator.set_bit_value(val, bit_operand, true);
+			break;
+		default:
+			abort();
+			break;
+	}
+	generator.set_flags(fs);
+	generator.take_time(time);
 }

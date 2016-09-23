@@ -7,7 +7,12 @@
 #include <sstream>
 
 class InterpreterCodeGenerator : public CodeGenerator{
-	std::map<std::string, std::stringstream> functions;
+	struct Function{
+		int opcode;
+		bool double_opcode;
+		std::stringstream contents;
+	};
+	std::map<std::string, Function> functions;
 	struct DefinitionContext{
 		std::stringstream *function_contents;
 		unsigned temporary_index;
@@ -22,10 +27,12 @@ protected:
 	void end_opcode_definition(unsigned first) override;
 	void begin_double_opcode_definition(unsigned first, unsigned second) override;
 	void end_double_opcode_definition(unsigned first, unsigned second) override;
+	void opcode_cb_branching() override;
 public:
 	InterpreterCodeGenerator(std::shared_ptr<CpuDefinition> definition, const char *class_name): CodeGenerator(definition), class_name(class_name){}
 	~InterpreterCodeGenerator();
 	void dump_function_definitions(std::ostream &stream);
+	void dump_function_declarations(std::ostream &stream);
 
 
 	// Overrides:

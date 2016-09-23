@@ -81,11 +81,51 @@ InterpreterCodeGenerator::~InterpreterCodeGenerator(){
 		delete p;
 }
 
+#define OPCODE_TABLE_INIT_FUNCTION "initialize_opcode_tables"
+#define MAIN_OPCODE_TABLE "opcode_table"
+#define SECOND_OPCODE_TABLE "opcode_table_cb"
+
+void InterpreterCodeGenerator::dump_function_declarations(std::ostream &stream){
+	stream
+		<< "typedef void (" << this->class_name << "::*opcode_function_pointer)();\n"
+		<< "opcode_function_pointer " MAIN_OPCODE_TABLE "[256];\n"
+		<< "opcode_function_pointer " MAIN_OPCODE_TABLE "[256];\n"
+		<< "void " OPCODE_TABLE_INIT_FUNCTION "();";
+	for (auto &kv : this->functions)
+		stream << "void " << kv.first << "();\n";
+	stream << "\n";
+}
+
+void InterpreterCodeGenerator::dump_function_definitions(std::ostream &stream){
+	stream << "void " << this->class_name << "::" OPCODE_TABLE_INIT_FUNCTION "(){\n";
+	for (auto &kv : this->functions){
+		if (kv.second.double_opcode)
+			continue;
+		stream << "\tthis->" MAIN_OPCODE_TABLE "[" << kv.second.opcode << "] = " << kv.first << ";\n";
+	}
+	for (auto &kv : this->functions){
+		if (!kv.second.double_opcode)
+			continue;
+		stream << "\tthis->" SECOND_OPCODE_TABLE "[" << kv.second.opcode << "] = " << kv.first << ";\n";
+	}
+	stream << "}\n\n";
+
+	for (auto &kv : this->functions){
+		stream
+			<< "void " << this->class_name << "::" << kv.first << "(){\n"
+			<< kv.second.contents.str()
+			<< "}\n\n";
+	}
+}
+
 void InterpreterCodeGenerator::begin_opcode_definition(unsigned first){
 	std::stringstream stream;
 	stream << "opcode_" << std::hex << std::setw(2) << std::setfill('0') << first;
 	auto name = stream.str();
-	auto contents = &this->functions[name];
+	auto &value = this->functions[name];
+	value.opcode = first;
+	value.double_opcode = false;
+	auto contents = &value.contents;
 	this->definition_stack.push_back({ contents, 0 });
 }
 
@@ -96,16 +136,27 @@ void InterpreterCodeGenerator::end_opcode_definition(unsigned first){
 void InterpreterCodeGenerator::begin_double_opcode_definition(unsigned first, unsigned second){
 	std::stringstream stream;
 	stream
-		<< "opcode"
+		<< "opcode_"
 		<< std::hex << std::setw(2) << std::setfill('0') << first
 		<< std::hex << std::setw(2) << std::setfill('0') << second;
 	auto name = stream.str();
-	auto contents = &this->functions[name];
+	auto &value = this->functions[name];
+	value.opcode = second;
+	value.double_opcode = true;
+	auto contents = &value.contents;
 	this->definition_stack.push_back({ contents, 0 });
 }
 
 void InterpreterCodeGenerator::end_double_opcode_definition(unsigned first, unsigned second){
 	this->definition_stack.pop_back();
+}
+
+void InterpreterCodeGenerator::opcode_cb_branching(){
+	auto &s = *this->definition_stack.back().function_contents;
+	auto &opcode = *(std::string *)this->load_program_counter8();
+	s
+		<< "\tauto function_pointer = this->" << SECOND_OPCODE_TABLE << "[" << opcode << "];\n"
+		<< "\t(this->*function_pointer)();\n";
 }
 
 void InterpreterCodeGenerator::noop(){
@@ -733,16 +784,6 @@ void InterpreterCodeGenerator::require_equals(uintptr_t a, uintptr_t b){
 		<< "\tif (" << temp_to_string(a) << " != " << temp_to_string(b) << ")\n"
 		<< "\t\tthis->halt();\n";
 }
-
-void InterpreterCodeGenerator::dump_function_definitions(std::ostream &stream){
-	for (auto &kv : this->functions){
-		stream
-			<< "void " << this->class_name << "::" << kv.first << "(){\n"
-			<< kv.second.str()
-			<< "}\n\n";
-	}
-}
-
 
 void InterpreterCodeGenerator::do_nothing_if(uintptr_t val, bool invert){
 	auto &back = this->definition_stack.back();

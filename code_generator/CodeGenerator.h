@@ -14,6 +14,7 @@ protected:
 	virtual void end_opcode_definition(unsigned first) = 0;
 	virtual void begin_double_opcode_definition(unsigned first, unsigned second) = 0;
 	virtual void end_double_opcode_definition(unsigned first, unsigned second) = 0;
+	virtual void opcode_cb_branching() = 0;
 public:
 	CodeGenerator(std::shared_ptr<CpuDefinition> definition): definition(definition){}
 	virtual ~CodeGenerator() = 0{}
