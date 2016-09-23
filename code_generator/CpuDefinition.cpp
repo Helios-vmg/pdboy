@@ -610,22 +610,29 @@ void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerat
 		time = 16;
 	}else
 		val = generator.get_register_value8(register_operand);
-	FlagSettings fs = { FlagSetting::Keep, FlagSetting::Keep, FlagSetting::Keep, FlagSetting::Keep };
+	bool store_back = false;
 	switch (operation){
 		case BitfieldOps::BitCheck:
 			val = generator.get_bit_value(val, bit_operand);
-			fs = { FlagSetting::IfZero(val), FlagSetting::Reset, FlagSetting::Set, FlagSetting::Keep };
+			generator.set_flags({ FlagSetting::IfZero(val), FlagSetting::Reset, FlagSetting::Set, FlagSetting::Keep });
 			break;
 		case BitfieldOps::BitReset:
 			val = generator.set_bit_value(val, bit_operand, false);
+			store_back = true;
 			break;
 		case BitfieldOps::BitSet:
 			val = generator.set_bit_value(val, bit_operand, true);
+			store_back = true;
 			break;
 		default:
 			abort();
 			break;
 	}
-	generator.set_flags(fs);
+	if (store_back){
+		if (register_operand == Register8::None)
+			generator.store_hl8(val);
+		else
+			generator.write_register8(register_operand, val);
+	}
 	generator.take_time(time);
 }
