@@ -89,7 +89,7 @@ void InterpreterCodeGenerator::dump_function_declarations(std::ostream &stream){
 	stream
 		<< "typedef void (" << this->class_name << "::*opcode_function_pointer)();\n"
 		<< "opcode_function_pointer " MAIN_OPCODE_TABLE "[256];\n"
-		<< "opcode_function_pointer " MAIN_OPCODE_TABLE "[256];\n"
+		<< "opcode_function_pointer " SECOND_OPCODE_TABLE "[256];\n"
 		<< "void " OPCODE_TABLE_INIT_FUNCTION "();";
 	for (auto &kv : this->functions)
 		stream << "void " << kv.first << "();\n";
