@@ -799,7 +799,7 @@ void InterpreterCodeGenerator::require_equals(uintptr_t a, uintptr_t b){
 
 	s
 		<< "\tif (" << temp_to_string(a) << " != " << temp_to_string(b) << ")\n"
-		<< "\t\tthis->stop();\n";
+		<< "\t\tthis->abort();\n";
 }
 
 void InterpreterCodeGenerator::do_nothing_if(uintptr_t val, bool invert){
@@ -840,4 +840,10 @@ uintptr_t InterpreterCodeGenerator::condition_to_value(ConditionalJumpType type)
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
+}
+
+void InterpreterCodeGenerator::abort(){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	s << "\tthis->abort();\n";
 }

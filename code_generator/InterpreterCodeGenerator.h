@@ -95,4 +95,5 @@ public:
 	void require_equals(uintptr_t, uintptr_t) override;
 	void do_nothing_if(uintptr_t, bool invert = false) override;
 	uintptr_t condition_to_value(ConditionalJumpType) override;
+	void abort() override;
 };

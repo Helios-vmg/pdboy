@@ -222,6 +222,7 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		}
 		generator.set_flags(fs);
 		generator.take_time(4);
+		return;
 	}
 
 	// 00xxx011
@@ -536,7 +537,7 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		return;
 	}
 
-	generator.stop();
+	generator.abort();
 }
 
 void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerator &generator){
