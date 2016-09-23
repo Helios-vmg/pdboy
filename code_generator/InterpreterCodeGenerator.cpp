@@ -465,13 +465,13 @@ static std::pair<std::string, std::string> to_string(const FlagSetting &setting)
 	std::string temp;
 	switch (setting.op){
 		case FlagSetting::Operation::Reset:
-			return { "0", "0" };
+			return { "0U", "0U" };
 		case FlagSetting::Operation::Set:
-			return { "0", "1" };
+			return { "0U", "1U" };
 		case FlagSetting::Operation::Keep:
-			return { "1", "0" };
+			return { "1U", "0U" };
 		case FlagSetting::Operation::Flip:
-			return { "1", "1" };
+			return { "1U", "1U" };
 		case FlagSetting::Operation::IfNonZero:
 			temp = "!";
 		case FlagSetting::Operation::IfZero:
@@ -481,17 +481,17 @@ static std::pair<std::string, std::string> to_string(const FlagSetting &setting)
 		default:
 			abort();
 	}
-	return{ "0", temp };
+	return{ "0", "(unsigned)" + temp };
 }
 
 void InterpreterCodeGenerator::set_flags(const FlagSettings &fs){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	std::pair<FlagSetting, const char *> settings[] = {
-		{fs.zero, "0"},
-		{fs.subtract, "1"},
-		{fs.half_carry, "2"},
-		{fs.carry, "3"},
+		{fs.zero, nullptr},
+		{fs.subtract, "1U"},
+		{fs.half_carry, "2U"},
+		{fs.carry, "3U"},
 	};
 	std::sort(settings, settings + array_length(settings), [](auto &a, auto &b){ return (int)a.first.op < (int)b.first.op; });
 	int i = 0;
@@ -509,8 +509,10 @@ void InterpreterCodeGenerator::set_flags(const FlagSettings &fs){
 				A += " | ";
 			A += "(";
 			A += p.first;
-			A += " << ";
-			A += setting.second;
+			if (setting.second){
+				A += " << ";
+				A += setting.second;
+			}
 			A += ")";
 			first_a = false;
 			all_zero_a = false;
@@ -522,8 +524,10 @@ void InterpreterCodeGenerator::set_flags(const FlagSettings &fs){
 				B += " | ";
 			B += "(";
 			B += p.second;
-			B += " << ";
-			B += setting.second;
+			if (setting.second){
+				B += " << ";
+				B += setting.second;
+			}
 			B += ")";
 			first_b = false;
 			all_zero_b = false;
