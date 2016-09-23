@@ -700,10 +700,7 @@ uintptr_t InterpreterCodeGenerator::get_bit_value(uintptr_t val, unsigned bit){
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
 
-	s << TEMPDECL << result_name << " = (" << temp_to_string(val);
-	if (bit)
-		s << " >> " << bit;
-	s << ") & 1;\n";
+	s << TEMPDECL << result_name << " = " << temp_to_string(val) << " & " << (1 << bit) << ";\n";
 
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
@@ -718,7 +715,7 @@ uintptr_t InterpreterCodeGenerator::set_bit_value(uintptr_t val, unsigned bit, b
 	auto mask_name = get_temp_name(n++);
 
 	s
-		<< CONSTTEMPDECL << mask_name << " = 1 << " << bit << ";\n"
+		<< CONSTTEMPDECL << mask_name << " = " << (1 << bit) << ";\n"
 		<< TEMPDECL << result_name << " = " << temp_to_string(val);
 	if (!bit)
 		s << " & ~";
