@@ -90,7 +90,7 @@ void InterpreterCodeGenerator::dump_function_declarations(std::ostream &stream){
 		<< "typedef void (" << this->class_name << "::*opcode_function_pointer)();\n"
 		<< "opcode_function_pointer " MAIN_OPCODE_TABLE "[256];\n"
 		<< "opcode_function_pointer " SECOND_OPCODE_TABLE "[256];\n"
-		<< "void " OPCODE_TABLE_INIT_FUNCTION "();";
+		<< "void " OPCODE_TABLE_INIT_FUNCTION "();\n";
 	for (auto &kv : this->functions)
 		stream << "void " << kv.first << "();\n";
 	stream << "\n";
@@ -101,12 +101,12 @@ void InterpreterCodeGenerator::dump_function_definitions(std::ostream &stream){
 	for (auto &kv : this->functions){
 		if (kv.second.double_opcode)
 			continue;
-		stream << "\tthis->" MAIN_OPCODE_TABLE "[" << kv.second.opcode << "] = " << kv.first << ";\n";
+		stream << "\tthis->" MAIN_OPCODE_TABLE "[" << kv.second.opcode << "] = &" << this->class_name << "::" << kv.first << ";\n";
 	}
 	for (auto &kv : this->functions){
 		if (!kv.second.double_opcode)
 			continue;
-		stream << "\tthis->" SECOND_OPCODE_TABLE "[" << kv.second.opcode << "] = " << kv.first << ";\n";
+		stream << "\tthis->" SECOND_OPCODE_TABLE "[" << kv.second.opcode << "] = &" << this->class_name << "::" << kv.first << ";\n";
 	}
 	stream << "}\n\n";
 
