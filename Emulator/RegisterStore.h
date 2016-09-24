@@ -25,16 +25,19 @@ enum class Register16{
 };
 
 enum class Flags{
-	Zero = 0,
-	Subtract = 1,
-	HalfCarry = 2,
-	Carry = 3,
+	Zero = 7,
+	Subtract = 6,
+	HalfCarry = 5,
+	Carry = 4,
 };
 
+class GameboyCpu;
+
 class RegisterStore{
+	GameboyCpu *cpu;
 	unsigned registers[10];
 public:
-	RegisterStore();
+	RegisterStore(GameboyCpu &cpu);
 	unsigned get(Register8 reg) const;
 	void set(Register8 reg, unsigned value);
 	unsigned get(Register16 reg) const;

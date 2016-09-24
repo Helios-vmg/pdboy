@@ -56,27 +56,19 @@ public:
 	virtual void store_mem_ff00_8(uintptr_t mem, uintptr_t val) = 0;
 	virtual void take_time(unsigned) = 0;
 	virtual void zero_flags() = 0;
-	void dec_register16(Register16 reg){
-		auto val = this->get_register_value16(reg);
-		val = this->minus_1(val);
-		this->write_register16(reg, val);
-	}
-	void dec2_SP(){
+	uintptr_t dec2_SP(){
 		auto val = this->get_register_value16(Register16::SP);
 		auto imm = this->get_imm_value(2);
 		val = this->sub16_no_carry(val, imm);
 		this->write_register16(Register16::SP, val);
+		return val;
 	}
-	void inc2_SP(){
-		auto val = this->get_register_value16(Register16::SP);
+	uintptr_t inc2_SP(uintptr_t old_sp){
+		auto val = old_sp;
 		auto imm = this->get_imm_value(2);
 		val = this->add16(val, imm)[0];
 		this->write_register16(Register16::SP, val);
-	}
-	void inc_register16(Register16 reg){
-		auto val = this->get_register_value16(reg);
-		val = this->plus_1(val);
-		this->write_register16(reg, val);
+		return val;
 	}
 	virtual std::array<uintptr_t, 3> add8(uintptr_t, uintptr_t) = 0;
 	virtual std::array<uintptr_t, 3> add16_using_carry_modulo_16(uintptr_t valA, uintptr_t valB) = 0;
@@ -99,8 +91,7 @@ public:
 	virtual void set_PC_if(uintptr_t, ConditionalJumpType) = 0;
 	virtual void add8_PC_if(uintptr_t, ConditionalJumpType) = 0;
 	void push_PC(){
-		this->dec2_SP();
-		auto sp = this->get_register_value16(Register16::SP);
+		auto sp = this->dec2_SP();
 		auto old_pc = this->get_register_value16(Register16::PC);
 		this->store_mem16(sp, old_pc);
 	}
@@ -115,7 +106,8 @@ public:
 	virtual uintptr_t swap_nibbles(uintptr_t val) = 0;
 	virtual uintptr_t get_imm_value(unsigned val) = 0;
 	virtual void require_equals(uintptr_t,uintptr_t) = 0;
-	virtual void do_nothing_if(uintptr_t, bool invert = false) = 0;
+	virtual void do_nothing_if(uintptr_t, unsigned take_time, bool invert = false) = 0;
 	virtual uintptr_t condition_to_value(ConditionalJumpType) = 0;
 	virtual void abort() = 0;
+	virtual uintptr_t sign_extend8(uintptr_t) = 0;
 };

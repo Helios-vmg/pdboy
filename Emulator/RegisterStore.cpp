@@ -1,7 +1,10 @@
 #include "RegisterStore.h"
+#include "GameboyCpu.h"
 #include <cstring>
+#include <iostream>
+#include <iomanip>
 
-RegisterStore::RegisterStore(){
+RegisterStore::RegisterStore(GameboyCpu &cpu): cpu(&cpu){
 	memset(this->registers, 0, sizeof(this->registers));
 }
 
@@ -10,6 +13,10 @@ unsigned RegisterStore::get(Register8 reg) const{
 }
 
 void RegisterStore::set(Register8 reg, unsigned value){
+	//if (reg == Register8::A){
+	//	std::cout << "PC = 0x" << std::hex << std::setw(4) << std::setfill('0') << this->cpu->current_pc << std::endl;
+	//	std::cout << "A  = 0x" << std::hex << std::setw(4) << std::setfill('0') << (value & 0xFF) << std::endl;
+	//}
 	this->registers[(int)reg] = value & 0xFF;
 }
 

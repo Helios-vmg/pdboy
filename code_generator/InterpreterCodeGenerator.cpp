@@ -97,6 +97,7 @@ void InterpreterCodeGenerator::dump_function_declarations(std::ostream &stream){
 }
 
 void InterpreterCodeGenerator::dump_function_definitions(std::ostream &stream){
+	stream << "#include <GameboyCpu.h>\n\n";
 	stream << "void " << this->class_name << "::" OPCODE_TABLE_INIT_FUNCTION "(){\n";
 	for (auto &kv : this->functions){
 		if (kv.second.double_opcode)
@@ -407,7 +408,7 @@ std::array<uintptr_t, 3> InterpreterCodeGenerator::sub8(uintptr_t valA, uintptr_
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto negated_name = get_temp_name(n++);
-	s << TEMPDECL << negated_name << " = 0xFF & (1 + ~" << temp_to_string(valB) << ");\n";
+	s << TEMPDECL << negated_name << " = (1 + ~" << temp_to_string(valB) << ");\n";
 	auto temp = copy(negated_name);
 	this->temporary_values.push_back(temp);
 	return this->add8(valA, (uintptr_t)temp);
@@ -418,7 +419,7 @@ std::array<uintptr_t, 3> InterpreterCodeGenerator::sub8_carry(uintptr_t valA, ui
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto negated_name = get_temp_name(n++);
-	s << TEMPDECL << negated_name << " = 0xFF & (1 + ~" << temp_to_string(valB) << ");\n";
+	s << TEMPDECL << negated_name << " = (1 + ~" << temp_to_string(valB) << ");\n";
 	auto temp = copy(negated_name);
 	this->temporary_values.push_back(temp);
 	return this->add8_carry(valA, (uintptr_t)temp);
@@ -429,7 +430,7 @@ uintptr_t InterpreterCodeGenerator::and8(uintptr_t valA, uintptr_t valB){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
-	s << TEMPDECL << result_name << " = " << temp_to_string(valA) << " & " << temp_to_string(valA) << ";\n";
+	s << TEMPDECL << result_name << " = " << temp_to_string(valA) << " & " << temp_to_string(valB) << ";\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -440,7 +441,7 @@ uintptr_t InterpreterCodeGenerator::xor8(uintptr_t valA, uintptr_t valB){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
-	s << TEMPDECL << result_name << " = " << temp_to_string(valA) << " ^ " << temp_to_string(valA) << ";\n";
+	s << TEMPDECL << result_name << " = " << temp_to_string(valA) << " ^ " << temp_to_string(valB) << ";\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -451,7 +452,7 @@ uintptr_t InterpreterCodeGenerator::or8(uintptr_t valA, uintptr_t valB){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
-	s << TEMPDECL << result_name << " = " << temp_to_string(valA) << " | " << temp_to_string(valA) << ";\n";
+	s << TEMPDECL << result_name << " = " << temp_to_string(valA) << " | " << temp_to_string(valB) << ";\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -488,10 +489,10 @@ void InterpreterCodeGenerator::set_flags(const FlagSettings &fs){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	std::pair<FlagSetting, const char *> settings[] = {
-		{fs.zero, nullptr},
-		{fs.subtract, "1U"},
-		{fs.half_carry, "2U"},
-		{fs.carry, "3U"},
+		{fs.zero, "7U"},
+		{fs.subtract, "6U"},
+		{fs.half_carry, "5U"},
+		{fs.carry, "4U"},
 	};
 	std::sort(settings, settings + array_length(settings), [](auto &a, auto &b){ return (int)a.first.op < (int)b.first.op; });
 	int i = 0;
@@ -595,7 +596,7 @@ uintptr_t InterpreterCodeGenerator::rotate8(uintptr_t val, bool left, bool throu
 		if (!through_carry){
 			s
 				<< TEMPDECL << carry_name << " = this->registers.get(Flags::Carry) ? 1U : 0U;\n"
-				<< TEMPDECL << result_name << " = (" << temp_to_string(val) << " << 1) | carry;\n";
+				<< TEMPDECL << result_name << " = (" << temp_to_string(val) << " << 1) | " << carry_name << ";\n";
 		}else{
 			auto bit_name = get_temp_name(n++);
 			s
@@ -607,7 +608,7 @@ uintptr_t InterpreterCodeGenerator::rotate8(uintptr_t val, bool left, bool throu
 		if (!through_carry){
 			s
 				<< TEMPDECL << carry_name << " = this->registers.get(Flags::Carry) ? 0x80U : 0U;\n"
-				<< TEMPDECL << result_name << " = (" << temp_to_string(val) << " >> 1) | carry;\n";
+				<< TEMPDECL << result_name << " = (" << temp_to_string(val) << " >> 1) | " << carry_name << ";\n";
 		}else{
 			auto bit_name = get_temp_name(n++);
 			s
@@ -646,7 +647,7 @@ void InterpreterCodeGenerator::set_PC_if(uintptr_t val, ConditionalJumpType type
 }
 
 void InterpreterCodeGenerator::add8_PC_if(uintptr_t val, ConditionalJumpType type){
-	std::string temp = "(this->registers.pc())";
+	std::string temp = "(this->registers.pc() + sign_extend8(" + temp_to_string(val) + "))";
 	this->set_PC_if((uintptr_t)&temp, type);
 }
 
@@ -802,15 +803,18 @@ void InterpreterCodeGenerator::require_equals(uintptr_t a, uintptr_t b){
 		<< "\t\tthis->abort();\n";
 }
 
-void InterpreterCodeGenerator::do_nothing_if(uintptr_t val, bool invert){
+void InterpreterCodeGenerator::do_nothing_if(uintptr_t val, unsigned take_time, bool invert){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 
 	s << "\tif (";
 	if (invert)
 		s << "!";
-	s << temp_to_string(val) << ")\n"
-		<< "\t\treturn;\n";
+	s
+		<< temp_to_string(val) << "){\n"
+		<< "\t\tthis->take_time(" << take_time << ");\n"
+		<< "\t\treturn;\n"
+		<< "\t}\n";
 }
 
 uintptr_t InterpreterCodeGenerator::condition_to_value(ConditionalJumpType type){
@@ -846,4 +850,17 @@ void InterpreterCodeGenerator::abort(){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	s << "\tthis->abort();\n";
+}
+
+uintptr_t InterpreterCodeGenerator::sign_extend8(uintptr_t val){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
+
+	s << TEMPDECL << result_name << " = sign_extend8(" << temp_to_string(val) << ");\n";
+
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
 }

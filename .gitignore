@@ -30,3 +30,5 @@ _ReSharper*/
 *.opensdf
 *.sdf
 *.opendb
+bin64/
+generated_files/*.generated.*
