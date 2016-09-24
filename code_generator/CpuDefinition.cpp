@@ -487,7 +487,8 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		// Handle RST
 		auto addr = ((opcode >> 3) & 7) * 8;
 		generator.push_PC();
-		generator.write_register16_literal(Register16::SP, addr);
+		auto imm = generator.get_imm_value(addr);
+		generator.write_register16(Register16::SP, imm);
 		generator.take_time(32);
 		return;
 	}

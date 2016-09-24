@@ -42,7 +42,6 @@ public:
 	virtual uintptr_t load_ff00_offset8(uintptr_t) = 0;
 	virtual uintptr_t load_sp_offset16(uintptr_t) = 0;
 	virtual void write_register8(Register8, uintptr_t) = 0;
-	virtual void write_register16_literal(Register16, unsigned) = 0;
 	virtual void write_register16(Register16, uintptr_t) = 0;
 	void write_register16(Register16A reg, uintptr_t val){
 		this->write_register16(to_Register16(reg), val);

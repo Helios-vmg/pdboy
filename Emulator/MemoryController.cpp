@@ -3,7 +3,7 @@
 #include <exception>
 #include <algorithm>
 
-#define USE_CPP_UNDEFINED_BEHAVIOR
+//#define USE_CPP_UNDEFINED_BEHAVIOR
 #define LITTLE_ENDIAN
 
 MemoryController::MemoryController(){
@@ -17,9 +17,9 @@ MemoryController::~MemoryController(){
 }
 
 void MemoryController::fix_up_address(integer_type &address){
-	//address &= 0xFFFF;
-	//if (address >= 0xE000 && address < 0xFE00)
-	//	address -= 0x2000;
+	address &= 0xFFFF;
+	if (address >= 0xE000 && address < 0xFE00)
+		address -= 0x2000;
 }
 
 integer_type MemoryController::load8(integer_type address) const{

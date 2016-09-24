@@ -26,21 +26,21 @@ static constexpr size_t array_length(const T (&)[N]){
 static const char *to_string(Register8 reg){
 	switch (reg){
 		case Register8::B:
-			return "Register8::B";
+			return "this->registers.b()";
 		case Register8::C:
-			return "Register8::C";
+			return "this->registers.c()";
 		case Register8::D:
-			return "Register8::D";
+			return "this->registers.d()";
 		case Register8::E:
-			return "Register8::E";
+			return "this->registers.e()";
 		case Register8::H:
-			return "Register8::H";
+			return "this->registers.h()";
 		case Register8::L:
-			return "Register8::L";
+			return "this->registers.l()";
 		case Register8::None:
 			return nullptr;
 		case Register8::A:
-			return "Register8::A";
+			return "this->registers.a()";
 		default:
 			return nullptr;
 	}
@@ -49,17 +49,17 @@ static const char *to_string(Register8 reg){
 static const char *to_string(Register16 reg){
 	switch (reg){
 		case Register16::AF:
-			return "Register16::AF";
+			return "this->registers.af()";
 		case Register16::BC:
-			return "Register16::BC";
+			return "this->registers.bc()";
 		case Register16::DE:
-			return "Register16::DE";
+			return "this->registers.de()";
 		case Register16::HL:
-			return "Register16::HL";
+			return "this->registers.hl()";
 		case Register16::SP:
-			return "Register16::SP";
+			return "this->registers.sp()";
 		case Register16::PC:
-			return "Register16::PC";
+			return "this->registers.pc()";
 		default:
 			return nullptr;
 	}
@@ -176,7 +176,7 @@ uintptr_t InterpreterCodeGenerator::load_program_counter8(){
 	auto result_name = get_temp_name(n++);
 	s
 		<< TEMPDECL << temp_name << " = this->registers.pc();\n"
-		<< "\tthis->registers.set(Register16::PC, " << temp_name << " + 1);\n"
+		<< "\tthis->registers.pc() = " << temp_name << " + 1;\n"
 		<< TEMPDECL << result_name << " = this->memory_controller.load8(" << temp_name << ");\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
@@ -191,7 +191,7 @@ uintptr_t InterpreterCodeGenerator::load_program_counter16(){
 	auto result_name = get_temp_name(n++);
 	s
 		<< TEMPDECL << temp_name << " = this->registers.pc();\n"
-		<< "\tthis->registers.set(Register16::PC, " << temp_name << " + 2);\n"
+		<< "\tthis->registers.pc() = " << temp_name << " + 2;\n"
 		<< TEMPDECL << result_name << " = this->memory_controller.load16(" << temp_name << ");\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
@@ -203,7 +203,7 @@ uintptr_t InterpreterCodeGenerator::get_register_value8(Register8 reg){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
-	s << TEMPDECL << result_name << " = this->registers.get(" << to_string(reg) << ");\n";
+	s << TEMPDECL << result_name << " = " << to_string(reg) << ";\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -214,7 +214,7 @@ uintptr_t InterpreterCodeGenerator::get_register_value16(Register16 reg){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
-	s << TEMPDECL << result_name << " = this->registers.get(" << to_string(reg) << ");\n";
+	s << TEMPDECL << result_name << " = " << to_string(reg) << ";\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -225,7 +225,7 @@ uintptr_t InterpreterCodeGenerator::load_hl8(){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
-	s << TEMPDECL << result_name << " = this->memory_controller.load8(this->registers.get(Register16::HL));\n";
+	s << TEMPDECL << result_name << " = this->memory_controller.load8(this->registers.hl());\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -289,25 +289,19 @@ uintptr_t InterpreterCodeGenerator::load_sp_offset16(uintptr_t val){
 void InterpreterCodeGenerator::write_register8(Register8 reg, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->registers.set(" << to_string(reg) << ", " << temp_to_string(val) << ");\n";
-}
-
-void InterpreterCodeGenerator::write_register16_literal(Register16 reg, unsigned val){
-	auto &back = this->definition_stack.back();
-	auto &s = *back.function_contents;
-	s << "\tthis->registers.set(" << to_string(reg) << ", " << val << ");\n";
+	s << "\t" << to_string(reg) << " = " << temp_to_string(val) << ";\n";
 }
 
 void InterpreterCodeGenerator::write_register16(Register16 reg, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->registers.set(" << to_string(reg) << ", " << temp_to_string(val) << ");\n";
+	s << "\t" << to_string(reg) << " = " << temp_to_string(val) << ";\n";
 }
 
 void InterpreterCodeGenerator::store_hl8(uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->memory_controller.store8(this->registers.get(Register16::HL), " << temp_to_string(val) << ");\n";
+	s << "\tthis->memory_controller.store8(this->registers.hl(), " << temp_to_string(val) << ");\n";
 }
 
 void InterpreterCodeGenerator::store_mem8(uintptr_t mem, uintptr_t val){
@@ -643,7 +637,7 @@ void InterpreterCodeGenerator::set_PC_if(uintptr_t val, ConditionalJumpType type
 		default:
 			abort();
 	}
-	s << condition << "\t\tthis->registers.set(Register16::PC, " << temp_to_string(val) << ");\n";
+	s << condition << "\t\tthis->registers.pc() = " << temp_to_string(val) << ";\n";
 }
 
 void InterpreterCodeGenerator::add8_PC_if(uintptr_t val, ConditionalJumpType type){

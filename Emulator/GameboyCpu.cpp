@@ -40,10 +40,6 @@ void GameboyCpu::initialize(){
 		input.read(&data[0], data.size());
 		this->memory_controller.load_rom_at(&data[0], data.size(), 0);
 	}
-	this->rerun();
-}
-
-void GameboyCpu::rerun(){
 	char temp[0x100];
 	this->memory_controller.copy_out_memory_at(temp, sizeof(temp), 0);
 	this->memory_controller.load_rom_at(gb_bootstrap_rom, gb_bootstrap_rom_size, 0);
@@ -55,10 +51,10 @@ void GameboyCpu::rerun(){
 	this->run();
 	QueryPerformanceCounter(&end);
 	double real_time = (double)(end.QuadPart - start.QuadPart) / (double)frequency.QuadPart * 1e+6;
-	double emulated_time = (double)this->total_cycles / (double)gb_frequency;
-	//std::cout <<
-	//	"Real time    : " << real_time << " us\n"
-	//	"Emulated time: " << emulated_time << " us\n";
+	double emulated_time = (double)this->total_cycles / (double)gb_frequency * 1e+6;
+	std::cout <<
+		"Real time    : " << real_time << " us\n"
+		"Emulated time: " << emulated_time << " us\n";
 	this->break_on_address = -1;
 	this->memory_controller.load_rom_at(temp, sizeof(temp), 0);
 }
@@ -86,15 +82,16 @@ void GameboyCpu::abort(){
 void GameboyCpu::run(){
 	this->running = true;
 	while (this->running){
-		auto pc = this->registers.get(Register16::PC);
+		auto &pc = this->registers.pc();
 		this->current_pc = pc;
 		if (this->break_on_address >= 0 && pc >= this->break_on_address){
 			this->running = false;
 			break;
 		}
 		auto opcode = this->memory_controller.load8(pc);
-		this->registers.set(Register16::PC, pc + 1);
+		pc++;
 		auto function_pointer = this->opcode_table[opcode];
 		(this->*function_pointer)();
+		this->total_instructions++;
 	}
 }

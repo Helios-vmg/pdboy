@@ -49,7 +49,6 @@ public:
 	//uintptr_t load_sp_offset8(uintptr_t) override;
 	uintptr_t load_sp_offset16(uintptr_t) override;
 	void write_register8(Register8, uintptr_t) override;
-	void write_register16_literal(Register16, unsigned) override;
 	void write_register16(Register16, uintptr_t) override;
 	void store_hl8(uintptr_t) override;
 	void store_mem8(uintptr_t mem, uintptr_t val) override;

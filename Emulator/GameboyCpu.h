@@ -11,6 +11,7 @@ class GameboyCpu{
 #include "../generated_files/cpu.generated.h"
 public:
 	std::uint64_t total_cycles = 0;
+	std::uint64_t total_instructions = 0;
 	integer_type current_pc;
 
 	GameboyCpu(): registers(*this){}
@@ -21,12 +22,15 @@ public:
 	void halt();
 	void abort();
 	void run();
-	void rerun();
 };
 
 template <typename T>
 T sign_extend8(T n){
+#if 0
 	if (n & 0x80)
 		n |= ~(T)0xFF;
 	return n;
+#else
+	return (T)(typename std::make_signed<T>::type)(char)n;
+#endif
 }
