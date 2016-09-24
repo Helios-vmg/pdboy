@@ -3,7 +3,7 @@
 #include <iomanip>
 #include <type_traits>
 
-#define TEMPTYPE "unsigned"
+#define TEMPTYPE "integer_type"
 #define TEMPDECL "\t" TEMPTYPE " "
 #define CONSTTEMPDECL "\tconst " TEMPTYPE " "
 
@@ -466,13 +466,13 @@ static std::pair<std::string, std::string> to_string(const FlagSetting &setting)
 	std::string temp;
 	switch (setting.op){
 		case FlagSetting::Operation::Reset:
-			return { "0U", "0U" };
+			return { "(" TEMPTYPE ")0", "(" TEMPTYPE ")0" };
 		case FlagSetting::Operation::Set:
-			return { "0U", "1U" };
+			return { "(" TEMPTYPE ")0", "(" TEMPTYPE ")1" };
 		case FlagSetting::Operation::Keep:
-			return { "1U", "0U" };
+			return { "(" TEMPTYPE ")1", "(" TEMPTYPE ")0" };
 		case FlagSetting::Operation::Flip:
-			return { "1U", "1U" };
+			return { "(" TEMPTYPE ")1", "(" TEMPTYPE ")1" };
 		case FlagSetting::Operation::IfNonZero:
 			temp = "!";
 		case FlagSetting::Operation::IfZero:
@@ -482,17 +482,17 @@ static std::pair<std::string, std::string> to_string(const FlagSetting &setting)
 		default:
 			abort();
 	}
-	return{ "0", "(unsigned)" + temp };
+	return{ "0", "(" TEMPTYPE ")" + temp };
 }
 
 void InterpreterCodeGenerator::set_flags(const FlagSettings &fs){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	std::pair<FlagSetting, const char *> settings[] = {
-		{fs.zero, "7U"},
-		{fs.subtract, "6U"},
-		{fs.half_carry, "5U"},
-		{fs.carry, "4U"},
+		{fs.zero, "(" TEMPTYPE ")7"},
+		{fs.subtract, "(" TEMPTYPE ")6"},
+		{fs.half_carry, "(" TEMPTYPE ")5"},
+		{fs.carry, "(" TEMPTYPE ")4"},
 	};
 	std::sort(settings, settings + array_length(settings), [](auto &a, auto &b){ return (int)a.first.op < (int)b.first.op; });
 	int i = 0;

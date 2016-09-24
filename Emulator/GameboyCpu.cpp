@@ -6,6 +6,8 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 
+const unsigned gb_frequency = 4194304;
+
 unsigned char gb_bootstrap_rom[] = {
 	0x31,0xFE,0xFF,0xAF,0x21,0xFF,0x9F,0x32,0xCB,0x7C,0x20,0xFB,0x21,0x26,0xFF,0x0E,
 	0x11,0x3E,0x80,0x32,0xE2,0x0C,0x3E,0xF3,0xE2,0x32,0x3E,0x77,0x77,0x3E,0xFC,0xE0,
@@ -38,16 +40,30 @@ void GameboyCpu::initialize(){
 		input.read(&data[0], data.size());
 		this->memory_controller.load_rom_at(&data[0], data.size(), 0);
 	}
+	this->rerun();
+}
+
+void GameboyCpu::rerun(){
 	char temp[0x100];
 	this->memory_controller.copy_out_memory_at(temp, sizeof(temp), 0);
 	this->memory_controller.load_rom_at(gb_bootstrap_rom, gb_bootstrap_rom_size, 0);
 	this->break_on_address = 0x66;
+	LARGE_INTEGER frequency, start, end;
+	QueryPerformanceFrequency(&frequency);
+	QueryPerformanceCounter(&start);
+	this->registers = RegisterStore(*this);
 	this->run();
+	QueryPerformanceCounter(&end);
+	double real_time = (double)(end.QuadPart - start.QuadPart) / (double)frequency.QuadPart * 1e+6;
+	double emulated_time = (double)this->total_cycles / (double)gb_frequency;
+	//std::cout <<
+	//	"Real time    : " << real_time << " us\n"
+	//	"Emulated time: " << emulated_time << " us\n";
 	this->break_on_address = -1;
 	this->memory_controller.load_rom_at(temp, sizeof(temp), 0);
 }
 
-void GameboyCpu::take_time(unsigned cycles){
+void GameboyCpu::take_time(integer_type cycles){
 	this->total_cycles += cycles;
 }
 

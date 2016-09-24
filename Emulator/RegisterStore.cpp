@@ -8,11 +8,11 @@ RegisterStore::RegisterStore(GameboyCpu &cpu): cpu(&cpu){
 	memset(this->registers, 0, sizeof(this->registers));
 }
 
-unsigned RegisterStore::get(Register8 reg) const{
+integer_type RegisterStore::get(Register8 reg) const{
 	return this->registers[(int)reg];
 }
 
-void RegisterStore::set(Register8 reg, unsigned value){
+void RegisterStore::set(Register8 reg, integer_type value){
 	//if (reg == Register8::A){
 	//	std::cout << "PC = 0x" << std::hex << std::setw(4) << std::setfill('0') << this->cpu->current_pc << std::endl;
 	//	std::cout << "A  = 0x" << std::hex << std::setw(4) << std::setfill('0') << (value & 0xFF) << std::endl;
@@ -20,7 +20,7 @@ void RegisterStore::set(Register8 reg, unsigned value){
 	this->registers[(int)reg] = value & 0xFF;
 }
 
-unsigned RegisterStore::get(Register16 reg) const{
+integer_type RegisterStore::get(Register16 reg) const{
 	Register8 hi, lo;
 	switch (reg){
 		case Register16::AF:
@@ -49,7 +49,7 @@ unsigned RegisterStore::get(Register16 reg) const{
 	return (this->get(hi) << 8) | this->get(lo);
 }
 
-void RegisterStore::set(Register16 reg, unsigned value){
+void RegisterStore::set(Register16 reg, integer_type value){
 	value &= 0xFFFF;
 	Register8 hi, lo;
 	switch (reg){
@@ -84,14 +84,14 @@ void RegisterStore::set(Register16 reg, unsigned value){
 
 void RegisterStore::set_flags(bool zero, bool subtract, bool half_carry, bool carry){
 	unsigned val =
-		((unsigned)zero << (unsigned)Flags::Zero) |
-		((unsigned)subtract << (unsigned)Flags::Subtract) |
-		((unsigned)half_carry << (unsigned)Flags::HalfCarry) |
-		((unsigned)carry << (unsigned)Flags::Carry);
+		((integer_type)zero << (integer_type)Flags::Zero) |
+		((integer_type)subtract << (integer_type)Flags::Subtract) |
+		((integer_type)half_carry << (integer_type)Flags::HalfCarry) |
+		((integer_type)carry << (integer_type)Flags::Carry);
 	this->set(Register8::Flags, val);
 }
 
-void RegisterStore::set_flags(unsigned mode_mask, unsigned value_mask){
+void RegisterStore::set_flags(integer_type mode_mask, integer_type value_mask){
 	auto value = this->get(Register8::Flags);
 	value = (~mode_mask & value_mask) | (mode_mask & (value ^ value_mask));
 	this->set(Register8::Flags, value);

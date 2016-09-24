@@ -8,19 +8,20 @@ class GameboyCpu{
 	MemoryController memory_controller;
 	bool running = false;
 	int break_on_address = -1;
-	std::uint64_t total_cycles = 0;
 #include "../generated_files/cpu.generated.h"
 public:
-	unsigned current_pc;
+	std::uint64_t total_cycles = 0;
+	integer_type current_pc;
 
 	GameboyCpu(): registers(*this){}
 	void initialize();
-	void take_time(unsigned cycles);
+	void take_time(integer_type cycles);
 	void interrupt_toggle(bool);
 	void stop();
 	void halt();
 	void abort();
 	void run();
+	void rerun();
 };
 
 template <typename T>

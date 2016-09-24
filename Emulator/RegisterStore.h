@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 
 enum class Register8{
 	B = 0,
@@ -33,21 +34,23 @@ enum class Flags{
 
 class GameboyCpu;
 
+typedef unsigned integer_type;
+
 class RegisterStore{
 	GameboyCpu *cpu;
-	unsigned registers[10];
+	integer_type registers[10];
 public:
 	RegisterStore(GameboyCpu &cpu);
-	unsigned get(Register8 reg) const;
-	void set(Register8 reg, unsigned value);
-	unsigned get(Register16 reg) const;
-	void set(Register16 reg, unsigned value);
+	integer_type get(Register8 reg) const;
+	void set(Register8 reg, integer_type value);
+	integer_type get(Register16 reg) const;
+	void set(Register16 reg, integer_type value);
 	bool get(Flags flag) const{
-		return !!(this->get(Register8::Flags) & (1 << (unsigned)flag));
+		return !!(this->get(Register8::Flags) & ((integer_type)1 << (integer_type)flag));
 	}
 	void set(Flags flag, bool value){
-		unsigned mask = 1 << (unsigned)flag;
-		unsigned val = this->get(Register8::Flags);
+		integer_type mask = (integer_type)1 << (integer_type)flag;
+		integer_type val = this->get(Register8::Flags);
 		if (value)
 			val |= mask;
 		else
@@ -55,11 +58,11 @@ public:
 		this->set(Register8::Flags, val);
 	}
 	void set_flags(bool zero, bool subtract, bool half_carry, bool carry);
-	void set_flags(unsigned mode_mask, unsigned value_mask);
-	unsigned sp() const{
+	void set_flags(integer_type mode_mask, integer_type value_mask);
+	integer_type sp() const{
 		return this->get(Register16::SP);
 	}
-	unsigned pc() const{
+	integer_type pc() const{
 		return this->get(Register16::PC);
 	}
 };
