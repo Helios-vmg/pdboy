@@ -289,32 +289,39 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		bool decrement = (opcode & 1) == 1;
 		auto operand = (Register8)((opcode >> 3) & 7);
 		unsigned time;
-		uintptr_t val;
+		uintptr_t val = 0;
+		uintptr_t one = generator.get_imm_value(decrement ? 0xFF : 1);
+		uintptr_t addr = 0;
+
 		if (operand == Register8::None){
-			auto mem = generator.load_hl8();
-			if (decrement)
-				val = generator.minus_1(mem);
-			else
-				val = generator.plus_1(mem);
-			generator.store_mem8(mem, val);
+			addr = generator.get_register_value16(Register16::HL);
+			val = generator.load_mem8(addr);
 			time = 12;
 		}else{
 			val = generator.get_register_value8(operand);
-			if (decrement)
-				val = generator.minus_1(val);
-			else
-				val = generator.plus_1(val);
-			generator.write_register8(operand, val);
 			time = 4;
 		}
-		generator.set_flags(
-		{
-			FlagSetting::IfZero(val),
-			(decrement ? FlagSetting::Set : FlagSetting::Reset),
-			FlagSetting::IfZero(generator.and8(val, generator.get_imm_value(0x0F))),
-			FlagSetting::Keep
+
+		auto array = generator.add8(val, one);
+		val = array[0];
+
+		if (operand == Register8::None)
+			generator.store_mem8(addr, val);
+		else
+			generator.write_register8(operand, val);
+
+		auto half_carry = FlagSetting::Keep;
+		auto sub = FlagSetting::Keep;
+
+		if (decrement){
+			sub = FlagSetting::Set;
+			half_carry = FlagSetting::IfZero(array[1]);
+		}else{
+			sub = FlagSetting::Reset;
+			half_carry = FlagSetting::IfNonZero(array[1]);
 		}
-		);
+
+		generator.set_flags({ FlagSetting::IfZero(val), sub, half_carry, FlagSetting::Keep });
 		generator.take_time(time);
 		return;
 	}

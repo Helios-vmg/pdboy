@@ -119,6 +119,8 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(ProjectDir)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <OmitFramePointers>true</OmitFramePointers>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -139,8 +141,9 @@
       <AdditionalIncludeDirectories>$(ProjectDir)</AdditionalIncludeDirectories>
       <OmitFramePointers>true</OmitFramePointers>
       <BufferSecurityCheck>false</BufferSecurityCheck>
-      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -151,15 +154,21 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\generated_files\cpu.generated.cpp" />
+    <ClCompile Include="DisplayController.cpp" />
     <ClCompile Include="GameboyCpu.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MemoryController.cpp" />
     <ClCompile Include="RegisterStore.cpp" />
+    <ClCompile Include="timer.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CommonTypes.h" />
+    <ClInclude Include="DisplayController.h" />
+    <ClInclude Include="exceptions.h" />
     <ClInclude Include="GameboyCpu.h" />
     <ClInclude Include="MemoryController.h" />
     <ClInclude Include="RegisterStore.h" />
+    <ClInclude Include="timer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

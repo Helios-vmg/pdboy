@@ -1,6 +1,9 @@
 #include "GameboyCpu.h"
-#include <Windows.h>
 #include <iostream>
+#include <Windows.h>
+#include <timeapi.h>
+
+#pragma comment(lib, "winmm.lib")
 
 int main(){
 	GameboyCpu cpu;

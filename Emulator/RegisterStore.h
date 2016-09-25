@@ -1,5 +1,5 @@
 #pragma once
-#include <cstdint>
+#include "CommonTypes.h"
 
 #define REGISTERS_IN_STRUCT
 
@@ -32,37 +32,35 @@ enum class Flags{
 
 class GameboyCpu;
 
-typedef unsigned integer_type;
-
 class RegisterStore{
 	GameboyCpu *cpu;
 	struct{
 		union{
 			std::uint16_t af;
 			struct{
-				std::uint8_t f;
-				std::uint8_t a;
+				byte_t f;
+				byte_t a;
 			} u8;
 		} af;
 		union{
 			std::uint16_t bc;
 			struct{
-				std::uint8_t c;
-				std::uint8_t b;
+				byte_t c;
+				byte_t b;
 			} u8;
 		} bc;
 		union{
 			std::uint16_t de;
 			struct{
-				std::uint8_t e;
-				std::uint8_t d;
+				byte_t e;
+				byte_t d;
 			} u8;
 		} de;
 		union{
 			std::uint16_t hl;
 			struct{
-				std::uint8_t l;
-				std::uint8_t h;
+				byte_t l;
+				byte_t h;
 			} u8;
 		} hl;
 		std::uint16_t sp;
@@ -71,10 +69,10 @@ class RegisterStore{
 public:
 	RegisterStore(GameboyCpu &cpu);
 	bool get(Flags flag) const{
-		return !!(this->f() & ((integer_type)1 << (integer_type)flag));
+		return !!(this->f() & ((main_integer_t)1 << (main_integer_t)flag));
 	}
 	void set(Flags flag, bool value){
-		integer_type mask = (integer_type)1 << (integer_type)flag;
+		main_integer_t mask = (main_integer_t)1 << (main_integer_t)flag;
 		auto &val = this->f();
 		if (value)
 			val |= mask;
@@ -82,33 +80,33 @@ public:
 			val ^= mask;
 	}
 	void set_flags(bool zero, bool subtract, bool half_carry, bool carry);
-	void set_flags(integer_type mode_mask, integer_type value_mask);
+	void set_flags(main_integer_t mode_mask, main_integer_t value_mask);
 
-	std::uint8_t &a(){
+	byte_t &a(){
 		return this->data.af.u8.a;
 	}
-	std::uint8_t &f(){
+	byte_t &f(){
 		return this->data.af.u8.f;
 	}
-	const std::uint8_t &f() const{
+	const byte_t &f() const{
 		return this->data.af.u8.f;
 	}
-	std::uint8_t &b(){
+	byte_t &b(){
 		return this->data.bc.u8.b;
 	}
-	std::uint8_t &c(){
+	byte_t &c(){
 		return this->data.bc.u8.c;
 	}
-	std::uint8_t &d(){
+	byte_t &d(){
 		return this->data.de.u8.d;
 	}
-	std::uint8_t &e(){
+	byte_t &e(){
 		return this->data.de.u8.e;
 	}
-	std::uint8_t &h(){
+	byte_t &h(){
 		return this->data.hl.u8.h;
 	}
-	std::uint8_t &l(){
+	byte_t &l(){
 		return this->data.hl.u8.l;
 	}
 
