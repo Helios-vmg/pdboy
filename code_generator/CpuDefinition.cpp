@@ -547,10 +547,13 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		else
 			offset = generator.load_program_counter8();
 
+		auto base = generator.get_imm_value(0xFF00);
+		auto addr = generator.add16(base, offset)[0];
+
 		if (load)
-			generator.write_A(generator.load_ff00_offset8(offset));
+			generator.write_A(generator.load_mem8(addr));
 		else
-			generator.store_mem_ff00_8(offset, generator.get_A());
+			generator.store_mem8(addr, generator.get_A());
 
 		generator.take_time(using_C ? 8 : 12);
 		return;

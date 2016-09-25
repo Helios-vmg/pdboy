@@ -3,7 +3,7 @@
 #include <iomanip>
 #include <type_traits>
 
-#define TEMPTYPE "integer_type"
+#define TEMPTYPE "main_integer_t"
 #define TEMPDECL "\t" TEMPTYPE " "
 #define CONSTTEMPDECL "\tconst " TEMPTYPE " "
 
@@ -176,7 +176,7 @@ uintptr_t InterpreterCodeGenerator::load_program_counter8(){
 	auto result_name = get_temp_name(n++);
 	s
 		<< TEMPDECL << temp_name << " = this->registers.pc();\n"
-		<< "\tthis->registers.pc() = " << temp_name << " + 1;\n"
+		<< "\tthis->registers.pc() = (std::uint16_t)" << temp_name << " + 1;\n"
 		<< TEMPDECL << result_name << " = this->memory_controller.load8(" << temp_name << ");\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
@@ -191,7 +191,7 @@ uintptr_t InterpreterCodeGenerator::load_program_counter16(){
 	auto result_name = get_temp_name(n++);
 	s
 		<< TEMPDECL << temp_name << " = this->registers.pc();\n"
-		<< "\tthis->registers.pc() = " << temp_name << " + 2;\n"
+		<< "\tthis->registers.pc() = (std::uint16_t)(" << temp_name << " + 2);\n"
 		<< TEMPDECL << result_name << " = this->memory_controller.load16(" << temp_name << ");\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
@@ -253,28 +253,6 @@ uintptr_t InterpreterCodeGenerator::load_mem16(uintptr_t val){
 	return (uintptr_t)ret;
 }
 
-uintptr_t InterpreterCodeGenerator::load_ff00_offset8(uintptr_t val){
-	auto &back = this->definition_stack.back();
-	auto &s = *back.function_contents;
-	auto &n = back.temporary_index;
-	auto result_name = get_temp_name(n++);
-	s << TEMPDECL << result_name << " = this->memory_controller.load16(0xFF00 + " << temp_to_string(val) << ");\n";
-	auto ret = copy(result_name);
-	this->temporary_values.push_back(ret);
-	return (uintptr_t)ret;
-}
-
-//uintptr_t InterpreterCodeGenerator::load_sp_offset8(uintptr_t val){
-//	auto &back = this->definition_stack.back();
-//	auto &s = *back.function_contents;
-//	auto &n = back.temporary_index;
-//	auto name = get_temp_name(n++);
-//	s << TEMPDECL << name << " = this->memory_controller.load16(this->registers.sp() + " << (std::string *)val << ");\n";
-//	auto ret = copy(name);
-//	this->temporary_values.push_back(ret);
-//	return (uintptr_t)ret;
-//}
-
 uintptr_t InterpreterCodeGenerator::load_sp_offset16(uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
@@ -289,13 +267,13 @@ uintptr_t InterpreterCodeGenerator::load_sp_offset16(uintptr_t val){
 void InterpreterCodeGenerator::write_register8(Register8 reg, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\t" << to_string(reg) << " = " << temp_to_string(val) << ";\n";
+	s << "\t" << to_string(reg) << " = (byte_t)" << temp_to_string(val) << ";\n";
 }
 
 void InterpreterCodeGenerator::write_register16(Register16 reg, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\t" << to_string(reg) << " = " << temp_to_string(val) << ";\n";
+	s << "\t" << to_string(reg) << " = (std::uint16_t)" << temp_to_string(val) << ";\n";
 }
 
 void InterpreterCodeGenerator::store_hl8(uintptr_t val){
@@ -316,12 +294,6 @@ void InterpreterCodeGenerator::store_mem16(uintptr_t mem, uintptr_t val){
 	s << "\tthis->memory_controller.store16(" << temp_to_string(mem) << ", " << temp_to_string(val) << ");\n";
 }
 
-void InterpreterCodeGenerator::store_mem_ff00_8(uintptr_t offset, uintptr_t val){
-	auto &back = this->definition_stack.back();
-	auto &s = *back.function_contents;
-	s << "\tthis->memory_controller.store8(0xFF00 + " << temp_to_string(offset) << ", " << temp_to_string(val) << ");\n";
-}
-
 void InterpreterCodeGenerator::take_time(unsigned cycles){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
@@ -334,7 +306,7 @@ void InterpreterCodeGenerator::zero_flags(){
 	s << "\tthis->set(Register8::Flags, 0);\n";
 }
 
-std::array<uintptr_t, 3> InterpreterCodeGenerator::add(uintptr_t valA, uintptr_t valB, unsigned modulo){
+std::array<uintptr_t, 3> InterpreterCodeGenerator::add(uintptr_t valA, uintptr_t valB, unsigned operand_size, unsigned modulo){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
@@ -358,6 +330,13 @@ std::array<uintptr_t, 3> InterpreterCodeGenerator::add(uintptr_t valA, uintptr_t
 		<< TEMPDECL << carrybits_name << " = " << valA_name << " ^ " << valB_name << " ^ " << result_name << ";\n"
 		<< TEMPDECL << half_carry_name << " = " << carrybits_name << " & " << half_carry_mask << ";\n"
 		<< TEMPDECL << full_carry_name << " = " << carrybits_name << " & " << full_carry_mask << ";\n";
+
+	if (operand_size == 8)
+		s << "\t" << result_name << " = " << result_name << " & 0xFF;\n";
+	else if (operand_size == 16)
+		s << "\t" << result_name << " = " << result_name << " & 0xFFFF;\n";
+	else
+		abort();
 
 	std::string *retp[] = { copy(result_name), copy(half_carry_name), copy(full_carry_name) };
 	std::array<uintptr_t, 3> ret;
@@ -637,7 +616,7 @@ void InterpreterCodeGenerator::set_PC_if(uintptr_t val, ConditionalJumpType type
 		default:
 			abort();
 	}
-	s << condition << "\t\tthis->registers.pc() = " << temp_to_string(val) << ";\n";
+	s << condition << "\t\tthis->registers.pc() = (std::uint16_t)" << temp_to_string(val) << ";\n";
 }
 
 void InterpreterCodeGenerator::add8_PC_if(uintptr_t val, ConditionalJumpType type){
@@ -735,22 +714,8 @@ std::pair<uintptr_t, uintptr_t> InterpreterCodeGenerator::perform_decimal_adjust
 	auto carry_name = get_temp_name(n++);
 
 	s
-		<< TEMPDECL << result_name << " = " << temp_to_string(val) << " & 0xFF;\n"
-		<< "\tif (!this->registers.get(Flags::Subtract)){\n"
-		<< "\t\tif (this->registers.get(Flags::HalfCarry) || (" << result_name << " & 0x0F) > 9)\n"
-		<< "\t\t\t" << result_name << " += 6;\n"
-		<< "\n"
-		<< "\t\tif (this->registers.get(Flags::Carry) || " << result_name << " > 0x9F)\n"
-		<< "\t\t\t" << result_name << " += 0x60;\n"
-		<< "\t}else{\n"
-		<< "\t\tif (this->registers.get(Flags::HalfCarry))\n"
-		<< "\t\t\t" << result_name << " = (" << result_name << " - 6) & 0xFF;\n"
-		<< "\n"
-		<< "\t\tif (this->registers.get(Flags::Carry))\n"
-		<< "\t\t\t" << result_name << " -= 0x60;\n"
-		<< "\t}\n";
-
-	s << TEMPDECL << carry_name << " = " << result_name << " & 0x100;\n";
+		<< TEMPDECL << result_name << " = this->decimal_adjust(" << temp_to_string(val) << ");\n"
+		<< TEMPDECL << carry_name << " = " << result_name << " & 0x100;\n";
 
 	auto ret0 = copy(result_name);
 	auto ret1 = copy(carry_name);

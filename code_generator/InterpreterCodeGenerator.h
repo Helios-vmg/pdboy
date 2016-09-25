@@ -21,7 +21,7 @@ class InterpreterCodeGenerator : public CodeGenerator{
 	std::vector<std::string *> temporary_values;
 	std::string class_name;
 
-	std::array<uintptr_t, 3> add(uintptr_t, uintptr_t, unsigned modulo = 8);
+	std::array<uintptr_t, 3> add(uintptr_t, uintptr_t, unsigned operand_size, unsigned modulo = 8);
 protected:
 	void begin_opcode_definition(unsigned first) override;
 	void end_opcode_definition(unsigned first) override;
@@ -45,22 +45,19 @@ public:
 	uintptr_t load_hl8() override;
 	uintptr_t load_mem8(uintptr_t) override;
 	uintptr_t load_mem16(uintptr_t) override;
-	uintptr_t load_ff00_offset8(uintptr_t) override;
-	//uintptr_t load_sp_offset8(uintptr_t) override;
 	uintptr_t load_sp_offset16(uintptr_t) override;
 	void write_register8(Register8, uintptr_t) override;
 	void write_register16(Register16, uintptr_t) override;
 	void store_hl8(uintptr_t) override;
 	void store_mem8(uintptr_t mem, uintptr_t val) override;
 	void store_mem16(uintptr_t mem, uintptr_t val) override;
-	void store_mem_ff00_8(uintptr_t mem, uintptr_t val) override;
 	void take_time(unsigned) override;
 	void zero_flags() override;
 	std::array<uintptr_t, 3> add8(uintptr_t a, uintptr_t b) override{
-		return this->add(a, b);
+		return this->add(a, b, 8);
 	}
 	std::array<uintptr_t, 3> add16_using_carry_modulo_16(uintptr_t a, uintptr_t b) override{
-		return this->add(a, b, 16);
+		return this->add(a, b, 16, 16);
 	}
 	std::array<uintptr_t, 3> add8_carry(uintptr_t, uintptr_t) override;
 	std::array<uintptr_t, 3> sub8(uintptr_t, uintptr_t) override;
@@ -74,7 +71,7 @@ public:
 	uintptr_t plus_1(uintptr_t) override;
 	uintptr_t minus_1(uintptr_t) override;
 	std::array<uintptr_t, 3> add16(uintptr_t a, uintptr_t b) override{
-		return this->add(a, b);
+		return this->add(a, b, 16);
 	}
 	uintptr_t bitwise_not(uintptr_t) override;
 	void disable_interrupts() override;
