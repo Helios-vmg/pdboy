@@ -94,7 +94,7 @@ public:
 	}
 
 	virtual void stop() = 0;
-	virtual uintptr_t shift_left(uintptr_t val) = 0;
+	virtual uintptr_t shift8_left(uintptr_t val) = 0;
 	virtual uintptr_t arithmetic_shift_right(uintptr_t val) = 0;
 	virtual uintptr_t bitwise_shift_right(uintptr_t val) = 0;
 	virtual uintptr_t get_bit_value(uintptr_t val, unsigned bit) = 0;

@@ -224,6 +224,7 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 			auto old_bit_0 = generator.get_bit_value(old_a, 0);
 			fs.carry = FlagSetting::IfNonZero(old_bit_0);
 		}
+		generator.write_register8(Register8::A, val);
 		generator.set_flags(fs);
 		generator.take_time(4);
 		return;
@@ -605,7 +606,7 @@ void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerat
 				carry = old_bit_0;
 				break;
 			case BitwiseOps::ShiftLeft:
-				val = generator.shift_left(val);
+				val = generator.shift8_left(val);
 				carry = old_bit_7;
 				break;
 			case BitwiseOps::ArithmeticShiftRight:

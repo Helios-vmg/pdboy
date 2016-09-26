@@ -4,6 +4,7 @@
 #include <unordered_map>
 
 class GameboyCpu;
+class MemoryController;
 
 #define DECLARE_DISPLAY_RO_CONTROLLER_PROPERTY(x) byte_t get_##x()
 
@@ -35,6 +36,8 @@ class DisplayController{
 	unsigned get_row_status();
 public:
 	DisplayController(GameboyCpu &cpu);
+
+	void dump_background(const char *filename, MemoryController &);
 
 	DECLARE_DISPLAY_RO_CONTROLLER_PROPERTY(y_coordinate);
 	DECLARE_DISPLAY_CONTROLLER_PROPERTY(status);

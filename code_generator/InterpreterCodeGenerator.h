@@ -80,7 +80,7 @@ public:
 	void set_PC_if(uintptr_t, ConditionalJumpType) override;
 	void add8_PC_if(uintptr_t, ConditionalJumpType) override;
 	void stop() override;
-	uintptr_t shift_left(uintptr_t val) override;
+	uintptr_t shift8_left(uintptr_t val) override;
 	uintptr_t arithmetic_shift_right(uintptr_t val) override;
 	uintptr_t bitwise_shift_right(uintptr_t val) override;
 	uintptr_t get_bit_value(uintptr_t val, unsigned bit) override;

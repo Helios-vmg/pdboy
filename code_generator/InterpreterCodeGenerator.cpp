@@ -590,6 +590,8 @@ uintptr_t InterpreterCodeGenerator::rotate8(uintptr_t val, bool left, bool throu
 		}
 	}
 
+	s << "\t" << result_name << " = " << result_name << " & 0xFF;\n";
+
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -630,13 +632,15 @@ void InterpreterCodeGenerator::stop(){
 	s << "\tthis->stop();\n";
 }
 
-uintptr_t InterpreterCodeGenerator::shift_left(uintptr_t val){
+uintptr_t InterpreterCodeGenerator::shift8_left(uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
 
 	s << TEMPDECL << result_name << " = " << temp_to_string(val) << " << 1;\n";
+
+	s << "\t" << result_name << " = " << result_name << " & 0xFF;\n";
 
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
