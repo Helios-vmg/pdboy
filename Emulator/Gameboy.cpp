@@ -16,6 +16,7 @@ void Gameboy::run(const std::function<void(DisplayController &)> &render_callbac
 	while (true){
 		this->cpu.run_one_instruction();
 		if (this->display_controller.ready_to_draw()){
+			this->cpu.vblank_irq();
 			render_callback(this->display_controller);
 		}
 	}
@@ -27,8 +28,4 @@ void Gameboy::run(const std::function<void(DisplayController &)> &render_callbac
 	std::cout <<
 		"Real time    : " << real_time << " us\n"
 		"Emulated time: " << emulated_time << " us\n";
-}
-
-void Gameboy::interrupt_toggle(bool enable){
-	throw NotImplementedException();
 }

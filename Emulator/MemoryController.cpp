@@ -31,8 +31,9 @@ const size_t gb_bootstrap_rom_size = sizeof(gb_bootstrap_rom);
 
 const size_t function_table_sizes = 0x4C;
 
-MemoryController::MemoryController(Gameboy &system):
+MemoryController::MemoryController(Gameboy &system, GameboyCpu &cpu):
 		system(&system),
+		cpu(&cpu),
 		display(&system.get_display_controller()),
 		memoryp(new byte_t[0x10000]),
 		stor_functions(new store_func_t[function_table_sizes]),
@@ -79,8 +80,8 @@ void MemoryController::initialize_functions(){
 	this->load_functions[0x0d] = &MemoryController::load_not_implemented;
 	this->stor_functions[0x0e] = &MemoryController::store_not_implemented;
 	this->load_functions[0x0e] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x0f] = &MemoryController::store_not_implemented;
-	this->load_functions[0x0f] = &MemoryController::load_not_implemented;
+	this->stor_functions[0x0f] = &MemoryController::store_IF;
+	this->load_functions[0x0f] = &MemoryController::load_IF;
 
 	//Audio:
 	//this->stor_functions[0x10] = &MemoryController::stor_not_implemented;
@@ -287,6 +288,14 @@ byte_t MemoryController::load_LCDC() const{
 
 void MemoryController::store_LCDC(byte_t b){
 	this->display->set_lcd_control(b);
+}
+
+byte_t MemoryController::load_IF() const{
+	return this->cpu->get_interrupt_flag();
+}
+
+void MemoryController::store_IF(byte_t b){
+	this->cpu->set_interrupt_flag(b);
 }
 
 void MemoryController::fix_up_address(main_integer_t &address){

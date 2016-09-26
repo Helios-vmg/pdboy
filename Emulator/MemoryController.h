@@ -14,6 +14,7 @@ class Gameboy;
 
 class MemoryController{
 	Gameboy *system;
+	GameboyCpu *cpu;
 	DisplayController *display;
 	std::unique_ptr<byte_t[]> memoryp;
 	byte_t *memory;
@@ -36,8 +37,9 @@ class MemoryController{
 	DECLARE_IO_REGISTER(SCY);
 	DECLARE_IO_REGISTER(SCX);
 	DECLARE_IO_REGISTER(LCDC);
+	DECLARE_IO_REGISTER(IF);
 public:
-	MemoryController(Gameboy &);
+	MemoryController(Gameboy &, GameboyCpu &);
 	void initialize();
 	main_integer_t load8(main_integer_t address) const;
 	void store8(main_integer_t address, main_integer_t value);

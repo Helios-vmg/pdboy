@@ -53,7 +53,6 @@ bool DisplayController::ready_to_draw(){
 unsigned frames_drawn = 0;
 
 void DisplayController::render_to(byte_t *pixels, int pitch){
-	std::cout << "DisplayController::render_to(" << this->scroll_x << ", " << this->scroll_y << ")\n";
 	if (!this->memory_controller)
 		throw GenericException("Emulator internal error: DisplayController::render_to() has been called before calling DisplayController::set_memory_controller().");
 

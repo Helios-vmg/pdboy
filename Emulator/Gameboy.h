@@ -22,5 +22,4 @@ public:
 		return this->display_controller;
 	}
 	void run(const std::function<void(DisplayController &)> &render_callback);
-	void interrupt_toggle(bool);
 };

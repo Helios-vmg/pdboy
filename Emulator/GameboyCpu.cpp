@@ -8,7 +8,7 @@
 
 GameboyCpu::GameboyCpu(Gameboy &system):
 		registers(*this),
-		memory_controller(*this->system),
+		memory_controller(*this->system, *this),
 		system(&system){
 }
 
@@ -33,7 +33,7 @@ void GameboyCpu::take_time(main_integer_t cycles){
 }
 
 void GameboyCpu::interrupt_toggle(bool enable){
-	this->system->interrupt_toggle(enable);
+	this->interrupts_enabled = enable;
 }
 
 void GameboyCpu::stop(){
@@ -45,7 +45,7 @@ void GameboyCpu::halt(){
 }
 
 void GameboyCpu::abort(){
-	::abort();
+	throw GenericException("Gameboy program executed an illegal operation.");
 }
 
 byte_t GameboyCpu::load_pc_and_increment(){
@@ -60,6 +60,8 @@ void GameboyCpu::run_one_instruction(){
 
 	(this->*function_pointer)();
 	this->total_instructions++;
+
+	this->attempt_to_handle_interrupts();
 }
 
 main_integer_t GameboyCpu::decimal_adjust(main_integer_t value){
@@ -78,4 +80,32 @@ main_integer_t GameboyCpu::decimal_adjust(main_integer_t value){
 			value -= 0x60;
 	}
 	return value;
+}
+
+void GameboyCpu::set_interrupt_flag(byte_t b){
+	this->interrupt_flag = b;
+}
+
+void GameboyCpu::vblank_irq(){
+	this->interrupt_flag |= (1 << this->vblank_flag_bit);
+	this->attempt_to_handle_interrupts();
+}
+
+void GameboyCpu::attempt_to_handle_interrupts(){
+	if (!this->interrupts_enabled)
+		return;
+	for (int i = 0; i < 5; i++){
+		auto mask = 1 << i;
+		if (!(this->interrupt_flag & mask) || !(this->interrupt_enable_flag & mask))
+			continue;
+		main_integer_t stack_pointer = this->registers.sp();
+		main_integer_t new_stack_pointer = stack_pointer - 2;
+		this->registers.sp() = (std::uint16_t)new_stack_pointer;
+		main_integer_t program_counter = this->registers.pc();
+		this->memory_controller.store16(new_stack_pointer, program_counter);
+		this->registers.pc() = (std::uint16_t)(0x0040 + i * 8);
+		this->interrupt_flag &= ~mask;
+		this->interrupt_toggle(false);
+		this->take_time(4 * 5);
+	}
 }
