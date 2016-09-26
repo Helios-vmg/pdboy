@@ -1,11 +1,12 @@
 #include "DisplayController.h"
-#include "GameboyCpu.h"
+#include "Gameboy.h"
 #include "MemoryController.h"
 #include "exceptions.h"
 #include <memory>
 #include <fstream>
+#include <iostream>
 
-DisplayController::DisplayController(GameboyCpu &cpu): cpu(&cpu){
+DisplayController::DisplayController(Gameboy &system): system(&system){
 	
 }
 
@@ -39,8 +40,52 @@ void DisplayController::dump_background(const char *filename, MemoryController &
 	file.write((const char *)dump.get(), dump_size);
 }
 
+bool DisplayController::ready_to_draw(){
+	auto status = (this->get_row_status() & 3) != 3;
+	if (this->renderer_notified){
+		if (status)
+			this->renderer_notified = false;
+		return false;
+	}
+	return this->renderer_notified = !status;
+}
+
+unsigned frames_drawn = 0;
+
+void DisplayController::render_to(byte_t *pixels, int pitch){
+	std::cout << "DisplayController::render_to(" << this->scroll_x << ", " << this->scroll_y << ")\n";
+	if (!this->memory_controller)
+		throw GenericException("Emulator internal error: DisplayController::render_to() has been called before calling DisplayController::set_memory_controller().");
+
+	auto tile_vram = this->memory_controller->direct_memory_access(0x8000);
+	auto bg_vram = this->memory_controller->direct_memory_access(0x9800);
+	for (int y = 0; y < lcd_height; y++){
+		auto row = pixels + pitch * y;
+		auto src_y = (y + this->scroll_y) & 0xFF;
+		auto src_y_prime = src_y / 8 * 32;
+		auto tile_offset_y = src_y & 7;
+		for (int x = 0; x < lcd_width; x++){
+			auto dst_pixel = row + x * 4;
+			auto src_x = (x + this->scroll_x) & 0xFF;
+			auto src_bg_tile = src_x / 8 + src_y_prime;
+			auto tile_offset_x = src_x & 7;
+			auto tile_no = bg_vram[src_bg_tile];
+			auto tile = tile_vram + tile_no * 16;
+			auto src_pixelA = tile[tile_offset_y * 2 + 0];
+			auto src_pixelB = tile[tile_offset_y * 2 + 1];
+			unsigned color = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
+			auto rgba = this->palette[color];
+			dst_pixel[0] = rgba.r;
+			dst_pixel[1] = rgba.g;
+			dst_pixel[2] = rgba.b;
+			dst_pixel[3] = 0xFF;
+		}
+	}
+	frames_drawn++;
+}
+
 unsigned DisplayController::get_row_status(){
-	auto clock = this->cpu->get_current_clock();
+	auto clock = this->system->get_clock_value();
 	auto cycle = (unsigned)(clock % lcd_refresh_period);
 	auto row = cycle / 456;
 	auto sub_row = cycle % 456;

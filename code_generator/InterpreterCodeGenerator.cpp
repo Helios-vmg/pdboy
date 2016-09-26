@@ -172,12 +172,8 @@ uintptr_t InterpreterCodeGenerator::load_program_counter8(){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
-	auto temp_name = get_temp_name(n++);
 	auto result_name = get_temp_name(n++);
-	s
-		<< TEMPDECL << temp_name << " = this->registers.pc();\n"
-		<< "\tthis->registers.pc() = (std::uint16_t)" << temp_name << " + 1;\n"
-		<< TEMPDECL << result_name << " = this->memory_controller.load8(" << temp_name << ");\n";
+	s << TEMPDECL << result_name << " = this->load_pc_and_increment();\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;

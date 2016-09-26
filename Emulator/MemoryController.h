@@ -10,8 +10,10 @@ class DisplayController;
 	byte_t load_##x() const; \
 	void store_##x(byte_t)
 
+class Gameboy;
+
 class MemoryController{
-	GameboyCpu *cpu;
+	Gameboy *system;
 	DisplayController *display;
 	std::unique_ptr<byte_t[]> memoryp;
 	byte_t *memory;
@@ -35,7 +37,8 @@ class MemoryController{
 	DECLARE_IO_REGISTER(SCX);
 	DECLARE_IO_REGISTER(LCDC);
 public:
-	MemoryController(GameboyCpu &);
+	MemoryController(Gameboy &);
+	void initialize();
 	main_integer_t load8(main_integer_t address) const;
 	void store8(main_integer_t address, main_integer_t value);
 	main_integer_t load16(main_integer_t address) const;
@@ -44,4 +47,7 @@ public:
 	void load_rom_at(const void *buffer, size_t length, main_integer_t address);
 	void clear_memory_at(main_integer_t address, size_t length);
 	void toggle_boostrap_rom(bool);
+	byte_t *direct_memory_access(main_integer_t address){
+		return this->memory + address;
+	}
 };

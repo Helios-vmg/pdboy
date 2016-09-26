@@ -3,6 +3,7 @@
 #include "CommonTypes.h"
 #include <unordered_map>
 
+class Gameboy;
 class GameboyCpu;
 class MemoryController;
 
@@ -25,19 +26,25 @@ struct RGB{
 };
 
 class DisplayController{
-	GameboyCpu *cpu;
+	Gameboy *system;
+	MemoryController *memory_controller = nullptr;
 	byte_t palette_value = 0;
-	std::unordered_map<unsigned, RGB> palette;
+	RGB palette[4];
 	unsigned scroll_x = 0,
 		scroll_y = 0;
-	byte_t lcd_control;
+	byte_t lcd_control = 0;
+	bool renderer_notified = false;
 
 	void synchronize();
 	unsigned get_row_status();
 public:
-	DisplayController(GameboyCpu &cpu);
-
+	DisplayController(Gameboy &system);
+	void set_memory_controller(MemoryController &mc){
+		this->memory_controller = &mc;
+	}
 	void dump_background(const char *filename, MemoryController &);
+	bool ready_to_draw();
+	void render_to(byte_t *pixels, int pitch);
 
 	DECLARE_DISPLAY_RO_CONTROLLER_PROPERTY(y_coordinate);
 	DECLARE_DISPLAY_CONTROLLER_PROPERTY(status);

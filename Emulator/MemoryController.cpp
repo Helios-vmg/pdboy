@@ -1,5 +1,6 @@
 #include "MemoryController.h"
 #include "GameboyCpu.h"
+#include "Gameboy.h"
 #include "exceptions.h"
 #include <cstdlib>
 #include <exception>
@@ -30,12 +31,16 @@ const size_t gb_bootstrap_rom_size = sizeof(gb_bootstrap_rom);
 
 const size_t function_table_sizes = 0x4C;
 
-MemoryController::MemoryController(GameboyCpu &cpu):
-		cpu(&cpu),
-		display(&cpu.get_display_controller()),
+MemoryController::MemoryController(Gameboy &system):
+		system(&system),
+		display(&system.get_display_controller()),
 		memoryp(new byte_t[0x10000]),
 		stor_functions(new store_func_t[function_table_sizes]),
 		load_functions(new load_func_t[function_table_sizes]){
+}
+
+void MemoryController::initialize(){
+	this->display->set_memory_controller(*this);
 	this->memory = this->memoryp.get();
 	this->initialize_functions();
 }

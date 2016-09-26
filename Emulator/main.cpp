@@ -1,11 +1,10 @@
-#include "GameboyCpu.h"
-#include <iostream>
-#include <Windows.h>
-#include <timeapi.h>
+#include "HostSystem.h"
 
-#pragma comment(lib, "winmm.lib")
-
-int main(){
-	GameboyCpu cpu;
-	cpu.initialize();
+int main(int, char**){
+	HostSystem system;
+	try{
+		system.run();
+	} catch (std::exception &){
+	}
+	return 0;
 }

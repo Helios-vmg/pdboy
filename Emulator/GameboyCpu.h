@@ -10,35 +10,28 @@
 const unsigned gb_cpu_frequency = 4194304;
 const double gb_cpu_clock_period_us = 1.0 / ((double)gb_cpu_frequency * 1e-6);
 
+class Gameboy;
+
 class GameboyCpu{
+	Gameboy *system;
 	RegisterStore registers;
 	MemoryController memory_controller;
-	DisplayController display_controller;
-	bool running = false;
-	int break_on_address = -1;
-	std::uint64_t total_cycles = 0;
 	std::uint64_t total_instructions = 0;
 	main_integer_t current_pc = 0;
-	std::uint64_t counter_frequency = 0;
 
 	main_integer_t decimal_adjust(main_integer_t);
+	byte_t load_pc_and_increment();
 #include "../generated_files/cpu.generated.h"
-public:
 
-	GameboyCpu();
+public:
+	GameboyCpu(Gameboy &);
 	void initialize();
 	void take_time(main_integer_t cycles);
 	void interrupt_toggle(bool);
 	void stop();
 	void halt();
 	void abort();
-	void run();
-	DisplayController &get_display_controller(){
-		return this->display_controller;
-	}
-	std::uint64_t get_current_clock() const{
-		return this->total_cycles;
-	}
+	void run_one_instruction();
 };
 
 template <typename T>
