@@ -136,11 +136,10 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 			}
 		case 0xE9:
 			{
-				// Handle (HL)16 -> SP
+				// Handle HL -> SP
 				auto reg = generator.get_register_value16(Register16::HL);
-				auto addr = generator.load_mem16(reg);
-				generator.write_register16(Register16::PC, addr);
-				generator.take_time(4); // Shouldn't this be 12?
+				generator.write_register16(Register16::PC, reg);
+				generator.take_time(4);
 				return;
 			}
 		case 0xEA:
