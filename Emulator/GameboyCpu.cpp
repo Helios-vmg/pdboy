@@ -52,11 +52,16 @@ byte_t GameboyCpu::load_pc_and_increment(){
 	return (byte_t)this->memory_controller.load8(this->registers.pc()++);
 }
 
+#define BREAKPOINT(x) if (this->current_pc == x) __debugbreak()
+
 void GameboyCpu::run_one_instruction(){
 	this->current_pc = this->registers.pc();
 	auto opcode = this->load_pc_and_increment();
 
 	auto function_pointer = this->opcode_table[opcode];
+
+	BREAKPOINT(0x02F0);
+	BREAKPOINT(0x02F2);
 
 	(this->*function_pointer)();
 	this->total_instructions++;
@@ -72,7 +77,7 @@ main_integer_t GameboyCpu::decimal_adjust(main_integer_t value){
 
 		if (this->registers.get(Flags::Carry) || value > 0x9F)
 			value += 0x60;
-	} else{
+	}else{
 		if (this->registers.get(Flags::HalfCarry))
 			value = (value - 6) & 0xFF;
 
@@ -80,10 +85,6 @@ main_integer_t GameboyCpu::decimal_adjust(main_integer_t value){
 			value -= 0x60;
 	}
 	return value;
-}
-
-void GameboyCpu::set_interrupt_flag(byte_t b){
-	this->interrupt_flag = b;
 }
 
 void GameboyCpu::vblank_irq(){
@@ -108,4 +109,20 @@ void GameboyCpu::attempt_to_handle_interrupts(){
 		this->interrupt_toggle(false);
 		this->take_time(4 * 5);
 	}
+}
+
+byte_t GameboyCpu::get_interrupt_flag() const{
+	return this->interrupt_flag;
+}
+
+void GameboyCpu::set_interrupt_flag(byte_t b){
+	this->interrupt_flag = b;
+}
+
+byte_t GameboyCpu::get_interrupt_enable_flag() const{
+	return this->interrupt_enable_flag;
+}
+
+void GameboyCpu::set_interrupt_enable_flag(byte_t b){
+	this->interrupt_enable_flag = b;
 }

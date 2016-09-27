@@ -56,10 +56,10 @@ public:
 	void abort();
 	void run_one_instruction();
 	void vblank_irq();
-	byte_t get_interrupt_flag() const{
-		return this->interrupt_flag;
-	}
-	void set_interrupt_flag(byte_t);
+	byte_t get_interrupt_flag() const;
+	void set_interrupt_flag(byte_t b);
+	byte_t get_interrupt_enable_flag() const;
+	void set_interrupt_enable_flag(byte_t b);
 };
 
 template <typename T>

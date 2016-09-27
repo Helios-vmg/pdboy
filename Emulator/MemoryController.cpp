@@ -35,6 +35,7 @@ MemoryController::MemoryController(Gameboy &system, GameboyCpu &cpu):
 		system(&system),
 		cpu(&cpu),
 		display(&system.get_display_controller()),
+		joypad(&system.get_input_controller()),
 		memoryp(new byte_t[0x10000]),
 		stor_functions(new store_func_t[function_table_sizes]),
 		load_functions(new load_func_t[function_table_sizes]){
@@ -50,20 +51,23 @@ void MemoryController::initialize_functions(){
 	std::fill(this->stor_functions.get(), this->stor_functions.get() + function_table_sizes, nullptr);
 	std::fill(this->load_functions.get(), this->load_functions.get() + function_table_sizes, nullptr);
 
-	this->stor_functions[0x00] = &MemoryController::store_not_implemented;
-	this->load_functions[0x00] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x01] = &MemoryController::store_not_implemented;
-	this->load_functions[0x01] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x02] = &MemoryController::store_not_implemented;
-	this->load_functions[0x02] = &MemoryController::load_not_implemented;
+	this->stor_functions[0x00] = &MemoryController::store_P1;
+	this->load_functions[0x00] = &MemoryController::load_P1;
+	//Serial I/O (SB)
+	//this->stor_functions[0x01] = &MemoryController::store_not_implemented;
+	//this->load_functions[0x01] = &MemoryController::load_not_implemented;
+	//Serial I/O control (SC)
+	//this->stor_functions[0x02] = &MemoryController::store_not_implemented;
+	//this->load_functions[0x02] = &MemoryController::load_not_implemented;
 	this->stor_functions[0x03] = &MemoryController::store_not_implemented;
 	this->load_functions[0x03] = &MemoryController::load_not_implemented;
 	this->stor_functions[0x04] = &MemoryController::store_not_implemented;
 	this->load_functions[0x04] = &MemoryController::load_not_implemented;
 	this->stor_functions[0x05] = &MemoryController::store_not_implemented;
 	this->load_functions[0x05] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x06] = &MemoryController::store_not_implemented;
-	this->load_functions[0x06] = &MemoryController::load_not_implemented;
+	//Timer modulo (TMA)
+	//this->stor_functions[0x06] = &MemoryController::store_not_implemented;
+	//this->load_functions[0x06] = &MemoryController::load_not_implemented;
 	this->stor_functions[0x07] = &MemoryController::store_not_implemented;
 	this->load_functions[0x07] = &MemoryController::load_not_implemented;
 	this->stor_functions[0x08] = &MemoryController::store_not_implemented;
@@ -208,14 +212,14 @@ void MemoryController::initialize_functions(){
 	this->load_functions[0x46] = &MemoryController::load_not_implemented;
 	this->stor_functions[0x47] = &MemoryController::store_BGP;
 	this->load_functions[0x47] = &MemoryController::load_BGP;
-	this->stor_functions[0x48] = &MemoryController::store_not_implemented;
-	this->load_functions[0x48] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x49] = &MemoryController::store_not_implemented;
-	this->load_functions[0x49] = &MemoryController::load_not_implemented;
+	this->stor_functions[0x48] = &MemoryController::store_OBP0;
+	this->load_functions[0x48] = &MemoryController::load_OBP0;
+	this->stor_functions[0x49] = &MemoryController::store_OBP1;
+	this->load_functions[0x49] = &MemoryController::load_OBP1;
 	this->stor_functions[0x4a] = &MemoryController::store_WY;
 	this->load_functions[0x4a] = &MemoryController::load_WY;
-	this->stor_functions[0x4b] = &MemoryController::store_not_implemented;
-	this->load_functions[0x4b] = &MemoryController::load_not_implemented;
+	this->stor_functions[0x4b] = &MemoryController::store_WX;
+	this->load_functions[0x4b] = &MemoryController::load_WX;
 }
 
 void MemoryController::store_not_implemented(byte_t){
@@ -258,6 +262,14 @@ void MemoryController::store_WY(byte_t b){
 	this->display->set_window_y_position(b);
 }
 
+byte_t MemoryController::load_WX() const{
+	return this->display->get_window_x_position();
+}
+
+void MemoryController::store_WX(byte_t b){
+	this->display->set_window_x_position(b);
+}
+
 byte_t MemoryController::load_BGP() const{
 	return this->display->get_background_palette();
 }
@@ -298,6 +310,30 @@ void MemoryController::store_IF(byte_t b){
 	this->cpu->set_interrupt_flag(b);
 }
 
+byte_t MemoryController::load_P1() const{
+	return this->joypad->get_requested_input_state();
+}
+
+void MemoryController::store_P1(byte_t b){
+	this->joypad->request_input_state(b);
+}
+
+byte_t MemoryController::load_OBP0() const{
+	return this->display->get_obj0_palette();
+}
+
+void MemoryController::store_OBP0(byte_t b){
+	this->display->set_obj0_palette(b);
+}
+
+byte_t MemoryController::load_OBP1() const{
+	return this->display->get_obj1_palette();
+}
+
+void MemoryController::store_OBP1(byte_t b){
+	this->display->set_obj1_palette(b);
+}
+
 void MemoryController::fix_up_address(main_integer_t &address){
 	address &= 0xFFFF;
 	if (address >= 0xE000 && address < 0xFE00)
@@ -320,6 +356,9 @@ main_integer_t MemoryController::load8(main_integer_t address) const{
 
 	if (address < 0xFF80)
 		return 0xFF;
+
+	if (address == 0xFFFF)
+		return this->cpu->get_interrupt_enable_flag();
 
 	return this->memory[address];
 }
@@ -345,6 +384,11 @@ void MemoryController::store8(main_integer_t address, main_integer_t value){
 
 	if (address == 0xFF50){
 		this->toggle_boostrap_rom(!value);
+		return;
+	}
+
+	if (address == 0xFFFF){
+		this->cpu->set_interrupt_enable_flag(b);
 		return;
 	}
 	return;

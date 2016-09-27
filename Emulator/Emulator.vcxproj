@@ -168,6 +168,7 @@
     <ClCompile Include="MemoryController.cpp" />
     <ClCompile Include="RegisterStore.cpp" />
     <ClCompile Include="timer.cpp" />
+    <ClCompile Include="UserInputController.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CommonTypes.h" />
@@ -179,6 +180,7 @@
     <ClInclude Include="MemoryController.h" />
     <ClInclude Include="RegisterStore.h" />
     <ClInclude Include="timer.h" />
+    <ClInclude Include="UserInputController.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

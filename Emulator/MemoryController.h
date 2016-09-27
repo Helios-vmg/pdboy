@@ -11,11 +11,13 @@ class DisplayController;
 	void store_##x(byte_t)
 
 class Gameboy;
+class UserInputController;
 
 class MemoryController{
 	Gameboy *system;
 	GameboyCpu *cpu;
 	DisplayController *display;
+	UserInputController *joypad;
 	std::unique_ptr<byte_t[]> memoryp;
 	byte_t *memory;
 	static void fix_up_address(main_integer_t &address);
@@ -32,12 +34,16 @@ class MemoryController{
 	DECLARE_IO_REGISTER(STAT);
 	DECLARE_IO_REGISTER(LY);
 	DECLARE_IO_REGISTER(LYC);
+	DECLARE_IO_REGISTER(WX);
 	DECLARE_IO_REGISTER(WY);
 	DECLARE_IO_REGISTER(BGP);
 	DECLARE_IO_REGISTER(SCY);
 	DECLARE_IO_REGISTER(SCX);
 	DECLARE_IO_REGISTER(LCDC);
 	DECLARE_IO_REGISTER(IF);
+	DECLARE_IO_REGISTER(P1);
+	DECLARE_IO_REGISTER(OBP0);
+	DECLARE_IO_REGISTER(OBP1);
 public:
 	MemoryController(Gameboy &, GameboyCpu &);
 	void initialize();

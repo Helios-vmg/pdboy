@@ -7,7 +7,9 @@
 #include <iostream>
 
 DisplayController::DisplayController(Gameboy &system): system(&system){
-	
+	this->set_background_palette(0);
+	this->set_obj0_palette(0);
+	this->set_obj1_palette(0);
 }
 
 void DisplayController::dump_background(const char *filename, MemoryController &mc){
@@ -30,7 +32,7 @@ void DisplayController::dump_background(const char *filename, MemoryController &
 				for (int x2 = 0; x2 < 8; x2++){
 					auto &pixel = dump[x * 8 + x2 + (32 * 8)*(y * 8 + y2)];
 					unsigned color = ((bitsA >> (7 - x2)) & 1) | (((bitsB >> (7 - x2)) & 1) << 1);
-					pixel = this->palette[color].r;
+					pixel = this->bg_palette[color].r;
 				}
 			}
 		}
@@ -73,7 +75,7 @@ void DisplayController::render_to(byte_t *pixels, int pitch){
 			auto src_pixelA = tile[tile_offset_y * 2 + 0];
 			auto src_pixelB = tile[tile_offset_y * 2 + 1];
 			unsigned color = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
-			auto rgba = this->palette[color];
+			auto rgba = this->bg_palette[color];
 			dst_pixel[0] = rgba.r;
 			dst_pixel[1] = rgba.g;
 			dst_pixel[2] = rgba.b;
@@ -99,16 +101,23 @@ unsigned DisplayController::get_row_status(){
 }
 
 byte_t DisplayController::get_background_palette(){
-	return this->palette_value;
+	return this->bg_palette_value;
 }
 
-void DisplayController::set_background_palette(byte_t palette){
+template <bool BG>
+static void set_palette_array(RGB dst[4], byte_t palette){
 	for (unsigned i = 4; i--;){
 		auto index = (palette >> (i * 2)) & 3;
 		byte_t c = ~(byte_t)(index * 0xFF / 3);
-		this->palette[i] = { c, c, c, 0xFF };
+		dst[i] = { c, c, c, 0xFF };
 	}
-	this->palette_value = palette;
+	if (!BG)
+		dst[0] = { 0, 0, 0, 0 };
+}
+
+void DisplayController::set_background_palette(byte_t palette){
+	set_palette_array<true>(this->bg_palette, palette);
+	this->bg_palette_value = palette;
 }
 
 #define DEFINE_EMPTY_DISPLAY_RO_CONTROLLER_PROPERTY(x) \
@@ -126,9 +135,35 @@ byte_t DisplayController::get_y_coordinate(){
 	return (byte_t)(this->get_row_status() / 4);
 }
 
-DEFINE_EMPTY_DISPLAY_CONTROLLER_PROPERTY(status);
+byte_t DisplayController::get_status(){
+	auto ret = this->lcd_status & this->stat_comp_coincidence_flag_mask;
+	ret |= (this->get_y_coordinate_compare() == this->get_y_coordinate()) * this->stat_coincidence_flag_mask;
+	return ret;
+}
+
+void DisplayController::set_status(byte_t b){
+	b &= this->stat_writing_filter_mask;
+	this->lcd_status &= this->stat_comp_writing_filter_mask;
+	this->lcd_status |= b;
+}
+
 DEFINE_EMPTY_DISPLAY_CONTROLLER_PROPERTY(y_coordinate_compare);
-DEFINE_EMPTY_DISPLAY_CONTROLLER_PROPERTY(window_y_position);
+
+byte_t DisplayController::get_window_x_position(){
+	return this->window_x;
+}
+
+void DisplayController::set_window_x_position(byte_t b){
+	this->window_x = b;
+}
+
+byte_t DisplayController::get_window_y_position(){
+	return this->window_y;
+}
+
+void DisplayController::set_window_y_position(byte_t b){
+	this->window_y = b;
+}
 
 byte_t DisplayController::get_scroll_x(){
 	return (byte_t)this->scroll_x;
@@ -152,7 +187,24 @@ byte_t DisplayController::get_lcd_control(){
 
 void DisplayController::set_lcd_control(byte_t b){
 	this->lcd_control = b;
+}
 
+byte_t DisplayController::get_obj0_palette(){
+	return this->obj0_palette_value;
+}
+
+void DisplayController::set_obj0_palette(byte_t palette){
+	set_palette_array<false>(this->bg_palette, palette);
+	this->obj0_palette_value = palette;
+}
+
+byte_t DisplayController::get_obj1_palette(){
+	return this->obj1_palette_value;
+}
+
+void DisplayController::set_obj1_palette(byte_t palette){
+	set_palette_array<false>(this->bg_palette, palette);
+	this->obj1_palette_value = palette;
 }
 
 /*
