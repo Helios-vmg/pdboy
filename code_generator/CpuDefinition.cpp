@@ -496,7 +496,7 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		auto addr = ((opcode >> 3) & 7) * 8;
 		generator.push_PC();
 		auto imm = generator.get_imm_value(addr);
-		generator.write_register16(Register16::SP, imm);
+		generator.write_register16(Register16::PC, imm);
 		generator.take_time(32);
 		return;
 	}
