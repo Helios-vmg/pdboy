@@ -11,7 +11,7 @@ HostSystem::HostSystem(){
 	this->window = SDL_CreateWindow("Gameboy", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, lcd_width, lcd_height, 0);
 	if (!this->window)
 		throw GenericException("Failed to initialize SDL window.");
-	this->renderer = SDL_CreateRenderer(this->window, -1, SDL_RENDERER_PRESENTVSYNC*0);
+	this->renderer = SDL_CreateRenderer(this->window, -1, SDL_RENDERER_PRESENTVSYNC);
 	if (!this->renderer)
 		throw GenericException("Failed to initialize SDL renderer.");
 	this->main_texture = SDL_CreateTexture(this->renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, lcd_width, lcd_height);
