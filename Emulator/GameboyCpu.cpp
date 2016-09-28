@@ -60,12 +60,10 @@ void GameboyCpu::run_one_instruction(){
 
 	auto function_pointer = this->opcode_table[opcode];
 
-	BREAKPOINT(0x02F0);
-	BREAKPOINT(0x02F2);
-
 	(this->*function_pointer)();
 	this->total_instructions++;
 
+	this->perform_dmg_dma();
 	this->attempt_to_handle_interrupts();
 }
 
@@ -125,4 +123,16 @@ byte_t GameboyCpu::get_interrupt_enable_flag() const{
 
 void GameboyCpu::set_interrupt_enable_flag(byte_t b){
 	this->interrupt_enable_flag = b;
+}
+
+void GameboyCpu::begin_dmg_dma_transfer(byte_t position){
+	this->dma_scheduled = position;
+}
+
+void GameboyCpu::perform_dmg_dma(){
+	if (this->dma_scheduled < 0)
+		return;
+	this->memory_controller.copy_memory(this->dma_scheduled << 8, 0xFE00, 0xA0);
+	this->dma_scheduled = -1;
+	this->last_dma_at = this->system->get_clock_value();
 }

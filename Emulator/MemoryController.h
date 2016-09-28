@@ -44,6 +44,7 @@ class MemoryController{
 	DECLARE_IO_REGISTER(P1);
 	DECLARE_IO_REGISTER(OBP0);
 	DECLARE_IO_REGISTER(OBP1);
+	DECLARE_IO_REGISTER(DMA);
 public:
 	MemoryController(Gameboy &, GameboyCpu &);
 	void initialize();
@@ -54,6 +55,7 @@ public:
 	void copy_out_memory_at(void *dst, size_t length, main_integer_t address);
 	void load_rom_at(const void *buffer, size_t length, main_integer_t address);
 	void clear_memory_at(main_integer_t address, size_t length);
+	void copy_memory(main_integer_t src, main_integer_t dst, size_t length);
 	void toggle_boostrap_rom(bool);
 	byte_t *direct_memory_access(main_integer_t address){
 		return this->memory + address;

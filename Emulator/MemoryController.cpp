@@ -208,8 +208,8 @@ void MemoryController::initialize_functions(){
 	this->load_functions[0x44] = &MemoryController::load_LY;
 	this->stor_functions[0x45] = &MemoryController::store_LYC;
 	this->load_functions[0x45] = &MemoryController::load_LYC;
-	this->stor_functions[0x46] = &MemoryController::store_not_implemented;
-	this->load_functions[0x46] = &MemoryController::load_not_implemented;
+	this->stor_functions[0x46] = &MemoryController::store_DMA;
+	//this->load_functions[0x46] = &MemoryController::load_DMA;
 	this->stor_functions[0x47] = &MemoryController::store_BGP;
 	this->load_functions[0x47] = &MemoryController::load_BGP;
 	this->stor_functions[0x48] = &MemoryController::store_OBP0;
@@ -334,6 +334,14 @@ void MemoryController::store_OBP1(byte_t b){
 	this->display->set_obj1_palette(b);
 }
 
+byte_t MemoryController::load_DMA() const{
+	return 0;
+}
+
+void MemoryController::store_DMA(byte_t b){
+	this->cpu->begin_dmg_dma_transfer(b);
+}
+
 void MemoryController::fix_up_address(main_integer_t &address){
 	address &= 0xFFFF;
 	if (address >= 0xE000 && address < 0xFE00)
@@ -433,6 +441,14 @@ void MemoryController::clear_memory_at(main_integer_t address, size_t length){
 	address &= 0xFFFF;
 	length = std::min<size_t>(length, 0x10000 - address);
 	memset(this->memory + address, 0, length);
+}
+
+void MemoryController::copy_memory(main_integer_t src, main_integer_t dst, size_t length){
+	if (src == dst)
+		return;
+	if (dst > src && dst < src + length || src > dst && src < dst + length)
+		throw GenericException("Invalid memory transfer: source and destination overlap.");
+	memcpy(this->memory + dst, this->memory + src, length);
 }
 
 void MemoryController::toggle_boostrap_rom(bool on){

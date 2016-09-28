@@ -9,6 +9,7 @@
 
 const unsigned gb_cpu_frequency = 4194304;
 const double gb_cpu_clock_period_us = 1.0 / ((double)gb_cpu_frequency * 1e-6);
+const int dmg_dma_transfer_length_clocks = 640;
 
 class Gameboy;
 
@@ -21,6 +22,8 @@ class GameboyCpu{
 	bool interrupts_enabled = false;
 	byte_t interrupt_flag = 0;
 	byte_t interrupt_enable_flag = 0;
+	int dma_scheduled = -1;
+	std::uint64_t last_dma_at = 0;
 
 	static const unsigned vblank_flag_bit = 0;
 	static const unsigned lcd_stat_flag_bit = 1;
@@ -43,6 +46,7 @@ class GameboyCpu{
 	main_integer_t decimal_adjust(main_integer_t);
 	byte_t load_pc_and_increment();
 	void attempt_to_handle_interrupts();
+	void perform_dmg_dma();
 
 #include "../generated_files/cpu.generated.h"
 
@@ -60,6 +64,7 @@ public:
 	void set_interrupt_flag(byte_t b);
 	byte_t get_interrupt_enable_flag() const;
 	void set_interrupt_enable_flag(byte_t b);
+	void begin_dmg_dma_transfer(byte_t position);
 };
 
 template <typename T>
