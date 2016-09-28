@@ -506,8 +506,9 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		auto type = (ConditionalJumpType)((opcode >> 3) & 3);
 		auto old_sp = generator.get_register_value16(Register16::SP);
 		auto addr = generator.load_mem16(old_sp);
+		generator.do_nothing_if(generator.condition_to_value(type), 8, true);
 		generator.inc2_SP(old_sp);
-		generator.set_PC_if(addr, type);
+		generator.write_register16(Register16::PC, addr);
 		generator.take_time(8);
 		return;
 	}
