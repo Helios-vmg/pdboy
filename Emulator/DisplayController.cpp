@@ -194,7 +194,7 @@ byte_t DisplayController::get_obj0_palette(){
 }
 
 void DisplayController::set_obj0_palette(byte_t palette){
-	set_palette_array<false>(this->bg_palette, palette);
+	set_palette_array<false>(this->obj0_palette, palette);
 	this->obj0_palette_value = palette;
 }
 
@@ -203,7 +203,7 @@ byte_t DisplayController::get_obj1_palette(){
 }
 
 void DisplayController::set_obj1_palette(byte_t palette){
-	set_palette_array<false>(this->bg_palette, palette);
+	set_palette_array<false>(this->obj1_palette, palette);
 	this->obj1_palette_value = palette;
 }
 
