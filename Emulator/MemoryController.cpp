@@ -61,15 +61,14 @@ void MemoryController::initialize_functions(){
 	//this->load_functions[0x02] = &MemoryController::load_not_implemented;
 	this->stor_functions[0x03] = &MemoryController::store_not_implemented;
 	this->load_functions[0x03] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x04] = &MemoryController::store_not_implemented;
-	this->load_functions[0x04] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x05] = &MemoryController::store_not_implemented;
-	this->load_functions[0x05] = &MemoryController::load_not_implemented;
-	//Timer modulo (TMA)
-	//this->stor_functions[0x06] = &MemoryController::store_not_implemented;
-	//this->load_functions[0x06] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x07] = &MemoryController::store_not_implemented;
-	this->load_functions[0x07] = &MemoryController::load_not_implemented;
+	this->stor_functions[0x04] = &MemoryController::store_DIV;
+	this->load_functions[0x04] = &MemoryController::load_DIV;
+	this->stor_functions[0x05] = &MemoryController::store_TIMA;
+	this->load_functions[0x05] = &MemoryController::load_TIMA;
+	this->stor_functions[0x06] = &MemoryController::store_TMA;
+	this->load_functions[0x06] = &MemoryController::load_TMA;
+	this->stor_functions[0x07] = &MemoryController::store_TAC;
+	this->load_functions[0x07] = &MemoryController::load_TAC;
 	this->stor_functions[0x08] = &MemoryController::store_not_implemented;
 	this->load_functions[0x08] = &MemoryController::load_not_implemented;
 	this->stor_functions[0x09] = &MemoryController::store_not_implemented;
@@ -340,6 +339,38 @@ byte_t MemoryController::load_DMA() const{
 
 void MemoryController::store_DMA(byte_t b){
 	this->cpu->begin_dmg_dma_transfer(b);
+}
+
+byte_t MemoryController::load_DIV() const{
+	return this->system->get_system_clock().get_DIV_register();
+}
+
+void MemoryController::store_DIV(byte_t b){
+	this->system->get_system_clock().reset_DIV_register();
+}
+
+byte_t MemoryController::load_TIMA() const{
+	return this->system->get_system_clock().get_TIMA_register();
+}
+
+void MemoryController::store_TIMA(byte_t b){
+	this->system->get_system_clock().set_TIMA_register(b);
+}
+
+byte_t MemoryController::load_TMA() const{
+	return this->system->get_system_clock().get_TMA_register();
+}
+
+void MemoryController::store_TMA(byte_t b){
+	this->system->get_system_clock().set_TMA_register(b);
+}
+
+byte_t MemoryController::load_TAC() const{
+	return this->system->get_system_clock().get_TAC_register();
+}
+
+void MemoryController::store_TAC(byte_t b){
+	this->system->get_system_clock().set_TAC_register(b);
 }
 
 void MemoryController::fix_up_address(main_integer_t &address){

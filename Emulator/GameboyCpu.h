@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <type_traits>
 
-const unsigned gb_cpu_frequency = 4194304;
+const unsigned gb_cpu_frequency = 1 << 22; //4194304
 const double gb_cpu_clock_period_us = 1.0 / ((double)gb_cpu_frequency * 1e-6);
 const int dmg_dma_transfer_length_clocks = 640;
 
@@ -47,13 +47,14 @@ class GameboyCpu{
 	byte_t load_pc_and_increment();
 	void attempt_to_handle_interrupts();
 	void perform_dmg_dma();
+	void check_timer();
 
 #include "../generated_files/cpu.generated.h"
 
 public:
 	GameboyCpu(Gameboy &);
 	void initialize();
-	void take_time(main_integer_t cycles);
+	void take_time(std::uint32_t cycles);
 	void interrupt_toggle(bool);
 	void stop();
 	void halt();

@@ -45,6 +45,10 @@ class MemoryController{
 	DECLARE_IO_REGISTER(OBP0);
 	DECLARE_IO_REGISTER(OBP1);
 	DECLARE_IO_REGISTER(DMA);
+	DECLARE_IO_REGISTER(DIV);
+	DECLARE_IO_REGISTER(TIMA);
+	DECLARE_IO_REGISTER(TMA);
+	DECLARE_IO_REGISTER(TAC);
 public:
 	MemoryController(Gameboy &, GameboyCpu &);
 	void initialize();

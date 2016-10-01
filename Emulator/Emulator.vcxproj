@@ -167,10 +167,12 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MemoryController.cpp" />
     <ClCompile Include="RegisterStore.cpp" />
+    <ClCompile Include="SystemClock.cpp" />
     <ClCompile Include="timer.cpp" />
     <ClCompile Include="UserInputController.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SystemClock.h" />
     <ClInclude Include="CommonTypes.h" />
     <ClInclude Include="DisplayController.h" />
     <ClInclude Include="exceptions.h" />

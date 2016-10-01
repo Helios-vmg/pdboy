@@ -86,7 +86,7 @@ void DisplayController::render_to(byte_t *pixels, int pitch){
 }
 
 unsigned DisplayController::get_row_status(){
-	auto clock = this->system->get_clock_value();
+	auto clock = this->system->get_system_clock().get_clock_value();
 	auto cycle = (unsigned)(clock % lcd_refresh_period);
 	auto row = cycle / 456;
 	auto sub_row = cycle % 456;

@@ -28,8 +28,8 @@ void GameboyCpu::initialize(){
 	this->memory_controller.toggle_boostrap_rom(true);
 }
 
-void GameboyCpu::take_time(main_integer_t cycles){
-	this->system->advance_clock(cycles);
+void GameboyCpu::take_time(std::uint32_t cycles){
+	this->system->get_system_clock().advance_clock(cycles);
 }
 
 void GameboyCpu::interrupt_toggle(bool enable){
@@ -63,6 +63,7 @@ void GameboyCpu::run_one_instruction(){
 	(this->*function_pointer)();
 	this->total_instructions++;
 
+	this->check_timer();
 	this->perform_dmg_dma();
 	this->attempt_to_handle_interrupts();
 }
@@ -134,5 +135,10 @@ void GameboyCpu::perform_dmg_dma(){
 		return;
 	this->memory_controller.copy_memory(this->dma_scheduled << 8, 0xFE00, 0xA0);
 	this->dma_scheduled = -1;
-	this->last_dma_at = this->system->get_clock_value();
+	this->last_dma_at = this->system->get_system_clock().get_clock_value();
+}
+
+void GameboyCpu::check_timer(){
+	if (this->system->get_system_clock().get_trigger_interrupt())
+		this->interrupt_flag |= this->timer_mask;
 }

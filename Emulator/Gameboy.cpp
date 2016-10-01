@@ -7,7 +7,8 @@
 Gameboy::Gameboy():
 		cpu(*this),
 		display_controller(*this),
-		input_controller(*this){
+		input_controller(*this),
+		clock(*this){
 	this->cpu.initialize();
 	this->realtime_counter_frequency = get_timer_resolution();
 }
@@ -35,7 +36,7 @@ void Gameboy::run(
 
 	auto end = get_timer_count();
 	double real_time = (double)(end - start) / (double)this->realtime_counter_frequency * 1e+6;
-	double emulated_time = (double)this->get_clock_value() / (double)gb_cpu_frequency * 1e+6;
+	double emulated_time = (double)this->clock.get_clock_value() / (double)gb_cpu_frequency * 1e+6;
 
 	std::cout <<
 		"Real time    : " << real_time << " us\n"
