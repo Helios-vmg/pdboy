@@ -147,7 +147,13 @@ void DisplayController::set_status(byte_t b){
 	this->lcd_status |= b;
 }
 
-DEFINE_EMPTY_DISPLAY_CONTROLLER_PROPERTY(y_coordinate_compare);
+byte_t DisplayController::get_y_coordinate_compare(){
+	return this->y_compare;
+}
+
+void DisplayController::set_y_coordinate_compare(byte_t b){
+	this->y_compare = b;
+}
 
 byte_t DisplayController::get_window_x_position(){
 	return this->window_x;

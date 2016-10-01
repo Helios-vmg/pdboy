@@ -41,6 +41,7 @@ class DisplayController{
 	byte_t lcd_status = 0;
 	unsigned window_x = 0,
 		window_y = 0;
+	byte_t y_compare = 0;
 
 	static const byte_t stat_coincidence_interrupt_mask = 1 << 6;
 	static const byte_t stat_oam_interrupt_mask = 1 << 5;
