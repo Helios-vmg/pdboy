@@ -593,35 +593,6 @@ uintptr_t InterpreterCodeGenerator::rotate8(uintptr_t val, bool left, bool throu
 	return (uintptr_t)ret;
 }
 
-void InterpreterCodeGenerator::set_PC_if(uintptr_t val, ConditionalJumpType type){
-	auto &back = this->definition_stack.back();
-	auto &s = *back.function_contents;
-
-	const char *condition;
-	switch (type){
-		case ConditionalJumpType::NotZero:
-			condition = "\tif (!this->registers.get(Flags::Zero))\n";
-			break;
-		case ConditionalJumpType::Zero:
-			condition = "\tif (this->registers.get(Flags::Zero))\n";
-			break;
-		case ConditionalJumpType::NotCarry:
-			condition = "\tif (!this->registers.get(Flags::Carry))\n";
-			break;
-		case ConditionalJumpType::Carry:
-			condition = "\tif (this->registers.get(Flags::Carry))\n";
-			break;
-		default:
-			abort();
-	}
-	s << condition << "\t\tthis->registers.pc() = (std::uint16_t)" << temp_to_string(val) << ";\n";
-}
-
-void InterpreterCodeGenerator::add8_PC_if(uintptr_t val, ConditionalJumpType type){
-	std::string temp = "(this->registers.pc() + sign_extend8(" + temp_to_string(val) + "))";
-	this->set_PC_if((uintptr_t)&temp, type);
-}
-
 void InterpreterCodeGenerator::stop(){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;

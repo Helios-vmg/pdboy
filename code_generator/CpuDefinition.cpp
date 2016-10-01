@@ -492,11 +492,11 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 
 	if (match_opcode(opcode, "11xxx111")){
 		// Handle RST
-		auto addr = ((opcode >> 3) & 7) * 8;
+		auto addr = opcode & 0x38;
 		generator.push_PC();
 		auto imm = generator.get_imm_value(addr);
 		generator.write_register16(Register16::PC, imm);
-		generator.take_time(32);
+		generator.take_time(16);
 		return;
 	}
 
@@ -504,12 +504,12 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 	if (match_opcode(opcode, "110xx000")){
 		// Handle conditional RET
 		auto type = (ConditionalJumpType)((opcode >> 3) & 3);
+		generator.do_nothing_if(generator.condition_to_value(type), 8, true);
 		auto old_sp = generator.get_register_value16(Register16::SP);
 		auto addr = generator.load_mem16(old_sp);
-		generator.do_nothing_if(generator.condition_to_value(type), 8, true);
 		generator.inc2_SP(old_sp);
 		generator.write_register16(Register16::PC, addr);
-		generator.take_time(8);
+		generator.take_time(20);
 		return;
 	}
 
@@ -519,14 +519,21 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		// Handle conditional relative and absolute jumps.
 		bool absolute = (opcode & 0x80) == 0x80;
 		auto type = (ConditionalJumpType)((opcode >> 3) & 3);
+		unsigned time;
 		if (absolute){
+			time = 12;
 			auto imm = generator.load_program_counter16();
-			generator.set_PC_if(imm, type);
+			generator.do_nothing_if(generator.condition_to_value(type), time, true);
+			time += 4;
+			generator.write_register16(Register16::PC, imm);
 		}else{
+			time = 8;
 			auto imm = generator.load_program_counter8();
-			generator.add8_PC_if(imm, type);
+			generator.do_nothing_if(generator.condition_to_value(type), time, true);
+			time += 4;
+			generator.write_register16(Register16::PC, imm);
 		}
-		generator.take_time(absolute ? 12 : 8);
+		generator.take_time(time);
 		return;
 	}
 
@@ -534,11 +541,11 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 	if (match_opcode(opcode, "110xx100")){
 		// Handle conditional calls.
 		auto type = (ConditionalJumpType)((opcode >> 3) & 3);
-		auto imm = generator.load_program_counter16();
 		generator.do_nothing_if(generator.condition_to_value(type), 12, true);
+		auto imm = generator.load_program_counter16();
 		generator.push_PC();
-		generator.set_PC_if(imm, type);
-		generator.take_time(12);
+		generator.write_register16(Register16::PC, imm);
+		generator.take_time(24);
 		return;
 	}
 

@@ -85,8 +85,6 @@ public:
 	virtual void disable_interrupts() = 0;
 	virtual void enable_interrupts() = 0;
 	virtual uintptr_t rotate8(uintptr_t, bool left, bool through_carry) = 0;
-	virtual void set_PC_if(uintptr_t, ConditionalJumpType) = 0;
-	virtual void add8_PC_if(uintptr_t, ConditionalJumpType) = 0;
 	void push_PC(){
 		auto sp = this->dec2_SP();
 		auto old_pc = this->get_register_value16(Register16::PC);

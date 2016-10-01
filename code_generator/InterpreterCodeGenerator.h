@@ -77,8 +77,6 @@ public:
 	void disable_interrupts() override;
 	void enable_interrupts() override;
 	uintptr_t rotate8(uintptr_t, bool left, bool through_carry) override;
-	void set_PC_if(uintptr_t, ConditionalJumpType) override;
-	void add8_PC_if(uintptr_t, ConditionalJumpType) override;
 	void stop() override;
 	uintptr_t shift8_left(uintptr_t val) override;
 	uintptr_t arithmetic_shift_right(uintptr_t val) override;
