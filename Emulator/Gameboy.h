@@ -5,7 +5,7 @@
 #include "SystemClock.h"
 #include <functional>
 
-enum class ModesOfOperation{
+enum class GameboyMode{
 	DMG,
 	CGB,
 };
@@ -17,7 +17,7 @@ class Gameboy{
 	SystemClock clock;
 	std::uint64_t realtime_counter_frequency = 0;
 	std::uint64_t realtime_execution = 0;
-	ModesOfOperation mode = ModesOfOperation::DMG;
+	GameboyMode mode = GameboyMode::DMG;
 public:
 	Gameboy();
 
@@ -34,7 +34,7 @@ public:
 		const std::function<void(DisplayController &)> &render_callback,
 		const std::function<bool()> &event_handling_callback
 	);
-	ModesOfOperation get_mode() const{
+	GameboyMode get_mode() const{
 		return this->mode;
 	}
 };

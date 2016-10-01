@@ -2,7 +2,7 @@
 #include <iostream>
 
 int main(int, char**){
-	HostSystem system;
+	SdlHostSystem system;
 	try{
 		system.run();
 	}catch (std::exception &e){

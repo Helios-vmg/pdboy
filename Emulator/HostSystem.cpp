@@ -4,9 +4,32 @@
 #include "exceptions.h"
 #include "timer.h"
 #include <iostream>
+#include <fstream>
 
 HostSystem::HostSystem(){
 	this->reinit();
+
+}
+
+void HostSystem::reinit(){
+	this->gameboy.reset(new Gameboy);
+}
+
+std::unique_ptr<std::vector<byte_t>> HostSystem::load_file(const char *path, size_t maximum_size){
+	std::unique_ptr<std::vector<byte_t>> ret;
+	std::ifstream file(path, std::ios::binary);
+	if (!file)
+		return ret;
+	file.seekg(0, std::ios::end);
+	if ((size_t)file.tellg() > maximum_size)
+		return ret;
+	ret.reset(new std::vector<byte_t>(file.tellg()));
+	file.seekg(0);
+	file.read((char *)&(*ret)[0], ret->size());
+	return ret;
+}
+
+SdlHostSystem::SdlHostSystem(){
 	SDL_Init(SDL_INIT_VIDEO);
 	this->window = SDL_CreateWindow("Gameboy", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, lcd_width, lcd_height, 0);
 	if (!this->window)
@@ -20,7 +43,7 @@ HostSystem::HostSystem(){
 	this->realtime_counter_frequency = get_timer_resolution();
 }
 
-void HostSystem::run(){
+void SdlHostSystem::run(){
 	auto This = this;
 	try{
 		this->gameboy->run(
@@ -33,7 +56,7 @@ void HostSystem::run(){
 	}
 }
 
-void HostSystem::render(DisplayController &dc){
+void SdlHostSystem::render(DisplayController &dc){
 	void *pixels;
 	int pitch;
 
@@ -54,10 +77,6 @@ void HostSystem::render(DisplayController &dc){
 	SDL_RenderPresent(this->renderer);
 
 	this->last_render = get_timer_count();
-}
-
-void HostSystem::reinit(){
-	this->gameboy.reset(new Gameboy);
 }
 
 static void handle_event(InputState &state, SDL_Event &event, byte_t new_state){
@@ -89,7 +108,7 @@ static void handle_event(InputState &state, SDL_Event &event, byte_t new_state){
 	}
 }
 
-bool HostSystem::handle_events(){
+bool SdlHostSystem::handle_events(){
 	SDL_Event event;
 	auto &controller = this->gameboy->get_input_controller();
 	auto state = controller.get_input_state();

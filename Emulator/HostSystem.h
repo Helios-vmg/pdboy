@@ -8,7 +8,16 @@ class DisplayController;
 struct InputState;
 
 class HostSystem{
+protected:
 	std::unique_ptr<Gameboy> gameboy;
+public:
+	HostSystem();
+	virtual ~HostSystem(){}
+	virtual std::unique_ptr<std::vector<byte_t>> load_file(const char *path, size_t maximum_size);
+	void reinit();
+};
+
+class SdlHostSystem : public HostSystem{
 	SDL_Window *window;
 	SDL_Renderer *renderer;
 	SDL_Texture *main_texture;
@@ -21,7 +30,6 @@ class HostSystem{
 	void render(DisplayController &dc);
 	bool handle_events();
 public:
-	HostSystem();
+	SdlHostSystem();
 	void run();
-	void reinit();
 };
