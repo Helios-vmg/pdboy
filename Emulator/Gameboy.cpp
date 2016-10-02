@@ -1,13 +1,16 @@
 #include "Gameboy.h"
 #include "UserInputController.h"
+#include "StorageController.h"
 #include "timer.h"
 #include <iostream>
 #include "exceptions.h"
 
-Gameboy::Gameboy():
+Gameboy::Gameboy(HostSystem &host):
+		host(&host),
 		cpu(*this),
 		display_controller(*this),
 		input_controller(*this),
+		storage_controller(*this, host),
 		clock(*this){
 	this->cpu.initialize();
 	this->realtime_counter_frequency = get_timer_resolution();

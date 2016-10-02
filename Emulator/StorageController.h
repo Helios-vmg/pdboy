@@ -74,11 +74,16 @@ DECLARE_UNSUPPORTED_CARTRIDGE_CLASS(Hudson3Cartridge, Cartridge);
 DECLARE_UNSUPPORTED_CARTRIDGE_CLASS(Hudson1Cartridge, Cartridge);
 
 class StandardCartridge : public Cartridge{
-	void init_functions();
 protected:
 	typedef void(*write8_f)(StandardCartridge *, main_integer_t, byte_t);
 	typedef byte_t(*read8_f)(StandardCartridge *, main_integer_t);
+private:
+	std::unique_ptr<write8_f[]> write_callbacks_unique;
+	std::unique_ptr<read8_f[]> read_callbacks_unique;
+
+	void init_functions();
 	
+protected:
 	CartridgeCapabilities capabilities;
 	std::vector<byte_t> buffer;
 	size_t size;
@@ -86,8 +91,8 @@ protected:
 	unsigned current_rom_bank = 0;
 	unsigned current_ram_bank = 0;
 	unsigned ram_bank_bits_copy = 0;
-	write8_f write_callbacks[0x100];
-	read8_f read_callbacks[0x100];
+	write8_f *write_callbacks;
+	read8_f *read_callbacks;
 	std::vector<byte_t> ram;
 	bool ram_banking_mode = false;
 	bool ram_written = false;

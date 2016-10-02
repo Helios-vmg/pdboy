@@ -60,7 +60,6 @@ public:
 	void set_memory_controller(MemoryController &mc){
 		this->memory_controller = &mc;
 	}
-	void dump_background(const char *filename, MemoryController &);
 	bool ready_to_draw();
 	void render_to(byte_t *pixels, int pitch);
 

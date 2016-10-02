@@ -12,24 +12,78 @@ class DisplayController;
 
 class Gameboy;
 class UserInputController;
+class StorageController;
 
 class MemoryController{
+	typedef void (MemoryController::*io_store_func_t)(byte_t);
+	typedef byte_t(MemoryController::*io_load_func_t)() const;
+	typedef void (MemoryController::*store_func_t)(main_integer_t, byte_t);
+	typedef byte_t(MemoryController::*load_func_t)(main_integer_t) const;
+
 	Gameboy *system;
 	GameboyCpu *cpu;
 	DisplayController *display;
 	UserInputController *joypad;
-	std::unique_ptr<byte_t[]> memoryp;
-	byte_t *memory;
-	static void fix_up_address(main_integer_t &address);
-	typedef void (MemoryController::*store_func_t)(byte_t);
-	typedef byte_t (MemoryController::*load_func_t)() const;
-	std::unique_ptr<store_func_t[]> stor_functions;
-	std::unique_ptr<load_func_t[]> load_functions;
-	std::unique_ptr<byte_t[]> boostrap_swap;
+	StorageController *storage;
+
+	template <main_integer_t START>
+	class MemorySection{
+		std::unique_ptr<byte_t[]> pointer;
+		byte_t *memory;
+	public:
+		MemorySection(size_t size): pointer(new byte_t[size]){
+			this->memory = this->pointer.get();
+		}
+		byte_t &access(main_integer_t address){
+			return this->memory[address - START];
+		}
+		const byte_t &access(main_integer_t address) const{
+			return this->memory[address - START];
+		}
+	};
+
+	MemorySection<0x8000> vram;
+	MemorySection<0xC000> fixed_ram;
+	MemorySection<0xD000> switchable_ram;
+	MemorySection<0xFE00> oam;
+	MemorySection<0xFF80> high_ram;
+
+	std::unique_ptr<io_store_func_t[]> io_registers_stor;
+	std::unique_ptr<io_load_func_t[]> io_registers_load;
+	std::unique_ptr<store_func_t[]> memory_map_store;
+	std::unique_ptr<load_func_t[]> memory_map_load;
+	bool boostrap_enabled = false;
+
+	unsigned selected_ram_bank = 0;
 
 	void initialize_functions();
+	void initialize_memory_map_functions();
+	void initialize_io_register_functions();
 	void store_not_implemented(byte_t);
 	byte_t load_not_implemented() const;
+
+	byte_t read_storage(main_integer_t) const;
+	void write_storage(main_integer_t, byte_t);
+	byte_t read_storage_ram(main_integer_t) const;
+	void write_storage_ram(main_integer_t, byte_t);
+	byte_t read_ram_mirror1(main_integer_t) const;
+	void write_ram_mirror1(main_integer_t, byte_t);
+	byte_t read_ram_mirror2(main_integer_t) const;
+	void write_ram_mirror2(main_integer_t, byte_t);
+	byte_t read_io_registers_and_high_ram(main_integer_t) const;
+	void write_io_registers_and_high_ram(main_integer_t, byte_t);
+	byte_t read_dmg_bootstrap(main_integer_t) const;
+
+	//Real RAM:
+	byte_t read_vram(main_integer_t) const;
+	void write_vram(main_integer_t, byte_t);
+	byte_t read_fixed_ram(main_integer_t) const;
+	void write_fixed_ram(main_integer_t, byte_t);
+	byte_t read_switchable_ram(main_integer_t) const;
+	void write_switchable_ram(main_integer_t, byte_t);
+	byte_t read_oam(main_integer_t) const;
+	void write_oam(main_integer_t, byte_t);
+
 
 	DECLARE_IO_REGISTER(STAT);
 	DECLARE_IO_REGISTER(LY);
@@ -56,12 +110,12 @@ public:
 	void store8(main_integer_t address, main_integer_t value);
 	main_integer_t load16(main_integer_t address) const;
 	void store16(main_integer_t address, main_integer_t value);
-	void copy_out_memory_at(void *dst, size_t length, main_integer_t address);
-	void load_rom_at(const void *buffer, size_t length, main_integer_t address);
-	void clear_memory_at(main_integer_t address, size_t length);
 	void copy_memory(main_integer_t src, main_integer_t dst, size_t length);
 	void toggle_boostrap_rom(bool);
-	byte_t *direct_memory_access(main_integer_t address){
-		return this->memory + address;
+	const byte_t *get_tile_vram() const{
+		return &this->vram.access(0x8000);
+	}
+	const byte_t *get_bg_vram() const{
+		return &this->vram.access(0x9800);
 	}
 };

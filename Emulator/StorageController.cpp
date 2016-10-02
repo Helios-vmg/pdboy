@@ -10,6 +10,7 @@ bool StorageController::load_cartridge(const char *path){
 	if (!new_cart)
 		return false;
 	this->cartridge = std::move(new_cart);
+	return true;
 }
 
 Cartridge::~Cartridge(){
@@ -165,6 +166,10 @@ StandardCartridge::StandardCartridge(std::unique_ptr<std::vector<byte_t>> &&buff
 	this->data = &this->buffer[0];
 	if (this->capabilities.has_ram)
 		this->ram.resize(this->capabilities.ram_size);
+	this->write_callbacks_unique.reset(new write8_f[0x100]);
+	this->read_callbacks_unique.reset(new read8_f[0x100]);
+	this->write_callbacks = this->write_callbacks_unique.get();
+	this->read_callbacks = this->read_callbacks_unique.get();
 }
 
 StandardCartridge::~StandardCartridge(){
@@ -186,6 +191,10 @@ void StandardCartridge::write8(main_integer_t address, byte_t value){
 
 byte_t StandardCartridge::read8(main_integer_t address){
 	return this->read_callbacks[address >> 8](this, address);
+}
+
+void StandardCartridge::commit_ram(){
+	throw NotImplementedException();
 }
 
 RomOnlyCartridge::RomOnlyCartridge(std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc): StandardCartridge(std::move(buffer), cc){
@@ -343,4 +352,19 @@ void Mbc1Cartridge::toggle_ram_banking(bool enable){
 		this->current_rom_bank &= ~rom_mask;
 		this->current_rom_bank |= this->ram_bank_bits_copy << 5;
 	}
+}
+
+Mbc2Cartridge::Mbc2Cartridge(std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc):
+		StandardCartridge(std::move(buffer), cc){
+	throw NotImplementedException();
+}
+
+Mbc3Cartridge::Mbc3Cartridge(std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc):
+		StandardCartridge(std::move(buffer), cc){
+	throw NotImplementedException();
+}
+
+Mbc5Cartridge::Mbc5Cartridge(std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc) :
+		StandardCartridge(std::move(buffer), cc){
+	throw NotImplementedException();
 }

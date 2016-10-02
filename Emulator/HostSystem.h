@@ -15,6 +15,9 @@ public:
 	virtual ~HostSystem(){}
 	virtual std::unique_ptr<std::vector<byte_t>> load_file(const char *path, size_t maximum_size);
 	void reinit();
+	Gameboy &get_guest(){
+		return *this->gameboy;
+	}
 };
 
 class SdlHostSystem : public HostSystem{

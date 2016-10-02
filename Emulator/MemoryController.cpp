@@ -29,196 +29,363 @@ unsigned char gb_bootstrap_rom[] = {
 };
 const size_t gb_bootstrap_rom_size = sizeof(gb_bootstrap_rom);
 
-const size_t function_table_sizes = 0x4C;
+const size_t io_function_table_sizes = 0x4C;
 
 MemoryController::MemoryController(Gameboy &system, GameboyCpu &cpu):
-		system(&system),
-		cpu(&cpu),
-		display(&system.get_display_controller()),
-		joypad(&system.get_input_controller()),
-		memoryp(new byte_t[0x10000]),
-		stor_functions(new store_func_t[function_table_sizes]),
-		load_functions(new load_func_t[function_table_sizes]){
-}
+	system(&system),
+	cpu(&cpu),
+	display(&system.get_display_controller()),
+	joypad(&system.get_input_controller()),
+	storage(&system.get_storage_controller()),
+	vram(0x2000),
+	fixed_ram(0x1000),
+	switchable_ram(0x7000),
+	oam(0xA0),
+	high_ram(0x80),
+	io_registers_stor(new io_store_func_t[io_function_table_sizes]),
+	io_registers_load(new io_load_func_t[io_function_table_sizes]),
+	memory_map_store(new store_func_t[0x100]),
+	memory_map_load(new load_func_t[0x100])
+{}
 
 void MemoryController::initialize(){
 	this->display->set_memory_controller(*this);
-	this->memory = this->memoryp.get();
 	this->initialize_functions();
 }
 
 void MemoryController::initialize_functions(){
-	std::fill(this->stor_functions.get(), this->stor_functions.get() + function_table_sizes, nullptr);
-	std::fill(this->load_functions.get(), this->load_functions.get() + function_table_sizes, nullptr);
+	this->initialize_memory_map_functions();
+	this->initialize_io_register_functions();
+}
 
-	this->stor_functions[0x00] = &MemoryController::store_P1;
-	this->load_functions[0x00] = &MemoryController::load_P1;
+#define MEMORY_RANGE_FOR(end) \
+	old = accum; \
+	accum = end; \
+	for (unsigned i = old; i < end; i++)
+
+void MemoryController::initialize_memory_map_functions(){
+	unsigned accum = 0, old;
+	//[0x0000; 0x8000)
+	MEMORY_RANGE_FOR(0x80){
+		this->memory_map_load[i] = &MemoryController::read_storage;
+		this->memory_map_store[i] = &MemoryController::write_storage;
+	}
+	//[0x8000; 0xA000)
+	MEMORY_RANGE_FOR(0xA0){
+		this->memory_map_load[i] = &MemoryController::read_vram;
+		this->memory_map_store[i] = &MemoryController::write_vram;
+	}
+	//[0xA000; 0xC000)
+	MEMORY_RANGE_FOR(0xC0){
+		this->memory_map_load[i] = &MemoryController::read_storage_ram;
+		this->memory_map_store[i] = &MemoryController::write_storage_ram;
+	}
+	//[0xC000; 0xD000)
+	MEMORY_RANGE_FOR(0xD0){
+		this->memory_map_load[i] = &MemoryController::read_fixed_ram;
+		this->memory_map_store[i] = &MemoryController::write_fixed_ram;
+	}
+	//[0xD000; 0xE000)
+	MEMORY_RANGE_FOR(0xE0){
+		this->memory_map_load[i] = &MemoryController::read_switchable_ram;
+		this->memory_map_store[i] = &MemoryController::write_switchable_ram;
+	}
+	//[0xE000; 0xF000)
+	MEMORY_RANGE_FOR(0xF0){
+		this->memory_map_load[i] = &MemoryController::read_ram_mirror1;
+		this->memory_map_store[i] = &MemoryController::write_ram_mirror1;
+	}
+	//[0xF000; 0xFE00)
+	MEMORY_RANGE_FOR(0xFE){
+		this->memory_map_load[i] = &MemoryController::read_ram_mirror2;
+		this->memory_map_store[i] = &MemoryController::write_ram_mirror2;
+	}
+	//[0xFE00; 0xFF00)
+	MEMORY_RANGE_FOR(0xFF){
+		this->memory_map_load[i] = &MemoryController::read_oam;
+		this->memory_map_store[i] = &MemoryController::write_oam;
+	}
+	//[0xFF00; 0xFFFF]
+	MEMORY_RANGE_FOR(0x100){
+		this->memory_map_load[i] = &MemoryController::read_io_registers_and_high_ram;
+		this->memory_map_store[i] = &MemoryController::write_io_registers_and_high_ram;
+	}
+}
+
+void MemoryController::initialize_io_register_functions(){
+	std::fill(this->io_registers_stor.get(), this->io_registers_stor.get() + io_function_table_sizes, nullptr);
+	std::fill(this->io_registers_load.get(), this->io_registers_load.get() + io_function_table_sizes, nullptr);
+
+	this->io_registers_stor[0x00] = &MemoryController::store_P1;
+	this->io_registers_load[0x00] = &MemoryController::load_P1;
 	//Serial I/O (SB)
-	//this->stor_functions[0x01] = &MemoryController::store_not_implemented;
-	//this->load_functions[0x01] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x01] = &MemoryController::store_not_implemented;
+	//this->io_registers_load[0x01] = &MemoryController::load_not_implemented;
 	//Serial I/O control (SC)
-	//this->stor_functions[0x02] = &MemoryController::store_not_implemented;
-	//this->load_functions[0x02] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x03] = &MemoryController::store_not_implemented;
-	this->load_functions[0x03] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x04] = &MemoryController::store_DIV;
-	this->load_functions[0x04] = &MemoryController::load_DIV;
-	this->stor_functions[0x05] = &MemoryController::store_TIMA;
-	this->load_functions[0x05] = &MemoryController::load_TIMA;
-	this->stor_functions[0x06] = &MemoryController::store_TMA;
-	this->load_functions[0x06] = &MemoryController::load_TMA;
-	this->stor_functions[0x07] = &MemoryController::store_TAC;
-	this->load_functions[0x07] = &MemoryController::load_TAC;
-	this->stor_functions[0x08] = &MemoryController::store_not_implemented;
-	this->load_functions[0x08] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x09] = &MemoryController::store_not_implemented;
-	this->load_functions[0x09] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x0a] = &MemoryController::store_not_implemented;
-	this->load_functions[0x0a] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x0b] = &MemoryController::store_not_implemented;
-	this->load_functions[0x0b] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x0c] = &MemoryController::store_not_implemented;
-	this->load_functions[0x0c] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x0d] = &MemoryController::store_not_implemented;
-	this->load_functions[0x0d] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x0e] = &MemoryController::store_not_implemented;
-	this->load_functions[0x0e] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x0f] = &MemoryController::store_IF;
-	this->load_functions[0x0f] = &MemoryController::load_IF;
+	//this->io_registers_stor[0x02] = &MemoryController::store_not_implemented;
+	//this->io_registers_load[0x02] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x03] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x03] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x04] = &MemoryController::store_DIV;
+	this->io_registers_load[0x04] = &MemoryController::load_DIV;
+	this->io_registers_stor[0x05] = &MemoryController::store_TIMA;
+	this->io_registers_load[0x05] = &MemoryController::load_TIMA;
+	this->io_registers_stor[0x06] = &MemoryController::store_TMA;
+	this->io_registers_load[0x06] = &MemoryController::load_TMA;
+	this->io_registers_stor[0x07] = &MemoryController::store_TAC;
+	this->io_registers_load[0x07] = &MemoryController::load_TAC;
+	this->io_registers_stor[0x08] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x08] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x09] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x09] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x0a] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x0a] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x0b] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x0b] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x0c] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x0c] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x0d] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x0d] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x0e] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x0e] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x0f] = &MemoryController::store_IF;
+	this->io_registers_load[0x0f] = &MemoryController::load_IF;
 
 	//Audio:
-	//this->stor_functions[0x10] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x10] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x11] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x11] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x12] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x12] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x13] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x13] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x14] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x14] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x10] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x10] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x11] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x11] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x12] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x12] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x13] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x13] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x14] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x14] = &MemoryController::load_not_implemented;
 
 	//Unused:
-	//this->stor_functions[0x15] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x15] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x15] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x15] = &MemoryController::load_not_implemented;
 
 	//Audio:
-	//this->stor_functions[0x16] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x16] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x17] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x17] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x18] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x18] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x19] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x19] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x1a] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x1a] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x1b] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x1b] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x1c] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x1c] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x1d] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x1d] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x1e] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x1e] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x16] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x16] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x17] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x17] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x18] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x18] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x19] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x19] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x1a] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x1a] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x1b] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x1b] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x1c] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x1c] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x1d] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x1d] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x1e] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x1e] = &MemoryController::load_not_implemented;
 
 	//Unused:
-	//this->stor_functions[0x1f] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x1f] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x1f] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x1f] = &MemoryController::load_not_implemented;
 
 	//Audio:
-	//this->stor_functions[0x20] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x20] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x21] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x21] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x22] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x22] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x23] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x23] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x24] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x24] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x25] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x25] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x26] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x26] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x20] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x20] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x21] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x21] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x22] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x22] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x23] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x23] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x24] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x24] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x25] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x25] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x26] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x26] = &MemoryController::load_not_implemented;
 
-	this->stor_functions[0x27] = &MemoryController::store_not_implemented;
-	this->load_functions[0x27] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x28] = &MemoryController::store_not_implemented;
-	this->load_functions[0x28] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x29] = &MemoryController::store_not_implemented;
-	this->load_functions[0x29] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x2a] = &MemoryController::store_not_implemented;
-	this->load_functions[0x2a] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x2b] = &MemoryController::store_not_implemented;
-	this->load_functions[0x2b] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x2c] = &MemoryController::store_not_implemented;
-	this->load_functions[0x2c] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x2d] = &MemoryController::store_not_implemented;
-	this->load_functions[0x2d] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x2e] = &MemoryController::store_not_implemented;
-	this->load_functions[0x2e] = &MemoryController::load_not_implemented;
-	this->stor_functions[0x2f] = &MemoryController::store_not_implemented;
-	this->load_functions[0x2f] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x27] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x27] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x28] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x28] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x29] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x29] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x2a] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x2a] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x2b] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x2b] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x2c] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x2c] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x2d] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x2d] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x2e] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x2e] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x2f] = &MemoryController::store_not_implemented;
+	this->io_registers_load[0x2f] = &MemoryController::load_not_implemented;
 
 	//Audio:
-	//this->stor_functions[0x30] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x30] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x31] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x31] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x32] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x32] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x33] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x33] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x34] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x34] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x35] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x35] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x36] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x36] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x37] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x37] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x38] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x38] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x39] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x39] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x3a] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x3a] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x3b] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x3b] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x3c] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x3c] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x3d] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x3d] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x3e] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x3e] = &MemoryController::load_not_implemented;
-	//this->stor_functions[0x3f] = &MemoryController::stor_not_implemented;
-	//this->load_functions[0x3f] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x30] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x30] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x31] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x31] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x32] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x32] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x33] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x33] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x34] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x34] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x35] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x35] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x36] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x36] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x37] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x37] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x38] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x38] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x39] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x39] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x3a] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x3a] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x3b] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x3b] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x3c] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x3c] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x3d] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x3d] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x3e] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x3e] = &MemoryController::load_not_implemented;
+	//this->io_registers_stor[0x3f] = &MemoryController::stor_not_implemented;
+	//this->io_registers_load[0x3f] = &MemoryController::load_not_implemented;
 
-	this->stor_functions[0x40] = &MemoryController::store_LCDC;
-	this->load_functions[0x40] = &MemoryController::load_LCDC;
-	this->stor_functions[0x41] = &MemoryController::store_STAT;
-	this->load_functions[0x41] = &MemoryController::load_STAT;
-	this->stor_functions[0x42] = &MemoryController::store_SCY;
-	this->load_functions[0x42] = &MemoryController::load_SCY;
-	this->stor_functions[0x43] = &MemoryController::store_SCX;
-	this->load_functions[0x43] = &MemoryController::load_SCX;
-	this->stor_functions[0x44] = &MemoryController::store_LY;
-	this->load_functions[0x44] = &MemoryController::load_LY;
-	this->stor_functions[0x45] = &MemoryController::store_LYC;
-	this->load_functions[0x45] = &MemoryController::load_LYC;
-	this->stor_functions[0x46] = &MemoryController::store_DMA;
-	//this->load_functions[0x46] = &MemoryController::load_DMA;
-	this->stor_functions[0x47] = &MemoryController::store_BGP;
-	this->load_functions[0x47] = &MemoryController::load_BGP;
-	this->stor_functions[0x48] = &MemoryController::store_OBP0;
-	this->load_functions[0x48] = &MemoryController::load_OBP0;
-	this->stor_functions[0x49] = &MemoryController::store_OBP1;
-	this->load_functions[0x49] = &MemoryController::load_OBP1;
-	this->stor_functions[0x4a] = &MemoryController::store_WY;
-	this->load_functions[0x4a] = &MemoryController::load_WY;
-	this->stor_functions[0x4b] = &MemoryController::store_WX;
-	this->load_functions[0x4b] = &MemoryController::load_WX;
+	this->io_registers_stor[0x40] = &MemoryController::store_LCDC;
+	this->io_registers_load[0x40] = &MemoryController::load_LCDC;
+	this->io_registers_stor[0x41] = &MemoryController::store_STAT;
+	this->io_registers_load[0x41] = &MemoryController::load_STAT;
+	this->io_registers_stor[0x42] = &MemoryController::store_SCY;
+	this->io_registers_load[0x42] = &MemoryController::load_SCY;
+	this->io_registers_stor[0x43] = &MemoryController::store_SCX;
+	this->io_registers_load[0x43] = &MemoryController::load_SCX;
+	this->io_registers_stor[0x44] = &MemoryController::store_LY;
+	this->io_registers_load[0x44] = &MemoryController::load_LY;
+	this->io_registers_stor[0x45] = &MemoryController::store_LYC;
+	this->io_registers_load[0x45] = &MemoryController::load_LYC;
+	this->io_registers_stor[0x46] = &MemoryController::store_DMA;
+	//this->io_registers_load[0x46] = &MemoryController::load_DMA;
+	this->io_registers_stor[0x47] = &MemoryController::store_BGP;
+	this->io_registers_load[0x47] = &MemoryController::load_BGP;
+	this->io_registers_stor[0x48] = &MemoryController::store_OBP0;
+	this->io_registers_load[0x48] = &MemoryController::load_OBP0;
+	this->io_registers_stor[0x49] = &MemoryController::store_OBP1;
+	this->io_registers_load[0x49] = &MemoryController::load_OBP1;
+	this->io_registers_stor[0x4a] = &MemoryController::store_WY;
+	this->io_registers_load[0x4a] = &MemoryController::load_WY;
+	this->io_registers_stor[0x4b] = &MemoryController::store_WX;
+	this->io_registers_load[0x4b] = &MemoryController::load_WX;
+}
+
+byte_t MemoryController::read_storage(main_integer_t address) const{
+	return this->storage->read8(address);
+}
+
+void MemoryController::write_storage(main_integer_t address, byte_t value){
+	this->storage->write8(address, value);
+}
+
+byte_t MemoryController::read_storage_ram(main_integer_t address) const{
+	return this->read_storage(address);
+}
+
+void MemoryController::write_storage_ram(main_integer_t address, byte_t value){
+	return this->write_storage(address, value);
+}
+
+byte_t MemoryController::read_ram_mirror1(main_integer_t address) const{
+	return this->read_fixed_ram(address - 0x2000);
+}
+
+void MemoryController::write_ram_mirror1(main_integer_t address, byte_t value){
+	this->write_fixed_ram(address - 0x2000, value);
+}
+
+byte_t MemoryController::read_ram_mirror2(main_integer_t address) const{
+	return this->read_switchable_ram(address - 0x2000);
+}
+
+void MemoryController::write_ram_mirror2(main_integer_t address, byte_t value){
+	this->write_switchable_ram(address - 0x2000, value);
+}
+
+byte_t MemoryController::read_io_registers_and_high_ram(main_integer_t address) const{
+	if (address < 0xFF00 + io_function_table_sizes){
+		// Handle I/O registers.
+		auto fp = this->io_registers_load[address & 0xFF];
+		if (fp)
+			return (this->*fp)();
+		throw NotImplementedException();
+	}
+	if (address < 0xFF80)
+		throw NotImplementedException();
+	// Handle high RAM.
+	return this->high_ram.access(address);
+}
+
+void MemoryController::write_io_registers_and_high_ram(main_integer_t address, byte_t value){
+	if (address < 0xFF00 + io_function_table_sizes){
+		// Handle I/O registers.
+		auto fp = this->io_registers_stor[address & 0xFF];
+		if (fp)
+			(this->*fp)(value);
+		throw NotImplementedException();
+	}
+	if (address < 0xFF80)
+		throw NotImplementedException();
+	// Handle high RAM.
+	this->high_ram.access(address) = value;
+}
+
+byte_t MemoryController::read_dmg_bootstrap(main_integer_t address) const{
+	return gb_bootstrap_rom[address];
+}
+
+byte_t MemoryController::read_vram(main_integer_t address) const{
+	return this->vram.access(address);
+}
+
+void MemoryController::write_vram(main_integer_t address, byte_t value){
+	this->vram.access(address) = value;
+}
+
+byte_t MemoryController::read_fixed_ram(main_integer_t address) const{
+	return this->fixed_ram.access(address);
+}
+
+void MemoryController::write_fixed_ram(main_integer_t address, byte_t value){
+	this->fixed_ram.access(address) = value;
+}
+
+byte_t MemoryController::read_switchable_ram(main_integer_t address) const{
+	return this->fixed_ram.access(address + (this->selected_ram_bank << 12));
+}
+
+void MemoryController::write_switchable_ram(main_integer_t address, byte_t value){
+	this->fixed_ram.access(address + (this->selected_ram_bank << 12)) = value;
+}
+
+byte_t MemoryController::read_oam(main_integer_t address) const{
+	if (address >= 0xFEA0)
+		throw GenericException("Invalid memory access: Region [0xFEA0; 0xFF00) cannot be used.");
+
+	return this->oam.access(address);
+}
+
+void MemoryController::write_oam(main_integer_t address, byte_t value){
+	if (address >= 0xFEA0)
+		throw GenericException("Invalid memory access: Region [0xFEA0; 0xFF00) cannot be used.");
+
+	this->oam.access(address) = value;
 }
 
 void MemoryController::store_not_implemented(byte_t){
@@ -373,105 +540,25 @@ void MemoryController::store_TAC(byte_t b){
 	this->system->get_system_clock().set_TAC_register(b);
 }
 
-void MemoryController::fix_up_address(main_integer_t &address){
-	address &= 0xFFFF;
-	if (address >= 0xE000 && address < 0xFE00)
-		address -= 0x2000;
-}
-
 main_integer_t MemoryController::load8(main_integer_t address) const{
-	this->fix_up_address(address);
-
-	if (address < 0xFF00)
-		return this->memory[address];
-
-	if (address < 0xFF00 + function_table_sizes){
-		// Handle I/O registers.
-		auto fp = this->load_functions[address & 0xFF];
-		if (fp)
-			return (this->*fp)();
-		return this->memory[address];
-	}
-
-	if (address < 0xFF80)
-		return 0xFF;
-
-	if (address == 0xFFFF)
-		return this->cpu->get_interrupt_enable_flag();
-
-	return this->memory[address];
+	address &= 0xFFFF;
+	auto fp = this->memory_map_load[address >> 8];
+	return (this->*fp)(address);
 }
 
 void MemoryController::store8(main_integer_t address, main_integer_t value){
-	this->fix_up_address(address);
-	auto b = (byte_t)value;
-	this->memory[address] = b;
-
-	if (address < 0xFF00)
-		return;
-
-	if (address < 0xFF00 + function_table_sizes){
-		// Handle I/O registers.
-		auto fp = this->stor_functions[address & 0xFF];
-		if (fp)
-			(this->*fp)(b);
-		return;
-	}
-
-	if (address < 0xFF50)
-		return;
-
-	if (address == 0xFF50){
-		this->toggle_boostrap_rom(!value);
-		return;
-	}
-
-	if (address == 0xFFFF){
-		this->cpu->set_interrupt_enable_flag(b);
-		return;
-	}
-	return;
+	address &= 0xFFFF;
+	auto fp = this->memory_map_store[address >> 8];
+	(this->*fp)(address, (byte_t)value);
 }
 
 main_integer_t MemoryController::load16(main_integer_t address) const{
-#if !defined USE_CPP_UNDEFINED_BEHAVIOR
 	return (this->load8(address + 1) << 8) | this->load8(address);
-#elif defined LITTLE_ENDIAN
-	this->fix_up_address(address);
-	return *(std::uint16_t *)(this->memory + address);
-#else
-#error Not implemented!
-#endif
 }
 
 void MemoryController::store16(main_integer_t address, main_integer_t value){
-#if !defined USE_CPP_UNDEFINED_BEHAVIOR
 	this->store8(address + 1, value >> 8);
 	this->store8(address, value);
-#elif defined LITTLE_ENDIAN
-	this->fix_up_address(address);
-	*(std::uint16_t *)(this->memory + address) = (std::uint16_t)value;
-#else
-#error Not implemented!
-#endif
-}
-
-void MemoryController::copy_out_memory_at(void *dst, size_t length, main_integer_t address){
-	address &= 0xFFFF;
-	length = std::min<size_t>(length, 0x10000 - address);
-	memcpy(dst, this->memory + address, length);
-}
-
-void MemoryController::load_rom_at(const void *buffer, size_t length, main_integer_t address){
-	address &= 0xFFFF;
-	length = std::min<size_t>(length, 0x10000 - address);
-	memcpy(this->memory + address, buffer, length);
-}
-
-void MemoryController::clear_memory_at(main_integer_t address, size_t length){
-	address &= 0xFFFF;
-	length = std::min<size_t>(length, 0x10000 - address);
-	memset(this->memory + address, 0, length);
 }
 
 void MemoryController::copy_memory(main_integer_t src, main_integer_t dst, size_t length){
@@ -479,18 +566,17 @@ void MemoryController::copy_memory(main_integer_t src, main_integer_t dst, size_
 		return;
 	if (dst > src && dst < src + length || src > dst && src < dst + length)
 		throw GenericException("Invalid memory transfer: source and destination overlap.");
-	memcpy(this->memory + dst, this->memory + src, length);
+
+	for (size_t i = 0; i < length; i++)
+		this->store8(dst + i, this->load8(src + i));
 }
 
 void MemoryController::toggle_boostrap_rom(bool on){
-	if ((bool)this->boostrap_swap == on)
+	if (this->boostrap_enabled == on)
 		return;
-	if (on){
-		this->boostrap_swap.reset(new byte_t[gb_bootstrap_rom_size]);
-		memcpy(this->boostrap_swap.get(), this->memory, gb_bootstrap_rom_size);
-		memcpy(this->memory, gb_bootstrap_rom, gb_bootstrap_rom_size);
-	}else{
-		memcpy(this->memory, this->boostrap_swap.get(), gb_bootstrap_rom_size);
-		this->boostrap_swap.reset();
-	}
+	this->boostrap_enabled = on;
+	if (on)
+		this->memory_map_load[0x00] = &MemoryController::read_dmg_bootstrap;
+	else
+		this->memory_map_load[0x00] = &MemoryController::read_storage;
 }

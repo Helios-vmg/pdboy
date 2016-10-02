@@ -12,36 +12,6 @@ DisplayController::DisplayController(Gameboy &system): system(&system){
 	this->set_obj1_palette(0);
 }
 
-void DisplayController::dump_background(const char *filename, MemoryController &mc){
-	const size_t size_tiles = 0x9800 - 0x8000;
-	const size_t size_bg = 0x9C00 - 0x9800;
-	std::unique_ptr<byte_t[]> tiles(new byte_t[size_tiles]);
-	std::unique_ptr<byte_t[]> bg(new byte_t[size_bg]);
-	mc.copy_out_memory_at(tiles.get(), size_tiles, 0x8000);
-	mc.copy_out_memory_at(bg.get(), size_bg, 0x9800);
-
-	const size_t dump_size = 8 * 8 * 32 * 32;
-	std::unique_ptr<byte_t[]> dump(new byte_t[dump_size]);
-	for (int y = 0; y < 32; y++){
-		for (int x = 0; x < 32; x++){
-			byte_t bg_value = bg[x + y * 32];
-			auto tile = tiles.get() + bg_value * 16;
-			for (int y2 = 0; y2 < 8; y2++){
-				auto bitsA = tile[y2 * 2 + 0];
-				auto bitsB = tile[y2 * 2 + 1];
-				for (int x2 = 0; x2 < 8; x2++){
-					auto &pixel = dump[x * 8 + x2 + (32 * 8)*(y * 8 + y2)];
-					unsigned color = ((bitsA >> (7 - x2)) & 1) | (((bitsB >> (7 - x2)) & 1) << 1);
-					pixel = this->bg_palette[color].r;
-				}
-			}
-		}
-	}
-
-	std::ofstream file(filename, std::ios::binary);
-	file.write((const char *)dump.get(), dump_size);
-}
-
 bool DisplayController::ready_to_draw(){
 	auto status = (this->get_row_status() & 3) != 3;
 	if (this->renderer_notified){
@@ -58,8 +28,8 @@ void DisplayController::render_to(byte_t *pixels, int pitch){
 	if (!this->memory_controller)
 		throw GenericException("Emulator internal error: DisplayController::render_to() has been called before calling DisplayController::set_memory_controller().");
 
-	auto tile_vram = this->memory_controller->direct_memory_access(0x8000);
-	auto bg_vram = this->memory_controller->direct_memory_access(0x9800);
+	auto tile_vram = this->memory_controller->get_tile_vram();
+	auto bg_vram = this->memory_controller->get_bg_vram();
 	for (int y = 0; y < lcd_height; y++){
 		auto row = pixels + pitch * y;
 		auto src_y = (y + this->scroll_y) & 0xFF;

@@ -12,7 +12,7 @@ HostSystem::HostSystem(){
 }
 
 void HostSystem::reinit(){
-	this->gameboy.reset(new Gameboy);
+	this->gameboy.reset(new Gameboy(*this));
 }
 
 std::unique_ptr<std::vector<byte_t>> HostSystem::load_file(const char *path, size_t maximum_size){

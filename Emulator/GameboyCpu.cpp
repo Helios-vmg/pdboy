@@ -15,16 +15,6 @@ GameboyCpu::GameboyCpu(Gameboy &system):
 void GameboyCpu::initialize(){
 	this->memory_controller.initialize();
 	this->initialize_opcode_tables();
-	{
-		std::ifstream input("tetris.gb", std::ios::binary);
-		if (!input)
-			throw std::exception();
-		input.seekg(0, std::ios::end);
-		std::vector<char> data(input.tellg());
-		input.seekg(0);
-		input.read(&data[0], data.size());
-		this->memory_controller.load_rom_at(&data[0], data.size(), 0);
-	}
 	this->memory_controller.toggle_boostrap_rom(true);
 }
 
