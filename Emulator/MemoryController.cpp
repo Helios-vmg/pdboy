@@ -29,7 +29,7 @@ unsigned char gb_bootstrap_rom[] = {
 };
 const size_t gb_bootstrap_rom_size = sizeof(gb_bootstrap_rom);
 
-const size_t io_function_table_sizes = 0x4C;
+const size_t io_function_table_sizes = 0x100;
 
 MemoryController::MemoryController(Gameboy &system, GameboyCpu &cpu):
 	system(&system),
@@ -42,8 +42,8 @@ MemoryController::MemoryController(Gameboy &system, GameboyCpu &cpu):
 	switchable_ram(0x7000),
 	oam(0xA0),
 	high_ram(0x80),
-	io_registers_stor(new io_store_func_t[io_function_table_sizes]),
-	io_registers_load(new io_load_func_t[io_function_table_sizes]),
+	io_registers_stor(new store_func_t[io_function_table_sizes]),
+	io_registers_load(new load_func_t[io_function_table_sizes]),
 	memory_map_store(new store_func_t[0x100]),
 	memory_map_load(new load_func_t[0x100])
 {}
@@ -113,8 +113,13 @@ void MemoryController::initialize_memory_map_functions(){
 }
 
 void MemoryController::initialize_io_register_functions(){
-	std::fill(this->io_registers_stor.get(), this->io_registers_stor.get() + io_function_table_sizes, nullptr);
-	std::fill(this->io_registers_load.get(), this->io_registers_load.get() + io_function_table_sizes, nullptr);
+	std::fill(this->io_registers_stor.get() + 0x00, this->io_registers_stor.get() + 0x4C, nullptr);
+	std::fill(this->io_registers_stor.get() + 0x4C, this->io_registers_stor.get() + 0x80, &MemoryController::store_no_io);
+	std::fill(this->io_registers_stor.get() + 0x80, this->io_registers_stor.get() + io_function_table_sizes, &MemoryController::store_high_ram);
+
+	std::fill(this->io_registers_load.get() + 0x00, this->io_registers_load.get() + 0x4C, nullptr);
+	std::fill(this->io_registers_load.get() + 0x4C, this->io_registers_load.get() + 0x80, &MemoryController::load_no_io);
+	std::fill(this->io_registers_load.get() + 0x80, this->io_registers_load.get() + io_function_table_sizes, &MemoryController::load_high_ram);
 
 	this->io_registers_stor[0x00] = &MemoryController::store_P1;
 	this->io_registers_load[0x00] = &MemoryController::load_P1;
@@ -284,6 +289,12 @@ void MemoryController::initialize_io_register_functions(){
 	this->io_registers_load[0x4a] = &MemoryController::load_WY;
 	this->io_registers_stor[0x4b] = &MemoryController::store_WX;
 	this->io_registers_load[0x4b] = &MemoryController::load_WX;
+
+	this->io_registers_stor[0x50] = &MemoryController::store_bootstrap_rom_enable;
+	this->io_registers_load[0x50] = &MemoryController::load_bootstrap_rom_enable;
+
+	this->io_registers_stor[0xFF] = &MemoryController::store_interrupt_enable;
+	this->io_registers_load[0xFF] = &MemoryController::load_interrupt_enable;
 }
 
 byte_t MemoryController::read_storage(main_integer_t address) const{
@@ -319,31 +330,16 @@ void MemoryController::write_ram_mirror2(main_integer_t address, byte_t value){
 }
 
 byte_t MemoryController::read_io_registers_and_high_ram(main_integer_t address) const{
-	if (address < 0xFF00 + io_function_table_sizes){
-		// Handle I/O registers.
-		auto fp = this->io_registers_load[address & 0xFF];
-		if (fp)
-			return (this->*fp)();
-		throw NotImplementedException();
-	}
-	if (address < 0xFF80)
-		throw NotImplementedException();
-	// Handle high RAM.
-	return this->high_ram.access(address);
+	auto fp = this->io_registers_load[address & 0xFF];
+	if (fp)
+		return (this->*fp)(address);
+	return 0xFF;
 }
 
 void MemoryController::write_io_registers_and_high_ram(main_integer_t address, byte_t value){
-	if (address < 0xFF00 + io_function_table_sizes){
-		// Handle I/O registers.
-		auto fp = this->io_registers_stor[address & 0xFF];
-		if (fp)
-			(this->*fp)(value);
-		throw NotImplementedException();
-	}
-	if (address < 0xFF80)
-		throw NotImplementedException();
-	// Handle high RAM.
-	this->high_ram.access(address) = value;
+	auto fp = this->io_registers_stor[address & 0xFF];
+	if (fp)
+		(this->*fp)(address, value);
 }
 
 byte_t MemoryController::read_dmg_bootstrap(main_integer_t address) const{
@@ -367,176 +363,207 @@ void MemoryController::write_fixed_ram(main_integer_t address, byte_t value){
 }
 
 byte_t MemoryController::read_switchable_ram(main_integer_t address) const{
-	return this->fixed_ram.access(address + (this->selected_ram_bank << 12));
+	return this->switchable_ram.access(address + (this->selected_ram_bank << 12));
 }
 
 void MemoryController::write_switchable_ram(main_integer_t address, byte_t value){
-	this->fixed_ram.access(address + (this->selected_ram_bank << 12)) = value;
+	this->switchable_ram.access(address + (this->selected_ram_bank << 12)) = value;
 }
 
 byte_t MemoryController::read_oam(main_integer_t address) const{
 	if (address >= 0xFEA0)
-		throw GenericException("Invalid memory access: Region [0xFEA0; 0xFF00) cannot be used.");
+		return 0;
 
 	return this->oam.access(address);
 }
 
 void MemoryController::write_oam(main_integer_t address, byte_t value){
 	if (address >= 0xFEA0)
-		throw GenericException("Invalid memory access: Region [0xFEA0; 0xFF00) cannot be used.");
+		return;
 
 	this->oam.access(address) = value;
 }
 
-void MemoryController::store_not_implemented(byte_t){
+void MemoryController::store_not_implemented(main_integer_t, byte_t){
 	throw NotImplementedException();
 }
 
-byte_t MemoryController::load_not_implemented() const{
+byte_t MemoryController::load_not_implemented(main_integer_t) const{
 	throw NotImplementedException();
 }
 
-byte_t MemoryController::load_STAT() const{
+void MemoryController::store_no_io(main_integer_t, byte_t){
+}
+
+byte_t MemoryController::load_no_io(main_integer_t) const{
+	return 0xFF;
+}
+
+void MemoryController::store_bootstrap_rom_enable(main_integer_t, byte_t value){
+	this->toggle_boostrap_rom(!value);
+}
+
+byte_t MemoryController::load_bootstrap_rom_enable(main_integer_t) const{
+	return 0xFF;
+}
+
+void MemoryController::store_high_ram(main_integer_t address, byte_t value){
+	this->high_ram.access(address) = value;
+}
+
+byte_t MemoryController::load_high_ram(main_integer_t address) const{
+	return this->high_ram.access(address);
+}
+
+void MemoryController::store_interrupt_enable(main_integer_t, byte_t value){
+	this->cpu->set_interrupt_enable_flag(value);
+}
+
+byte_t MemoryController::load_interrupt_enable(main_integer_t) const{
+	return this->cpu->get_interrupt_enable_flag();
+}
+
+byte_t MemoryController::load_STAT(main_integer_t) const{
 	return this->display->get_status();
 }
 
-void MemoryController::store_STAT(byte_t b){
+void MemoryController::store_STAT(main_integer_t, byte_t b){
 	this->display->set_status(b);
 }
 
-byte_t MemoryController::load_LY() const{
+byte_t MemoryController::load_LY(main_integer_t) const{
 	return this->display->get_y_coordinate();
 }
 
-void MemoryController::store_LY(byte_t b){
+void MemoryController::store_LY(main_integer_t, byte_t b){
 	this->display->set_y_coordinate_compare(b);
 }
 
-byte_t MemoryController::load_LYC() const{
+byte_t MemoryController::load_LYC(main_integer_t) const{
 	return this->display->get_y_coordinate_compare();
 }
 
-void MemoryController::store_LYC(byte_t b){
+void MemoryController::store_LYC(main_integer_t, byte_t b){
 	this->display->set_y_coordinate_compare(b);
 }
 
-byte_t MemoryController::load_WY() const{
+byte_t MemoryController::load_WY(main_integer_t) const{
 	return this->display->get_window_y_position();
 }
 
-void MemoryController::store_WY(byte_t b){
+void MemoryController::store_WY(main_integer_t, byte_t b){
 	this->display->set_window_y_position(b);
 }
 
-byte_t MemoryController::load_WX() const{
+byte_t MemoryController::load_WX(main_integer_t) const{
 	return this->display->get_window_x_position();
 }
 
-void MemoryController::store_WX(byte_t b){
+void MemoryController::store_WX(main_integer_t, byte_t b){
 	this->display->set_window_x_position(b);
 }
 
-byte_t MemoryController::load_BGP() const{
+byte_t MemoryController::load_BGP(main_integer_t) const{
 	return this->display->get_background_palette();
 }
 
-void MemoryController::store_BGP(byte_t b){
+void MemoryController::store_BGP(main_integer_t, byte_t b){
 	this->display->set_background_palette(b);
 }
 
-byte_t MemoryController::load_SCY() const{
+byte_t MemoryController::load_SCY(main_integer_t) const{
 	return this->display->get_scroll_y();
 }
 
-void MemoryController::store_SCY(byte_t b){
+void MemoryController::store_SCY(main_integer_t, byte_t b){
 	this->display->set_scroll_y(b);
 }
 
-byte_t MemoryController::load_SCX() const{
+byte_t MemoryController::load_SCX(main_integer_t) const{
 	return this->display->get_scroll_x();
 }
 
-void MemoryController::store_SCX(byte_t b){
+void MemoryController::store_SCX(main_integer_t, byte_t b){
 	this->display->set_scroll_x(b);
 }
 
-byte_t MemoryController::load_LCDC() const{
+byte_t MemoryController::load_LCDC(main_integer_t) const{
 	return this->display->get_lcd_control();
 }
 
-void MemoryController::store_LCDC(byte_t b){
+void MemoryController::store_LCDC(main_integer_t, byte_t b){
 	this->display->set_lcd_control(b);
 }
 
-byte_t MemoryController::load_IF() const{
+byte_t MemoryController::load_IF(main_integer_t) const{
 	return this->cpu->get_interrupt_flag();
 }
 
-void MemoryController::store_IF(byte_t b){
+void MemoryController::store_IF(main_integer_t, byte_t b){
 	this->cpu->set_interrupt_flag(b);
 }
 
-byte_t MemoryController::load_P1() const{
+byte_t MemoryController::load_P1(main_integer_t) const{
 	return this->joypad->get_requested_input_state();
 }
 
-void MemoryController::store_P1(byte_t b){
+void MemoryController::store_P1(main_integer_t, byte_t b){
 	this->joypad->request_input_state(b);
 }
 
-byte_t MemoryController::load_OBP0() const{
+byte_t MemoryController::load_OBP0(main_integer_t) const{
 	return this->display->get_obj0_palette();
 }
 
-void MemoryController::store_OBP0(byte_t b){
+void MemoryController::store_OBP0(main_integer_t, byte_t b){
 	this->display->set_obj0_palette(b);
 }
 
-byte_t MemoryController::load_OBP1() const{
+byte_t MemoryController::load_OBP1(main_integer_t) const{
 	return this->display->get_obj1_palette();
 }
 
-void MemoryController::store_OBP1(byte_t b){
+void MemoryController::store_OBP1(main_integer_t, byte_t b){
 	this->display->set_obj1_palette(b);
 }
 
-byte_t MemoryController::load_DMA() const{
+byte_t MemoryController::load_DMA(main_integer_t) const{
 	return 0;
 }
 
-void MemoryController::store_DMA(byte_t b){
+void MemoryController::store_DMA(main_integer_t, byte_t b){
 	this->cpu->begin_dmg_dma_transfer(b);
 }
 
-byte_t MemoryController::load_DIV() const{
+byte_t MemoryController::load_DIV(main_integer_t) const{
 	return this->system->get_system_clock().get_DIV_register();
 }
 
-void MemoryController::store_DIV(byte_t b){
+void MemoryController::store_DIV(main_integer_t, byte_t b){
 	this->system->get_system_clock().reset_DIV_register();
 }
 
-byte_t MemoryController::load_TIMA() const{
+byte_t MemoryController::load_TIMA(main_integer_t) const{
 	return this->system->get_system_clock().get_TIMA_register();
 }
 
-void MemoryController::store_TIMA(byte_t b){
+void MemoryController::store_TIMA(main_integer_t, byte_t b){
 	this->system->get_system_clock().set_TIMA_register(b);
 }
 
-byte_t MemoryController::load_TMA() const{
+byte_t MemoryController::load_TMA(main_integer_t) const{
 	return this->system->get_system_clock().get_TMA_register();
 }
 
-void MemoryController::store_TMA(byte_t b){
+void MemoryController::store_TMA(main_integer_t, byte_t b){
 	this->system->get_system_clock().set_TMA_register(b);
 }
 
-byte_t MemoryController::load_TAC() const{
+byte_t MemoryController::load_TAC(main_integer_t) const{
 	return this->system->get_system_clock().get_TAC_register();
 }
 
-void MemoryController::store_TAC(byte_t b){
+void MemoryController::store_TAC(main_integer_t, byte_t b){
 	this->system->get_system_clock().set_TAC_register(b);
 }
 

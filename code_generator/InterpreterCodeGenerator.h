@@ -59,7 +59,7 @@ public:
 	std::array<uintptr_t, 3> add16_using_carry_modulo_16(uintptr_t a, uintptr_t b) override{
 		return this->add(a, b, 16, 16);
 	}
-	std::array<uintptr_t, 3> add8_carry(uintptr_t, uintptr_t) override;
+	std::array<uintptr_t, 3> add8_carry(uintptr_t, uintptr_t, bool flip_carry = false) override;
 	std::array<uintptr_t, 3> sub8(uintptr_t, uintptr_t) override;
 	std::array<uintptr_t, 3> sub8_carry(uintptr_t, uintptr_t) override;
 	uintptr_t sub16_no_carry(uintptr_t a, uintptr_t b);

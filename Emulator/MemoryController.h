@@ -7,16 +7,14 @@ class GameboyCpu;
 class DisplayController;
 
 #define DECLARE_IO_REGISTER(x) \
-	byte_t load_##x() const; \
-	void store_##x(byte_t)
+	byte_t load_##x(main_integer_t) const; \
+	void store_##x(main_integer_t, byte_t)
 
 class Gameboy;
 class UserInputController;
 class StorageController;
 
 class MemoryController{
-	typedef void (MemoryController::*io_store_func_t)(byte_t);
-	typedef byte_t(MemoryController::*io_load_func_t)() const;
 	typedef void (MemoryController::*store_func_t)(main_integer_t, byte_t);
 	typedef byte_t(MemoryController::*load_func_t)(main_integer_t) const;
 
@@ -29,9 +27,10 @@ class MemoryController{
 	template <main_integer_t START>
 	class MemorySection{
 		std::unique_ptr<byte_t[]> pointer;
+		size_t size;
 		byte_t *memory;
 	public:
-		MemorySection(size_t size): pointer(new byte_t[size]){
+		MemorySection(size_t size): pointer(new byte_t[size]), size(size){
 			this->memory = this->pointer.get();
 		}
 		byte_t &access(main_integer_t address){
@@ -48,8 +47,8 @@ class MemoryController{
 	MemorySection<0xFE00> oam;
 	MemorySection<0xFF80> high_ram;
 
-	std::unique_ptr<io_store_func_t[]> io_registers_stor;
-	std::unique_ptr<io_load_func_t[]> io_registers_load;
+	std::unique_ptr<store_func_t[]> io_registers_stor;
+	std::unique_ptr<load_func_t[]> io_registers_load;
 	std::unique_ptr<store_func_t[]> memory_map_store;
 	std::unique_ptr<load_func_t[]> memory_map_load;
 	bool boostrap_enabled = false;
@@ -59,8 +58,16 @@ class MemoryController{
 	void initialize_functions();
 	void initialize_memory_map_functions();
 	void initialize_io_register_functions();
-	void store_not_implemented(byte_t);
-	byte_t load_not_implemented() const;
+	void store_not_implemented(main_integer_t, byte_t);
+	byte_t load_not_implemented(main_integer_t) const;
+	void store_no_io(main_integer_t, byte_t);
+	byte_t load_no_io(main_integer_t) const;
+	void store_bootstrap_rom_enable(main_integer_t, byte_t);
+	byte_t load_bootstrap_rom_enable(main_integer_t) const;
+	void store_high_ram(main_integer_t, byte_t);
+	byte_t load_high_ram(main_integer_t) const;
+	void store_interrupt_enable(main_integer_t, byte_t);
+	byte_t load_interrupt_enable(main_integer_t) const;
 
 	byte_t read_storage(main_integer_t) const;
 	void write_storage(main_integer_t, byte_t);

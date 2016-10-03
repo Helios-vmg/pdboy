@@ -7,6 +7,8 @@
 #define TEMPDECL "\t" TEMPTYPE " "
 #define CONSTTEMPDECL "\tconst " TEMPTYPE " "
 
+//#define GENERATE_CHECKS
+
 static std::string get_temp_name(unsigned i){
 	std::stringstream stream;
 	stream << "temp" << i;
@@ -357,7 +359,7 @@ uintptr_t InterpreterCodeGenerator::sub16_no_carry(uintptr_t a, uintptr_t b){
 	return (uintptr_t)ret;
 }
 
-std::array<uintptr_t, 3> InterpreterCodeGenerator::add8_carry(uintptr_t valA, uintptr_t valB){
+std::array<uintptr_t, 3> InterpreterCodeGenerator::add8_carry(uintptr_t valA, uintptr_t valB, bool flip_carry){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
@@ -366,7 +368,7 @@ std::array<uintptr_t, 3> InterpreterCodeGenerator::add8_carry(uintptr_t valA, ui
 	auto &valB_name = temp_to_string(valB);
 	s
 		<< TEMPDECL << carry_name << " = this->registers.get(Flags::Carry);\n"
-		<< TEMPDECL << temp_name << " = " << valB_name << " + " << carry_name << ";\n";
+		<< TEMPDECL << temp_name << " = " << valB_name << (flip_carry ? " - " : " + ") << carry_name << ";\n";
 	auto temp = copy(temp_name);
 	this->temporary_values.push_back(temp);
 	return this->add8(valA, (uintptr_t)temp);
@@ -376,22 +378,85 @@ std::array<uintptr_t, 3> InterpreterCodeGenerator::sub8(uintptr_t valA, uintptr_
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
-	auto negated_name = get_temp_name(n++);
-	s << TEMPDECL << negated_name << " = (1 + ~" << temp_to_string(valB) << ");\n";
-	auto temp = copy(negated_name);
-	this->temporary_values.push_back(temp);
-	return this->add8(valA, (uintptr_t)temp);
+	auto result_name = get_temp_name(n++);
+	auto hc_temp_name = get_temp_name(n++);
+	auto half_carry_name = get_temp_name(n++);
+	auto full_carry_name = get_temp_name(n++);
+	auto &valA_name = temp_to_string(valA);
+	auto &valB_name = temp_to_string(valB);
+	s
+		<< "\tint " << result_name << " = uint8_to_int(" << valA_name << ") - uint8_to_int(" << valB_name << ");\n"
+		<< "\tint " << hc_temp_name << " = (int)((" << valA_name << ") & 0x0F) - (int)((" << valB_name << ") & 0x0F);\n"
+		<< TEMPDECL << half_carry_name << " = " << hc_temp_name << " < 0;\n"
+		<< TEMPDECL << full_carry_name << " = " << result_name << " < 0;\n"
+		<< "\t" << result_name << " = (int)int_to_uint8(" << result_name << ");\n";
+
+	std::string *retp[] = { copy(result_name), copy(half_carry_name), copy(full_carry_name) };
+	std::array<uintptr_t, 3> ret;
+	for (auto i = 3; i--;){
+		this->temporary_values.push_back(retp[i]);
+		ret[i] = (uintptr_t)retp[i];
+	}
+
+#ifdef GENERATE_CHECKS
+	auto check_carry_name = get_temp_name(n++);
+	auto check_half_carry_name = get_temp_name(n++);
+	s << "\tint " << check_carry_name << " = (int)" << temp_to_string(valA) << " - " << " (int)" << temp_to_string(valB) << ";\n";
+	s << "\tint " << check_half_carry_name << " = (int)((" << temp_to_string(valA) << ") & 0x0F) - " << " (int)((" << temp_to_string(valB) << ") & 0x0F);\n";
+	s << "\tif (" << check_carry_name << " < 0 && !!!(" << temp_to_string(ret[1]) << ") || " << check_half_carry_name << " < 0 && !!!(" << temp_to_string(ret[2]) << ")){\n";
+	s << "\t\t__debugbreak();\n";
+	s << "\t}\n";
+	s << "\tif (" << check_carry_name << " >= 0 && !!(" << temp_to_string(ret[1]) << ") || " << check_half_carry_name << " >= 0 && !!(" << temp_to_string(ret[2]) << ")){\n";
+	s << "\t\t__debugbreak();\n";
+	s << "\t}\n";
+#endif
+
+	return ret;
 }
 
 std::array<uintptr_t, 3> InterpreterCodeGenerator::sub8_carry(uintptr_t valA, uintptr_t valB){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
-	auto negated_name = get_temp_name(n++);
-	s << TEMPDECL << negated_name << " = (1 + ~" << temp_to_string(valB) << ");\n";
-	auto temp = copy(negated_name);
-	this->temporary_values.push_back(temp);
-	return this->add8_carry(valA, (uintptr_t)temp);
+	auto result_name = get_temp_name(n++);
+	auto hc_temp_name = get_temp_name(n++);
+	auto intermediate_name = get_temp_name(n++);
+	auto half_carry_name = get_temp_name(n++);
+	auto full_carry_name = get_temp_name(n++);
+	auto temp_carry = get_temp_name(n++);
+	auto &valA_name = temp_to_string(valA);
+	auto &valB_name = temp_to_string(valB);
+	s
+		<< TEMPDECL << temp_carry << " = this->registers.get(Flags::Carry);\n"
+		<< TEMPDECL << intermediate_name << " = " << valB_name << " + " << temp_carry << ";\n"
+		<< "\tint " << result_name << " = uint8_to_int(" << valA_name << ") - uint8_to_int(" << intermediate_name << ");\n"
+		<< "\tint " << hc_temp_name << " = (int)((" << valA_name << ") & 0x0F) - (int)((" << intermediate_name << ") & 0x0F);\n"
+		<< TEMPDECL << half_carry_name << " = " << hc_temp_name << " < 0;\n"
+		<< TEMPDECL << full_carry_name << " = " << result_name << " < 0;\n"
+		<< "\t" << result_name << " = (int)int_to_uint8(" << result_name << ");\n";
+
+	std::string *retp[] = { copy(result_name), copy(half_carry_name), copy(full_carry_name) };
+	std::array<uintptr_t, 3> ret;
+	for (auto i = 3; i--;){
+		this->temporary_values.push_back(retp[i]);
+		ret[i] = (uintptr_t)retp[i];
+	}
+
+
+#ifdef GENERATE_CHECKS
+	auto check_carry_name = get_temp_name(n++);
+	auto check_half_carry_name = get_temp_name(n++);
+	s << "\tint " << check_carry_name << " = (int)" << temp_to_string(valA) << " - " << " (int)" << temp_to_string(valB) << ";\n";
+	s << "\tint " << check_half_carry_name << " = (int)((" << temp_to_string(valA) << ") & 0x0F) - " << " (int)(((" << temp_to_string(valB) << ") + " << temp_carry << ") & 0x0F);\n";
+	s << "\tif (" << check_carry_name << " < 0 && !!!(" << temp_to_string(ret[1]) << ") || " << check_half_carry_name << " < 0 && !!!(" << temp_to_string(ret[2]) << ")){\n";
+	s << "\t\t__debugbreak();\n";
+	s << "\t}\n";
+	s << "\tif (" << check_carry_name << " > 0 && !!(" << temp_to_string(ret[1]) << ") || " << check_half_carry_name << " >= 0 && !!(" << temp_to_string(ret[2]) << ")){\n";
+	s << "\t\t__debugbreak();\n";
+	s << "\t}\n";
+#endif
+
+	return ret;
 }
 
 uintptr_t InterpreterCodeGenerator::and8(uintptr_t valA, uintptr_t valB){

@@ -4,6 +4,7 @@
 #include <fstream>
 #include <vector>
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 
 GameboyCpu::GameboyCpu(Gameboy &system):

@@ -4,6 +4,7 @@
 void CodeGenerator::generate(){
 	for (int i = 0; i < 0x100; i++){
 		this->begin_opcode_definition(i);
+		this->opcode_begins();
 		this->definition->generate(i, *this);
 		this->end_opcode_definition(i);
 	}
