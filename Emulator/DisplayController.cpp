@@ -45,7 +45,6 @@ void DisplayController::render_to(byte_t *pixels, int pitch){
 	bool sprites_enabled = check_flag(this->lcd_control, lcdc_sprite_enable_mask);
 	const unsigned sprite_width = 8;
 	unsigned sprite_height = check_flag(this->lcd_control, lcdc_tall_sprite_enable_mask) ? 16 : 8;
-	RGB rgba = { 0, 0, 0, 0 };
 	for (unsigned y = 0; y != lcd_height; y++){
 		auto row = pixels + pitch * y;
 		auto src_y = (y + this->scroll_y) & 0xFF;
@@ -76,21 +75,14 @@ void DisplayController::render_to(byte_t *pixels, int pitch){
 			auto src_pixelA = tile[tile_offset_y * 2 + 0];
 			auto src_pixelB = tile[tile_offset_y * 2 + 1];
 			unsigned color = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
-			bool not_drawn = true;
+			auto rgba = this->bg_palette[color * bg_enabled];
 			for (unsigned i = sprites_for_scanline_size; i--;){
 				auto sprite = sprites_for_scanline[i];
 				auto sprx = (unsigned)sprite[sprite_x_pos_offset] - 8U;
 				if (x >= sprx && x < sprx + sprite_width){
 					rgba = { 0xFF, 0, 0xFF, 0xFF };
-					not_drawn = false;
 					break;
 				}
-			}
-			if (not_drawn){
-				if (bg_enabled)
-					rgba = this->bg_palette[color];
-				else
-					rgba = this->bg_palette[0];
 			}
 			dst_pixel[0] = rgba.r;
 			dst_pixel[1] = rgba.g;
