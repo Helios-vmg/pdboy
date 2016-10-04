@@ -53,6 +53,10 @@ class DisplayController{
 	static const byte_t stat_writing_filter_mask = 0x78;
 	static const byte_t stat_comp_writing_filter_mask = ~stat_writing_filter_mask;
 
+	static const byte_t lcdc_tall_sprite_enable_mask = 1 << 2;
+	static const byte_t lcdc_sprite_enable_mask = 1 << 1;
+	static const byte_t lcdc_bg_enable_mask = 1 << 0;
+
 	void synchronize();
 	unsigned get_row_status();
 public:

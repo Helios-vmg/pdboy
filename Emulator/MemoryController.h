@@ -125,4 +125,7 @@ public:
 	const byte_t *get_bg_vram() const{
 		return &this->vram.access(0x9800);
 	}
+	const byte_t *get_oam() const{
+		return &this->oam.access(0xFE00);
+	}
 };

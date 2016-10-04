@@ -22,6 +22,16 @@ bool DisplayController::ready_to_draw(){
 	return this->renderer_notified = !status;
 }
 
+template <typename T1, typename T2>
+static bool check_flag(T1 value, T2 mask){
+	return ((T2)value & mask) == mask;
+}
+
+const unsigned sprite_y_pos_offset = 0;
+const unsigned sprite_x_pos_offset = 1;
+const unsigned sprite_tile_offset = 2;
+const unsigned sprite_attr_offset = 3;
+
 unsigned frames_drawn = 0;
 
 void DisplayController::render_to(byte_t *pixels, int pitch){
@@ -30,12 +40,33 @@ void DisplayController::render_to(byte_t *pixels, int pitch){
 
 	auto tile_vram = this->memory_controller->get_tile_vram();
 	auto bg_vram = this->memory_controller->get_bg_vram();
-	for (int y = 0; y < lcd_height; y++){
+	auto oam = this->memory_controller->get_oam();
+	bool bg_enabled = check_flag(this->lcd_control, lcdc_bg_enable_mask);
+	bool sprites_enabled = check_flag(this->lcd_control, lcdc_sprite_enable_mask);
+	const unsigned sprite_width = 8;
+	unsigned sprite_height = check_flag(this->lcd_control, lcdc_tall_sprite_enable_mask) ? 16 : 8;
+	RGB rgba = { 0, 0, 0, 0 };
+	for (unsigned y = 0; y != lcd_height; y++){
 		auto row = pixels + pitch * y;
 		auto src_y = (y + this->scroll_y) & 0xFF;
 		auto src_y_prime = src_y / 8 * 32;
 		auto tile_offset_y = src_y & 7;
-		for (int x = 0; x < lcd_width; x++){
+
+		const byte_t *sprites_for_scanline[40];
+		unsigned sprites_for_scanline_size = 0;
+		if (sprites_enabled){
+			for (unsigned i = 40; i--;){
+				auto sprite = oam + i * 4;
+				auto spry = (unsigned)sprite[sprite_y_pos_offset] - 16U;
+				if (y >= spry && y < spry + sprite_height)
+					sprites_for_scanline[sprites_for_scanline_size++] = sprite;
+			}
+		}
+
+		if (sprites_for_scanline_size > 10)
+			sprites_for_scanline_size = 0;
+
+		for (unsigned x = 0; x != lcd_width; x++){
 			auto dst_pixel = row + x * 4;
 			auto src_x = (x + this->scroll_x) & 0xFF;
 			auto src_bg_tile = src_x / 8 + src_y_prime;
@@ -45,7 +76,22 @@ void DisplayController::render_to(byte_t *pixels, int pitch){
 			auto src_pixelA = tile[tile_offset_y * 2 + 0];
 			auto src_pixelB = tile[tile_offset_y * 2 + 1];
 			unsigned color = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
-			auto rgba = this->bg_palette[color];
+			bool not_drawn = true;
+			for (unsigned i = sprites_for_scanline_size; i--;){
+				auto sprite = sprites_for_scanline[i];
+				auto sprx = (unsigned)sprite[sprite_x_pos_offset] - 8U;
+				if (x >= sprx && x < sprx + sprite_width){
+					rgba = { 0xFF, 0, 0xFF, 0xFF };
+					not_drawn = false;
+					break;
+				}
+			}
+			if (not_drawn){
+				if (bg_enabled)
+					rgba = this->bg_palette[color];
+				else
+					rgba = this->bg_palette[0];
+			}
 			dst_pixel[0] = rgba.r;
 			dst_pixel[1] = rgba.g;
 			dst_pixel[2] = rgba.b;
