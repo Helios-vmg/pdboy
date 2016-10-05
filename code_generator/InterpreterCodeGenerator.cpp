@@ -731,7 +731,7 @@ uintptr_t InterpreterCodeGenerator::set_bit_value(uintptr_t val, unsigned bit, b
 	s
 		<< CONSTTEMPDECL << mask_name << " = " << (1 << bit) << ";\n"
 		<< TEMPDECL << result_name << " = " << temp_to_string(val);
-	if (!bit)
+	if (!on)
 		s << " & ~";
 	else
 		s << " | ";
