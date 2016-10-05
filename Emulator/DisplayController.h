@@ -2,6 +2,7 @@
 
 #include "CommonTypes.h"
 #include <unordered_map>
+#include "MemorySection.h"
 
 class Gameboy;
 class GameboyCpu;
@@ -21,6 +22,11 @@ class MemoryController;
 		this->x = (decltype(this->x))b; \
 	}
 
+template <typename T1, typename T2>
+static bool check_flag(T1 value, T2 mask){
+	return ((T2)value & mask) == mask;
+}
+
 struct RGB{
 	byte_t r, g, b, a;
 };
@@ -28,6 +34,8 @@ struct RGB{
 class DisplayController{
 	Gameboy *system;
 	MemoryController *memory_controller = nullptr;
+	MemorySection<0x8000> vram;
+	MemorySection<0xFE00> oam;
 	byte_t bg_palette_value = 0;
 	byte_t obj0_palette_value = 0;
 	byte_t obj1_palette_value = 0;
@@ -53,12 +61,25 @@ class DisplayController{
 	static const byte_t stat_writing_filter_mask = 0x78;
 	static const byte_t stat_comp_writing_filter_mask = ~stat_writing_filter_mask;
 
+	static const byte_t lcdc_display_enable_mask = 1 << 7;
+	static const byte_t lcdc_window_map_select_mask = 1 << 6;
+	static const byte_t lcdc_window_enable_mask = 1 << 5;
+	static const byte_t lcdc_tile_map_select_mask = 1 << 4;
+	static const byte_t lcdc_bg_map_select_mask = 1 << 3;
 	static const byte_t lcdc_tall_sprite_enable_mask = 1 << 2;
 	static const byte_t lcdc_sprite_enable_mask = 1 << 1;
 	static const byte_t lcdc_bg_enable_mask = 1 << 0;
 
-	void synchronize();
 	unsigned get_row_status();
+	unsigned get_tile_vram_offset() const{
+		return 0x800 * !check_flag(this->lcd_control, lcdc_tile_map_select_mask);
+	}
+	unsigned get_bg_vram_offset() const{
+		return 0x400 * check_flag(this->lcd_control, lcdc_bg_map_select_mask);
+	}
+	unsigned get_window_vram_offset() const{
+		return 0x400 * check_flag(this->lcd_control, lcdc_window_map_select_mask);
+	}
 public:
 	DisplayController(Gameboy &system);
 	void set_memory_controller(MemoryController &mc){
@@ -78,6 +99,34 @@ public:
 	DECLARE_DISPLAY_CONTROLLER_PROPERTY(obj0_palette);
 	DECLARE_DISPLAY_CONTROLLER_PROPERTY(obj1_palette);
 	DECLARE_DISPLAY_CONTROLLER_PROPERTY(lcd_control);
+
+	byte_t &access_vram(main_integer_t address){
+		return this->vram.access(address);
+	}
+	byte_t &access_oam(main_integer_t address){
+		return this->oam.access(address);
+	}
+	const byte_t &access_vram(main_integer_t address) const{
+		return this->vram.access(address);
+	}
+	const byte_t &access_oam(main_integer_t address) const{
+		return this->oam.access(address);
+	}
+	const byte_t *get_sprite_tile_vram() const{
+		return &this->access_vram(0x8000);
+	}
+	const byte_t *get_bg_tile_vram() const{
+		return &this->access_vram(0x8000 + this->get_tile_vram_offset());
+	}
+	const byte_t *get_bg_vram() const{
+		return &this->access_vram(0x9800 + this->get_bg_vram_offset());
+	}
+	const byte_t *get_window_vram() const{
+		return &this->access_vram(0x9800 + this->get_window_vram_offset());
+	}
+	const byte_t *get_oam() const{
+		return &this->access_oam(0xFE00);
+	}
 };
 
 const unsigned lcd_refresh_period = 70224;

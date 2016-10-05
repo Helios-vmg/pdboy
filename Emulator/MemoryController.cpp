@@ -37,10 +37,8 @@ MemoryController::MemoryController(Gameboy &system, GameboyCpu &cpu):
 	display(&system.get_display_controller()),
 	joypad(&system.get_input_controller()),
 	storage(&system.get_storage_controller()),
-	vram(0x2000),
 	fixed_ram(0x1000),
 	switchable_ram(0x7000),
-	oam(0xA0),
 	high_ram(0x80),
 	io_registers_stor(new store_func_t[io_function_table_sizes]),
 	io_registers_load(new load_func_t[io_function_table_sizes]),
@@ -347,11 +345,11 @@ byte_t MemoryController::read_dmg_bootstrap(main_integer_t address) const{
 }
 
 byte_t MemoryController::read_vram(main_integer_t address) const{
-	return this->vram.access(address);
+	return this->display->access_vram(address);
 }
 
 void MemoryController::write_vram(main_integer_t address, byte_t value){
-	this->vram.access(address) = value;
+	this->display->access_vram(address) = value;
 }
 
 byte_t MemoryController::read_fixed_ram(main_integer_t address) const{
@@ -374,14 +372,14 @@ byte_t MemoryController::read_oam(main_integer_t address) const{
 	if (address >= 0xFEA0)
 		return 0;
 
-	return this->oam.access(address);
+	return this->display->access_oam(address);
 }
 
 void MemoryController::write_oam(main_integer_t address, byte_t value){
 	if (address >= 0xFEA0)
 		return;
 
-	this->oam.access(address) = value;
+	this->display->access_oam(address) = value;
 }
 
 void MemoryController::store_not_implemented(main_integer_t, byte_t){

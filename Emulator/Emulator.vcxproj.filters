@@ -89,5 +89,8 @@
     <ClInclude Include="StorageController.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="MemorySection.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

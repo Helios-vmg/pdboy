@@ -175,6 +175,7 @@
     <ClCompile Include="UserInputController.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="MemorySection.h" />
     <ClInclude Include="StorageController.h" />
     <ClInclude Include="SystemClock.h" />
     <ClInclude Include="CommonTypes.h" />

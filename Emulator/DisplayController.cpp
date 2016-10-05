@@ -6,7 +6,10 @@
 #include <fstream>
 #include <iostream>
 
-DisplayController::DisplayController(Gameboy &system): system(&system){
+DisplayController::DisplayController(Gameboy &system):
+		system(&system),
+		vram(0x2000),
+		oam(0xA0){
 	this->set_background_palette(0);
 	this->set_obj0_palette(0);
 	this->set_obj1_palette(0);
@@ -22,11 +25,6 @@ bool DisplayController::ready_to_draw(){
 	return this->renderer_notified = !status;
 }
 
-template <typename T1, typename T2>
-static bool check_flag(T1 value, T2 mask){
-	return ((T2)value & mask) == mask;
-}
-
 const unsigned sprite_y_pos_offset = 0;
 const unsigned sprite_x_pos_offset = 1;
 const unsigned sprite_tile_offset = 2;
@@ -38,13 +36,15 @@ void DisplayController::render_to(byte_t *pixels, int pitch){
 	if (!this->memory_controller)
 		throw GenericException("Emulator internal error: DisplayController::render_to() has been called before calling DisplayController::set_memory_controller().");
 
-	auto tile_vram = this->memory_controller->get_tile_vram();
-	auto bg_vram = this->memory_controller->get_bg_vram();
-	auto oam = this->memory_controller->get_oam();
+	auto bg_tile_vram = this->get_bg_tile_vram();
+	auto bg_vram = this->get_bg_vram();
+	auto oam = this->get_oam();
+	auto sprite_tile_vram = this->get_sprite_tile_vram();
 	bool bg_enabled = check_flag(this->lcd_control, lcdc_bg_enable_mask);
 	bool sprites_enabled = check_flag(this->lcd_control, lcdc_sprite_enable_mask);
 	const unsigned sprite_width = 8;
-	unsigned sprite_height = check_flag(this->lcd_control, lcdc_tall_sprite_enable_mask) ? 16 : 8;
+	bool tall_sprites = check_flag(this->lcd_control, lcdc_tall_sprite_enable_mask);
+	unsigned sprite_height = tall_sprites ? 16 : 8;
 	for (unsigned y = 0; y != lcd_height; y++){
 		auto row = pixels + pitch * y;
 		auto src_y = (y + this->scroll_y) & 0xFF;
@@ -66,21 +66,38 @@ void DisplayController::render_to(byte_t *pixels, int pitch){
 			sprites_for_scanline_size = 0;
 
 		for (unsigned x = 0; x != lcd_width; x++){
+			unsigned color = 0;
+			auto rgba = this->bg_palette[color];
 			auto dst_pixel = row + x * 4;
-			auto src_x = (x + this->scroll_x) & 0xFF;
-			auto src_bg_tile = src_x / 8 + src_y_prime;
-			auto tile_offset_x = src_x & 7;
-			auto tile_no = bg_vram[src_bg_tile];
-			auto tile = tile_vram + tile_no * 16;
-			auto src_pixelA = tile[tile_offset_y * 2 + 0];
-			auto src_pixelB = tile[tile_offset_y * 2 + 1];
-			unsigned color = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
-			auto rgba = this->bg_palette[color * bg_enabled];
+			if (bg_enabled){
+				auto src_x = (x + this->scroll_x) & 0xFF;
+				auto src_bg_tile = src_x / 8 + src_y_prime;
+				auto tile_offset_x = src_x & 7;
+				auto tile_no = bg_vram[src_bg_tile];
+				auto tile = bg_tile_vram + tile_no * 16;
+				auto src_pixelA = tile[tile_offset_y * 2 + 0];
+				auto src_pixelB = tile[tile_offset_y * 2 + 1];
+				color = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
+				rgba = this->bg_palette[color];
+			}
 			for (unsigned i = sprites_for_scanline_size; i--;){
 				auto sprite = sprites_for_scanline[i];
 				auto sprx = (unsigned)sprite[sprite_x_pos_offset] - 8U;
 				if (x >= sprx && x < sprx + sprite_width){
-					rgba = { 0xFF, 0, 0xFF, 0xFF };
+					auto attr = sprite[sprite_attr_offset];
+					auto tile_no = sprite[sprite_tile_offset];
+					auto spry = (unsigned)sprite[sprite_y_pos_offset] - 16U;
+					auto tile_offset_y = y - spry;
+					auto tile_offset_x = x - sprx;
+					if (tall_sprites){
+						tile_no &= 0xFE;
+						tile_no += tile_offset_y / 8;
+					}
+					auto tile = sprite_tile_vram + tile_no * 16;
+					auto src_pixelA = tile[tile_offset_y * 2 + 0];
+					auto src_pixelB = tile[tile_offset_y * 2 + 1];
+					color = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
+					rgba = this->bg_palette[color];
 					break;
 				}
 			}
@@ -199,8 +216,19 @@ byte_t DisplayController::get_lcd_control(){
 	return this->lcd_control;
 }
 
+#define CHECK_FLAG(x) std::cout << (check_flag(this->lcd_control, x) ? " " : "~") << #x "\n"
+
 void DisplayController::set_lcd_control(byte_t b){
 	this->lcd_control = b;
+	std::cout << "\nLCDC changed: " << std::hex << (int)this->lcd_control << std::endl;
+	CHECK_FLAG(lcdc_display_enable_mask);
+	CHECK_FLAG(lcdc_window_map_select_mask);
+	CHECK_FLAG(lcdc_window_enable_mask);
+	CHECK_FLAG(lcdc_tile_map_select_mask);
+	CHECK_FLAG(lcdc_bg_map_select_mask);
+	CHECK_FLAG(lcdc_tall_sprite_enable_mask);
+	CHECK_FLAG(lcdc_sprite_enable_mask);
+	CHECK_FLAG(lcdc_bg_enable_mask);
 }
 
 byte_t DisplayController::get_obj0_palette(){

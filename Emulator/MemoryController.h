@@ -1,6 +1,7 @@
 #pragma once
 #include "RegisterStore.h"
 #include "CommonTypes.h"
+#include "MemorySection.h"
 #include <memory>
 
 class GameboyCpu;
@@ -24,27 +25,8 @@ class MemoryController{
 	UserInputController *joypad;
 	StorageController *storage;
 
-	template <main_integer_t START>
-	class MemorySection{
-		std::unique_ptr<byte_t[]> pointer;
-		size_t size;
-		byte_t *memory;
-	public:
-		MemorySection(size_t size): pointer(new byte_t[size]), size(size){
-			this->memory = this->pointer.get();
-		}
-		byte_t &access(main_integer_t address){
-			return this->memory[address - START];
-		}
-		const byte_t &access(main_integer_t address) const{
-			return this->memory[address - START];
-		}
-	};
-
-	MemorySection<0x8000> vram;
 	MemorySection<0xC000> fixed_ram;
 	MemorySection<0xD000> switchable_ram;
-	MemorySection<0xFE00> oam;
 	MemorySection<0xFF80> high_ram;
 
 	std::unique_ptr<store_func_t[]> io_registers_stor;
@@ -119,13 +101,4 @@ public:
 	void store16(main_integer_t address, main_integer_t value);
 	void copy_memory(main_integer_t src, main_integer_t dst, size_t length);
 	void toggle_boostrap_rom(bool);
-	const byte_t *get_tile_vram() const{
-		return &this->vram.access(0x8000);
-	}
-	const byte_t *get_bg_vram() const{
-		return &this->vram.access(0x9800);
-	}
-	const byte_t *get_oam() const{
-		return &this->oam.access(0xFE00);
-	}
 };
