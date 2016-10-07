@@ -88,6 +88,7 @@ protected:
 	std::vector<byte_t> buffer;
 	size_t size;
 	byte_t *data;
+	unsigned rom_bank_count;
 	unsigned current_rom_bank = 0;
 	unsigned current_ram_bank = 0;
 	unsigned ram_bank_bits_copy = 0;
@@ -122,8 +123,8 @@ public:
 class Mbc1Cartridge : public StandardCartridge{
 protected:
 
-	void init_functions_derived() override;
-	void set_ram_functions();
+	virtual void init_functions_derived() override;
+	virtual void set_ram_functions();
 	static byte_t read8_simple(StandardCartridge *, main_integer_t);
 	static byte_t read8_switchable_rom_bank(StandardCartridge *, main_integer_t);
 	static byte_t read8_switchable_ram_bank(StandardCartridge *, main_integer_t);
@@ -143,6 +144,7 @@ protected:
 	main_integer_t compute_ram_offset(main_integer_t address);
 public:
 	Mbc1Cartridge(std::unique_ptr<std::vector<byte_t>> &&, const CartridgeCapabilities &);
+	virtual ~Mbc1Cartridge(){}
 };
 
 class Mbc2Cartridge : public StandardCartridge{
@@ -151,8 +153,20 @@ public:
 	Mbc2Cartridge(std::unique_ptr<std::vector<byte_t>> &&, const CartridgeCapabilities &);
 };
 
-class Mbc3Cartridge : public StandardCartridge{
+class Mbc3Cartridge : public Mbc1Cartridge{
 protected:
+	int current_rtc_register = -1;
+	int rtc_latch = -1;
+
+	virtual void init_functions_derived() override;
+	virtual void set_ram_functions() override;
+	void set_rtc_registers();
+
+	static byte_t read8_rtc_register(StandardCartridge *, main_integer_t);
+	static void write8_switch_rom_bank(StandardCartridge *, main_integer_t, byte_t);
+	static void write8_switch_ram_bank(StandardCartridge *, main_integer_t, byte_t);
+	static void write8_latch_rtc_registers(StandardCartridge *, main_integer_t, byte_t);
+	static void write8_rtc_register(StandardCartridge *, main_integer_t, byte_t);
 public:
 	Mbc3Cartridge(std::unique_ptr<std::vector<byte_t>> &&, const CartridgeCapabilities &);
 };

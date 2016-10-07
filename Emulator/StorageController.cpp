@@ -225,11 +225,13 @@ void Mbc1Cartridge::init_functions_derived(){
 	for (unsigned i = 0x60; i < 0x80; i++)
 		this->write_callbacks[i] = write8_switch_rom_ram_banking_mode;
 
-	if (this->capabilities.has_ram)
-		this->set_ram_functions();
+	this->set_ram_functions();
 }
 
 void Mbc1Cartridge::set_ram_functions(){
+	if (!this->capabilities.has_ram)
+		return;
+
 	if (!this->ram_enabled){
 		for (unsigned i = 0xA0; i < 0xC0; i++){
 			this->write_callbacks[i] = write8_invalid_ram;
@@ -247,7 +249,7 @@ void Mbc1Cartridge::set_ram_functions(){
 			this->write_callbacks[i] = write8_invalid_ram;
 			this->read_callbacks[i] = read8_invalid_ram;
 		}
-	} else{
+	}else{
 		for (unsigned i = 0xA0; i < 0xC0; i++){
 			this->write_callbacks[i] = write8_switchable_ram_bank;
 			this->read_callbacks[i] = read8_switchable_ram_bank;
@@ -256,57 +258,61 @@ void Mbc1Cartridge::set_ram_functions(){
 }
 
 byte_t Mbc1Cartridge::read8_simple(StandardCartridge *sc, main_integer_t address){
-	auto _this = static_cast<Mbc1Cartridge *>(sc);
-	return _this->data[address];
+	auto This = static_cast<Mbc1Cartridge *>(sc);
+	return This->data[address];
 }
 
 byte_t Mbc1Cartridge::read8_switchable_rom_bank(StandardCartridge *sc, main_integer_t address){
-	auto _this = static_cast<Mbc1Cartridge *>(sc);
-	auto offset = _this->compute_rom_offset(address);
-	return _this->data[offset];
+	auto This = static_cast<Mbc1Cartridge *>(sc);
+	auto offset = This->compute_rom_offset(address);
+	return This->data[offset];
 }
 
 byte_t Mbc1Cartridge::read8_small_ram(StandardCartridge *sc, main_integer_t address){
-	auto _this = static_cast<Mbc1Cartridge *>(sc);
-	return _this->ram[address & 0x7FFF];
+	auto This = static_cast<Mbc1Cartridge *>(sc);
+	return This->ram[address & 0x7FFF];
 }
 
 byte_t Mbc1Cartridge::read8_switchable_ram_bank(StandardCartridge *sc, main_integer_t address){
-	auto _this = static_cast<Mbc1Cartridge *>(sc);
-	auto offset = _this->compute_ram_offset(address);
-	return _this->ram[offset];
+	auto This = static_cast<Mbc1Cartridge *>(sc);
+	auto offset = This->compute_ram_offset(address);
+	return This->ram[offset];
 }
 
 void Mbc1Cartridge::write8_ram_enable(StandardCartridge *sc, main_integer_t address, byte_t value){
-	auto _this = static_cast<Mbc1Cartridge *>(sc);
-	_this->toggle_ram((value & 0x0F) == 0x0A);
+	auto This = static_cast<Mbc1Cartridge *>(sc);
+	This->toggle_ram((value & 0x0F) == 0x0A);
 }
 
 void Mbc1Cartridge::write8_switch_rom_bank_low(StandardCartridge *sc, main_integer_t address, byte_t value){
-	auto _this = static_cast<Mbc1Cartridge *>(sc);
-	const decltype(_this->current_rom_bank) mask = 0x1F;
-	_this->current_rom_bank &= ~mask;
-	_this->current_rom_bank |= value & mask;
+	auto This = static_cast<Mbc1Cartridge *>(sc);
+	const decltype(This->current_rom_bank) mask = 0x1F;
+	value &= mask;
+	This->current_rom_bank &= ~mask;
+	This->current_rom_bank |= value & mask;
+	if (!(This->current_rom_bank & mask))
+		This->current_rom_bank++;
+	This->current_rom_bank %= This->rom_bank_count;
 }
 
 void Mbc1Cartridge::write8_switch_rom_bank_high_or_ram(StandardCartridge *sc, main_integer_t address, byte_t value){
-	auto _this = static_cast<Mbc1Cartridge *>(sc);
-	const decltype(_this->current_rom_bank) mask = 3;
+	auto This = static_cast<Mbc1Cartridge *>(sc);
+	const decltype(This->current_rom_bank) mask = 3;
 	value &= mask;
-	_this->ram_bank_bits_copy = value;
-	_this->toggle_ram_banking(_this->ram_banking_mode);
+	This->ram_bank_bits_copy = value;
+	This->toggle_ram_banking(This->ram_banking_mode);
 }
 
 void Mbc1Cartridge::write8_switch_rom_ram_banking_mode(StandardCartridge *sc, main_integer_t address, byte_t value){
-	auto _this = static_cast<Mbc1Cartridge *>(sc);
-	_this->toggle_ram_banking(!!value);
+	auto This = static_cast<Mbc1Cartridge *>(sc);
+	This->toggle_ram_banking(!!value);
 }
 
 void Mbc1Cartridge::write8_switchable_ram_bank(StandardCartridge *sc, main_integer_t address, byte_t value){
-	auto _this = static_cast<Mbc1Cartridge *>(sc);
-	auto offset = _this->compute_ram_offset(address);
-	_this->ram[offset] = value;
-	_this->ram_written = true;
+	auto This = static_cast<Mbc1Cartridge *>(sc);
+	auto offset = This->compute_ram_offset(address);
+	This->ram[offset] = value;
+	This->ram_written = true;
 }
 
 byte_t Mbc1Cartridge::read8_invalid_ram(StandardCartridge *, main_integer_t){
@@ -314,11 +320,11 @@ byte_t Mbc1Cartridge::read8_invalid_ram(StandardCartridge *, main_integer_t){
 }
 
 void Mbc1Cartridge::write8_small_ram(StandardCartridge *sc, main_integer_t address, byte_t value){
-	auto _this = static_cast<Mbc1Cartridge *>(sc);
+	auto This = static_cast<Mbc1Cartridge *>(sc);
 	//address -= 0xA000; (Unnecessary due to bitwise AND.)
 	auto offset = address & 0x7FF;
-	_this->ram[offset] = value;
-	_this->ram_written = true;
+	This->ram[offset] = value;
+	This->ram_written = true;
 }
 
 void Mbc1Cartridge::write8_invalid_ram(StandardCartridge *, main_integer_t, byte_t){
@@ -360,7 +366,74 @@ Mbc2Cartridge::Mbc2Cartridge(std::unique_ptr<std::vector<byte_t>> &&buffer, cons
 }
 
 Mbc3Cartridge::Mbc3Cartridge(std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc):
-		StandardCartridge(std::move(buffer), cc){
+		Mbc1Cartridge(std::move(buffer), cc){
+}
+
+void Mbc3Cartridge::init_functions_derived(){
+	Mbc1Cartridge::init_functions_derived();
+	for (unsigned i = 0x20; i < 0x40; i++)
+		this->write_callbacks[i] = write8_switch_rom_bank;
+	for (unsigned i = 0x40; i < 0x60; i++)
+		this->write_callbacks[i] = write8_switch_ram_bank;
+	for (unsigned i = 0x60; i < 0x80; i++)
+		this->write_callbacks[i] = write8_switch_ram_bank;
+}
+
+void Mbc3Cartridge::set_ram_functions(){
+	Mbc1Cartridge::set_ram_functions();
+	if (!this->capabilities.has_ram)
+		return;
+	
+	if (!this->ram_enabled)
+		return;
+
+	if (this->capabilities.ram_size == 1 << 11)
+		return;
+
+	if (this->current_rtc_register < 0)
+		return;
+
+	for (unsigned i = 0xA0; i < 0xC0; i++){
+		this->write_callbacks[i] = write8_switchable_ram_bank;
+		this->read_callbacks[i] = read8_switchable_ram_bank;
+	}
+}
+
+void Mbc3Cartridge::set_rtc_registers(){
+	throw NotImplementedException();
+}
+
+void Mbc3Cartridge::write8_switch_rom_bank(StandardCartridge *sc, main_integer_t address, byte_t value){
+	auto This = static_cast<Mbc3Cartridge *>(sc);
+	This->current_rom_bank = value & 0x7F;
+	if (!This->current_rom_bank)
+		This->current_rom_bank = 1;
+	This->current_rom_bank %= This->rom_bank_count;
+}
+
+void Mbc3Cartridge::write8_switch_ram_bank(StandardCartridge *sc, main_integer_t address, byte_t value){
+	auto This = static_cast<Mbc3Cartridge *>(sc);
+	if (value < 4){
+		This->current_ram_bank = value;
+		This->current_rtc_register = -1;
+	}else if (value >= 8 && value < 12)
+		This->current_rtc_register = value - 8;
+}
+
+void Mbc3Cartridge::write8_latch_rtc_registers(StandardCartridge *sc, main_integer_t address, byte_t value){
+	auto This = static_cast<Mbc3Cartridge *>(sc);
+	if (!This->rtc_latch && value)
+		This->set_rtc_registers();
+	This->rtc_latch = value;
+}
+
+byte_t Mbc3Cartridge::read8_rtc_register(StandardCartridge *sc, main_integer_t address){
+	auto This = static_cast<Mbc3Cartridge *>(sc);
+	throw NotImplementedException();
+}
+
+void Mbc3Cartridge::write8_rtc_register(StandardCartridge *sc, main_integer_t address, byte_t value){
+	auto This = static_cast<Mbc3Cartridge *>(sc);
 	throw NotImplementedException();
 }
 
