@@ -13,6 +13,52 @@ DisplayController::DisplayController(Gameboy &system):
 	this->set_background_palette(0);
 	this->set_obj0_palette(0);
 	this->set_obj1_palette(0);
+	this->frame_being_drawn = this->allocate_frame();
+	this->current_frame = nullptr;
+}
+
+RenderedFrame *DisplayController::allocate_frame(){
+	this->allocated_frames.push_back(std::make_unique<RenderedFrame>());
+	return this->allocated_frames.back().get();
+}
+
+RenderedFrame *DisplayController::reuse_or_allocate_frame(){
+	{
+		std::lock_guard<std::mutex> lg(this->ready_frames_mutex);
+		if (this->ready_frames.size()){
+			auto ret = this->ready_frames.back();
+			this->ready_frames.pop_back();
+			return ret;
+		}
+	}
+	return this->allocate_frame();
+}
+
+void DisplayController::publish_rendered_frame(){
+	this->frame_being_drawn = (RenderedFrame *)std::atomic_exchange(&this->current_frame, this->frame_being_drawn);
+	if (!this->frame_being_drawn)
+		this->frame_being_drawn = this->reuse_or_allocate_frame();
+}
+
+RenderedFrame *DisplayController::get_current_frame(){
+	RenderedFrame *ret = nullptr;
+	ret = (RenderedFrame *)std::atomic_exchange(&this->current_frame, ret);
+	return ret;
+}
+
+void DisplayController::return_used_frame(RenderedFrame *frame){
+	RenderedFrame *null_RenderedFrame = nullptr;
+	if (std::atomic_compare_exchange_strong(&this->current_frame, &null_RenderedFrame, frame))
+		return;
+	std::lock_guard<std::mutex> lg(this->ready_frames_mutex);
+	this->ready_frames.push_back(frame);
+}
+
+bool DisplayController::in_new_frame(){
+	auto status = this->get_row_status() & 3;
+	auto ret = status != this->last_in_new_frame;
+	this->last_in_new_frame = status;
+	return ret;
 }
 
 bool DisplayController::ready_to_draw(){
@@ -22,7 +68,10 @@ bool DisplayController::ready_to_draw(){
 			this->renderer_notified = false;
 		return false;
 	}
-	return this->renderer_notified = !status;
+	auto ret = this->renderer_notified = !status;
+	if (ret)
+		this->render();
+	return ret;
 }
 
 const unsigned sprite_y_pos_offset = 0;
@@ -32,9 +81,12 @@ const unsigned sprite_attr_offset = 3;
 
 unsigned frames_drawn = 0;
 
-void DisplayController::render_to(byte_t *pixels, int pitch){
+void DisplayController::render(){
 	if (!this->memory_controller)
-		throw GenericException("Emulator internal error: DisplayController::render_to() has been called before calling DisplayController::set_memory_controller().");
+		throw GenericException("Emulator internal error: DisplayController::render() has been called before calling DisplayController::set_memory_controller().");
+
+	auto *pixels = this->frame_being_drawn->pixels;
+	const unsigned pitch = lcd_width;
 
 	auto bg_tile_vram = this->get_bg_tile_vram();
 	auto bg_vram = this->get_bg_vram();
@@ -68,7 +120,7 @@ void DisplayController::render_to(byte_t *pixels, int pitch){
 		for (unsigned x = 0; x != lcd_width; x++){
 			unsigned color = 0;
 			auto rgba = this->bg_palette[color];
-			auto dst_pixel = row + x * 4;
+			auto dst_pixel = row + x;
 			if (bg_enabled){
 				auto src_x = (x + this->scroll_x) & 0xFF;
 				auto src_bg_tile = src_x / 8 + src_y_prime;
@@ -101,13 +153,12 @@ void DisplayController::render_to(byte_t *pixels, int pitch){
 					break;
 				}
 			}
-			dst_pixel[0] = rgba.r;
-			dst_pixel[1] = rgba.g;
-			dst_pixel[2] = rgba.b;
-			dst_pixel[3] = 0xFF;
+			*dst_pixel = rgba;
 		}
 	}
 	frames_drawn++;
+
+	this->publish_rendered_frame();
 }
 
 unsigned DisplayController::get_row_status(){
@@ -220,6 +271,7 @@ byte_t DisplayController::get_lcd_control(){
 
 void DisplayController::set_lcd_control(byte_t b){
 	this->lcd_control = b;
+	return;
 	std::cout << "\nLCDC changed: " << std::hex << (int)this->lcd_control << std::endl;
 	CHECK_FLAG(lcdc_display_enable_mask);
 	CHECK_FLAG(lcdc_window_map_select_mask);

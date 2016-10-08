@@ -4,7 +4,7 @@
 #include "UserInputController.h"
 #include "SystemClock.h"
 #include "StorageController.h"
-#include <functional>
+#include "threads.h"
 
 class HostSystem;
 
@@ -23,8 +23,16 @@ class Gameboy{
 	std::uint64_t realtime_counter_frequency = 0;
 	std::uint64_t realtime_execution = 0;
 	GameboyMode mode = GameboyMode::DMG;
+	std::atomic<bool> continue_running;
+	std::unique_ptr<std::thread> interpreter_thread;
+	Event periodic_notification;
+
+	void interpreter_thread_function();
+	void run_until_next_frame();
+	void sync_with_real_time(std::uint64_t);
 public:
 	Gameboy(HostSystem &host);
+	~Gameboy();
 
 	DisplayController &get_display_controller(){
 		return this->display_controller;
@@ -38,11 +46,12 @@ public:
 	SystemClock &get_system_clock(){
 		return this->clock;
 	}
-	void run(
-		const std::function<void(DisplayController &)> &render_callback,
-		const std::function<bool()> &event_handling_callback
-	);
 	GameboyMode get_mode() const{
 		return this->mode;
 	}
+
+	void run();
+	//Note: May return nullptr! In which case, no frame is currently ready, and white should be drawn.
+	RenderedFrame *get_current_frame();
+	void return_used_frame(RenderedFrame *);
 };

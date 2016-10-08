@@ -1,8 +1,10 @@
 #pragma once
 
 #include "CommonTypes.h"
-#include <unordered_map>
 #include "MemorySection.h"
+#include <unordered_map>
+#include <atomic>
+#include <mutex>
 
 class Gameboy;
 class GameboyCpu;
@@ -22,6 +24,11 @@ class MemoryController;
 		this->x = (decltype(this->x))b; \
 	}
 
+const unsigned lcd_refresh_period = 70224;
+//LCD refresh rate: ~59.7275 Hz (exactly gb_cpu_frequency/lcd_refresh_period Hz)
+const unsigned lcd_width = 160;
+const unsigned lcd_height = 144;
+
 template <typename T1, typename T2>
 static bool check_flag(T1 value, T2 mask){
 	return ((T2)value & mask) == mask;
@@ -29,6 +36,10 @@ static bool check_flag(T1 value, T2 mask){
 
 struct RGB{
 	byte_t r, g, b, a;
+};
+
+struct RenderedFrame{
+	RGB pixels[lcd_width * lcd_height];
 };
 
 class DisplayController{
@@ -50,6 +61,14 @@ class DisplayController{
 	unsigned window_x = 0,
 		window_y = 0;
 	byte_t y_compare = 0;
+	unsigned last_in_new_frame = 0;
+
+	std::vector<std::unique_ptr<RenderedFrame>> allocated_frames;
+	std::vector<RenderedFrame *> ready_frames;
+	std::mutex ready_frames_mutex;
+	//Invariant: frame_being_drawn is valid at all times.
+	RenderedFrame *frame_being_drawn;
+	std::atomic<RenderedFrame *> current_frame;
 
 	static const byte_t stat_coincidence_interrupt_mask = 1 << 6;
 	static const byte_t stat_oam_interrupt_mask = 1 << 5;
@@ -80,13 +99,21 @@ class DisplayController{
 	unsigned get_window_vram_offset() const{
 		return 0x400 * check_flag(this->lcd_control, lcdc_window_map_select_mask);
 	}
+	RenderedFrame *allocate_frame();
+	RenderedFrame *reuse_or_allocate_frame();
+	void publish_rendered_frame();
+	void render();
 public:
 	DisplayController(Gameboy &system);
 	void set_memory_controller(MemoryController &mc){
 		this->memory_controller = &mc;
 	}
+	bool in_new_frame();
 	bool ready_to_draw();
-	void render_to(byte_t *pixels, int pitch);
+
+	RenderedFrame *get_current_frame();
+	void return_used_frame(RenderedFrame *);
+
 
 	DECLARE_DISPLAY_RO_CONTROLLER_PROPERTY(y_coordinate);
 	DECLARE_DISPLAY_CONTROLLER_PROPERTY(status);
@@ -128,8 +155,3 @@ public:
 		return &this->access_oam(0xFE00);
 	}
 };
-
-const unsigned lcd_refresh_period = 70224;
-//LCD refresh rate: ~59.7275 Hz (exactly gb_cpu_frequency/lcd_refresh_period Hz)
-const unsigned lcd_width = 160;
-const unsigned lcd_height = 144;

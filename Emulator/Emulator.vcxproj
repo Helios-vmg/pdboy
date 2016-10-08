@@ -171,6 +171,7 @@
     <ClCompile Include="RegisterStore.cpp" />
     <ClCompile Include="StorageController.cpp" />
     <ClCompile Include="SystemClock.cpp" />
+    <ClCompile Include="threads.cpp" />
     <ClCompile Include="timer.cpp" />
     <ClCompile Include="UserInputController.cpp" />
   </ItemGroup>
@@ -186,6 +187,7 @@
     <ClInclude Include="HostSystem.h" />
     <ClInclude Include="MemoryController.h" />
     <ClInclude Include="RegisterStore.h" />
+    <ClInclude Include="threads.h" />
     <ClInclude Include="timer.h" />
     <ClInclude Include="UserInputController.h" />
   </ItemGroup>
