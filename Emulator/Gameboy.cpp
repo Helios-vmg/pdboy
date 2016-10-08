@@ -43,27 +43,33 @@ void Gameboy::run(){
 
 void Gameboy::interpreter_thread_function(){
 	auto start = get_timer_count();
+	std::uint64_t time_running = 0;
+	std::uint64_t time_waiting = 0;
 
+	std::shared_ptr<std::exception> thrown;
 	try{
 		while (this->continue_running){
+			auto t0 = get_timer_count();
 			this->run_until_next_frame();
+			auto t1 = get_timer_count();
 			this->sync_with_real_time(start);
+			auto t2 = get_timer_count();
+			time_running += t1 - t0;
+			time_waiting += t2 - t1;
 		}
 	}catch (GameBoyException &ex){
-		this->host->throw_exception(std::shared_ptr<std::exception>(ex.clone()));
+		thrown.reset(ex.clone());
 	}catch (...){
-		this->host->throw_exception(std::make_shared<GenericException>("Unknown exception."));
+		thrown.reset(new GenericException("Unknown exception."));
 	}
 
-	/*
-	auto end = get_timer_count();
-	double real_time = (double)(end - start) / (double)this->realtime_counter_frequency * 1e+6;
-	double emulated_time = (double)this->clock.get_clock_value() / (double)gb_cpu_frequency * 1e+6;
+	std::cout
+		<< "Time spent running: " << (double)time_running / (double)this->realtime_counter_frequency << " s.\n"
+		<< "Time spent waiting: " << (double)time_waiting / (double)this->realtime_counter_frequency << " s.\n"
+		<< "CPU usage:          " << (double)time_running / (double)(time_running + time_waiting) * 100 << " %\n"
+		<< "Speed:              " << (double)(time_running + time_waiting) / (double)time_running << "x\n";
 
-	std::cout <<
-		"Real time    : " << real_time << " us\n"
-		"Emulated time: " << emulated_time << " us\n";
-	*/
+	this->host->throw_exception(thrown);
 }
 
 void Gameboy::run_until_next_frame(){
