@@ -62,6 +62,8 @@ class DisplayController{
 		window_y = 0;
 	byte_t y_compare = 0;
 	unsigned last_in_new_frame = 0;
+	std::atomic<bool> display_enabled;
+	std::uint64_t display_clock_start = 0;
 
 	std::vector<std::unique_ptr<RenderedFrame>> allocated_frames;
 	std::vector<RenderedFrame *> ready_frames;
@@ -89,7 +91,7 @@ class DisplayController{
 	static const byte_t lcdc_sprite_enable_mask = 1 << 1;
 	static const byte_t lcdc_bg_enable_mask = 1 << 0;
 
-	unsigned get_row_status();
+	int get_row_status();
 	unsigned get_tile_vram_offset() const{
 		return 0x800 * !check_flag(this->lcd_control, lcdc_tile_map_select_mask);
 	}
@@ -102,7 +104,9 @@ class DisplayController{
 	RenderedFrame *allocate_frame();
 	RenderedFrame *reuse_or_allocate_frame();
 	void publish_rendered_frame();
+	void clear_rendered_frame();
 	void render();
+	void toggle_lcd();
 public:
 	DisplayController(Gameboy &system);
 	void set_memory_controller(MemoryController &mc){
@@ -154,4 +158,5 @@ public:
 	const byte_t *get_oam() const{
 		return &this->access_oam(0xFE00);
 	}
+	std::uint64_t get_display_clock() const;
 };

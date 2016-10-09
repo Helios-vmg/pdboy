@@ -9,7 +9,8 @@
 DisplayController::DisplayController(Gameboy &system):
 		system(&system),
 		vram(0x2000),
-		oam(0xA0){
+		oam(0xA0),
+		display_enabled(true){
 	this->set_background_palette(0);
 	this->set_obj0_palette(0);
 	this->set_obj1_palette(0);
@@ -40,13 +41,25 @@ void DisplayController::publish_rendered_frame(){
 		this->frame_being_drawn = this->reuse_or_allocate_frame();
 }
 
+void DisplayController::clear_rendered_frame(){
+	auto frame = (RenderedFrame *)std::atomic_exchange(&this->current_frame, nullptr);
+	if (frame){
+		std::lock_guard<std::mutex> lg(this->ready_frames_mutex);
+		this->ready_frames.push_back(frame);
+	}
+}
+
 RenderedFrame *DisplayController::get_current_frame(){
-	RenderedFrame *ret = nullptr;
-	ret = (RenderedFrame *)std::atomic_exchange(&this->current_frame, ret);
-	return ret;
+	return (RenderedFrame *)std::atomic_exchange(&this->current_frame, nullptr);
 }
 
 void DisplayController::return_used_frame(RenderedFrame *frame){
+	if (!this->display_enabled){
+		std::lock_guard<std::mutex> lg(this->ready_frames_mutex);
+		this->ready_frames.push_back(frame);
+		return;
+	}
+
 	RenderedFrame *null_RenderedFrame = nullptr;
 	if (std::atomic_compare_exchange_strong(&this->current_frame, &null_RenderedFrame, frame))
 		return;
@@ -55,14 +68,20 @@ void DisplayController::return_used_frame(RenderedFrame *frame){
 }
 
 bool DisplayController::in_new_frame(){
-	auto status = this->get_row_status() & 3;
+	auto row_status = this->get_row_status();
+	if (row_status < 0)
+		return false;
+	auto status = (unsigned)row_status & 3;
 	auto ret = status != this->last_in_new_frame;
 	this->last_in_new_frame = status;
 	return ret;
 }
 
 bool DisplayController::ready_to_draw(){
-	auto status = (this->get_row_status() & 3) != 3;
+	auto row_status = this->get_row_status();
+	if (row_status < 0)
+		return false;
+	auto status = ((unsigned)row_status & 3) != 3;
 	if (this->renderer_notified){
 		if (status)
 			this->renderer_notified = false;
@@ -82,6 +101,9 @@ const unsigned sprite_attr_offset = 3;
 unsigned frames_drawn = 0;
 
 void DisplayController::render(){
+	if (!this->display_enabled)
+		return;
+
 	if (!this->memory_controller)
 		throw GenericException("Emulator internal error: DisplayController::render() has been called before calling DisplayController::set_memory_controller().");
 
@@ -161,8 +183,10 @@ void DisplayController::render(){
 	this->publish_rendered_frame();
 }
 
-unsigned DisplayController::get_row_status(){
-	auto clock = this->system->get_system_clock().get_clock_value();
+int DisplayController::get_row_status(){
+	if (!this->display_enabled)
+		return -1;
+	auto clock = this->get_display_clock();
 	auto cycle = (unsigned)(clock % lcd_refresh_period);
 	auto row = cycle / 456;
 	auto sub_row = cycle % 456;
@@ -196,24 +220,19 @@ void DisplayController::set_background_palette(byte_t palette){
 	this->bg_palette_value = palette;
 }
 
-#define DEFINE_EMPTY_DISPLAY_RO_CONTROLLER_PROPERTY(x) \
-	byte_t DisplayController::get_##x(){ \
-		throw NotImplementedException(); \
-	}
-
-#define DEFINE_EMPTY_DISPLAY_CONTROLLER_PROPERTY(x) \
-	DEFINE_EMPTY_DISPLAY_RO_CONTROLLER_PROPERTY(x) \
-	void DisplayController::set_##x(byte_t){ \
-		throw NotImplementedException(); \
-	}
-
 byte_t DisplayController::get_y_coordinate(){
-	return (byte_t)(this->get_row_status() / 4);
+	auto row_status = this->get_row_status();
+	if (row_status < 0)
+		return 0;
+	return (byte_t)(row_status / 4);
 }
 
 byte_t DisplayController::get_status(){
-	auto ret = this->lcd_status & this->stat_comp_coincidence_flag_mask;
+	if (!this->display_enabled)
+		return 0;
+	auto ret = this->lcd_status & this->stat_writing_filter_mask;
 	ret |= (this->get_y_coordinate_compare() == this->get_y_coordinate()) * this->stat_coincidence_flag_mask;
+	ret |= ((unsigned)this->get_row_status() + 2) & 3;
 	return ret;
 }
 
@@ -271,6 +290,8 @@ byte_t DisplayController::get_lcd_control(){
 
 void DisplayController::set_lcd_control(byte_t b){
 	this->lcd_control = b;
+	this->toggle_lcd();
+
 	return;
 	std::cout << "\nLCDC changed: " << std::hex << (int)this->lcd_control << std::endl;
 	CHECK_FLAG(lcdc_display_enable_mask);
@@ -281,6 +302,18 @@ void DisplayController::set_lcd_control(byte_t b){
 	CHECK_FLAG(lcdc_tall_sprite_enable_mask);
 	CHECK_FLAG(lcdc_sprite_enable_mask);
 	CHECK_FLAG(lcdc_bg_enable_mask);
+}
+
+void DisplayController::toggle_lcd(){
+	bool enable = !!(this->lcd_control & lcdc_display_enable_mask);
+	if (enable == this->display_enabled)
+		return;
+
+	this->display_enabled = enable;
+	if (this->display_enabled)
+		this->display_clock_start = this->system->get_system_clock().get_clock_value();
+	else
+		this->clear_rendered_frame();
 }
 
 byte_t DisplayController::get_obj0_palette(){
@@ -301,12 +334,8 @@ void DisplayController::set_obj1_palette(byte_t palette){
 	this->obj1_palette_value = palette;
 }
 
-/*
-byte_t DisplayController::get_(){
-
+std::uint64_t DisplayController::get_display_clock() const{
+	if (!this->display_enabled)
+		return 0;
+	return this->system->get_system_clock().get_clock_value() - this->display_clock_start;
 }
-
-void DisplayController::set_(byte_t){
-
-}
-*/
