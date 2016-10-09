@@ -75,9 +75,21 @@ static bool any_match(byte_t n, const byte_t (&array)[N]){
 
 bool Cartridge::determine_capabilities(CartridgeCapabilities &capabilities, const std::vector<byte_t> &buffer){
 	memset(&capabilities, 0, sizeof(capabilities));
-	if (buffer.size() < 0x147)
+	if (buffer.size() < 0x150)
 		return false;
 	auto type = buffer[0x147];
+
+	auto rom_banks_value = buffer[0x148];
+	if (rom_banks_value < 8)
+		capabilities.rom_bank_count = 1 << (rom_banks_value + 1);
+	else if (rom_banks_value == 0x52)
+		capabilities.rom_bank_count = 72;
+	else if (rom_banks_value == 0x53)
+		capabilities.rom_bank_count = 80;
+	else if (rom_banks_value == 0x54)
+		capabilities.rom_bank_count = 96;
+	else
+		return false;
 
 	capabilities.cartridge_type = type;
 
@@ -141,8 +153,6 @@ bool Cartridge::determine_capabilities(CartridgeCapabilities &capabilities, cons
 	capabilities.has_special_features = false;
 
 	if (capabilities.has_ram){
-		if (buffer.size() < 0x149)
-			return false;
 		auto size = buffer[0x149];
 		static const unsigned ram_sizes[] = {
 			0,
@@ -170,6 +180,7 @@ StandardCartridge::StandardCartridge(std::unique_ptr<std::vector<byte_t>> &&buff
 	this->read_callbacks_unique.reset(new read8_f[0x100]);
 	this->write_callbacks = this->write_callbacks_unique.get();
 	this->read_callbacks = this->read_callbacks_unique.get();
+	this->rom_bank_count = capabilities.rom_bank_count;
 }
 
 StandardCartridge::~StandardCartridge(){
@@ -290,9 +301,9 @@ void Mbc1Cartridge::write8_switch_rom_bank_low(StandardCartridge *sc, main_integ
 	value &= mask;
 	This->current_rom_bank &= ~mask;
 	This->current_rom_bank |= value & mask;
+	This->current_rom_bank %= This->rom_bank_count;
 	if (!(This->current_rom_bank & mask))
 		This->current_rom_bank++;
-	This->current_rom_bank %= This->rom_bank_count;
 }
 
 void Mbc1Cartridge::write8_switch_rom_bank_high_or_ram(StandardCartridge *sc, main_integer_t address, byte_t value){
@@ -403,12 +414,18 @@ void Mbc3Cartridge::set_rtc_registers(){
 	throw NotImplementedException();
 }
 
+extern bool hit1;
+int state = 0;
+
 void Mbc3Cartridge::write8_switch_rom_bank(StandardCartridge *sc, main_integer_t address, byte_t value){
+	state++;
+	if (state >= 11)
+		hit1 = true;
 	auto This = static_cast<Mbc3Cartridge *>(sc);
 	This->current_rom_bank = value & 0x7F;
+	This->current_rom_bank %= This->rom_bank_count;
 	if (!This->current_rom_bank)
 		This->current_rom_bank = 1;
-	This->current_rom_bank %= This->rom_bank_count;
 }
 
 void Mbc3Cartridge::write8_switch_ram_bank(StandardCartridge *sc, main_integer_t address, byte_t value){

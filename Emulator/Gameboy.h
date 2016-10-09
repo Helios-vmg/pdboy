@@ -25,6 +25,7 @@ class Gameboy{
 	GameboyMode mode = GameboyMode::DMG;
 	std::atomic<bool> continue_running;
 	std::unique_ptr<std::thread> interpreter_thread;
+	std::mutex interpreter_thread_mutex;
 	Event periodic_notification;
 
 	void interpreter_thread_function();
@@ -43,6 +44,9 @@ public:
 	StorageController &get_storage_controller(){
 		return this->storage_controller;
 	}
+	GameboyCpu &get_cpu(){
+		return this->cpu;
+	}
 	SystemClock &get_system_clock(){
 		return this->clock;
 	}
@@ -54,4 +58,7 @@ public:
 	//Note: May return nullptr! In which case, no frame is currently ready, and white should be drawn.
 	RenderedFrame *get_current_frame();
 	void return_used_frame(RenderedFrame *);
+	std::mutex &get_interpreter_thread_mutex(){
+		return this->interpreter_thread_mutex;
+	}
 };

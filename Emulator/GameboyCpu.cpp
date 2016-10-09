@@ -32,7 +32,14 @@ void GameboyCpu::stop(){
 }
 
 void GameboyCpu::halt(){
-	throw NotImplementedException();
+	if (!this->interrupts_enabled || !(this->interrupt_enable_flag & all_interrupts_mask)){
+		if (this->system->get_mode() == GameboyMode::DMG)
+			this->dmg_halt_bug = true;
+		else
+			this->take_time(4);
+		return;
+	}
+	this->halted = true;
 }
 
 void GameboyCpu::abort(){
@@ -43,20 +50,38 @@ byte_t GameboyCpu::load_pc_and_increment(){
 	return (byte_t)this->memory_controller.load8(this->registers.pc()++);
 }
 
+byte_t GameboyCpu::load_pc(){
+	return (byte_t)this->memory_controller.load8(this->registers.pc());
+}
+
 #define BREAKPOINT(x) if (this->current_pc == x) __debugbreak()
 
 void GameboyCpu::run_one_instruction(){
-	this->current_pc = this->registers.pc();
-	auto opcode = this->load_pc_and_increment();
+	if (this->attempt_to_handle_interrupts())
+		this->halted = false;
 
-	auto function_pointer = this->opcode_table[opcode];
+	if (this->halted){
+		this->take_time(4);
+	}else{
+		this->current_pc = this->registers.pc();
+		auto stat = this->system->get_display_controller().get_status();
+		auto ly = this->system->get_display_controller().get_y_coordinate();
+		
+		byte_t opcode;
+		if (!this->dmg_halt_bug)
+			opcode = this->load_pc_and_increment();
+		else{
+			opcode = this->load_pc();
+			this->dmg_halt_bug = false;
+		}
 
-	(this->*function_pointer)();
-	this->total_instructions++;
+		auto function_pointer = this->opcode_table[opcode];
 
+		(this->*function_pointer)();
+		this->total_instructions++;
+	}
 	this->check_timer();
 	this->perform_dmg_dma();
-	this->attempt_to_handle_interrupts();
 }
 
 main_integer_t GameboyCpu::decimal_adjust(main_integer_t value){
@@ -79,15 +104,25 @@ main_integer_t GameboyCpu::decimal_adjust(main_integer_t value){
 
 void GameboyCpu::vblank_irq(){
 	this->interrupt_flag |= (1 << this->vblank_flag_bit);
-	this->attempt_to_handle_interrupts();
 }
 
-void GameboyCpu::attempt_to_handle_interrupts(){
+void GameboyCpu::joystick_irq(){
+	this->interrupt_flag |= (1 << this->joypad_flag_bit);
+}
+
+bool GameboyCpu::attempt_to_handle_interrupts(){
 	if (!this->interrupts_enabled)
-		return;
+		return false;
+
+	auto interrupts_triggered = this->interrupt_flag;
+	auto interrupts_enabled = this->interrupt_enable_flag;
+	auto combined = interrupts_triggered & interrupts_enabled & all_interrupts_mask;
+	if (!combined)
+		return false;
+
 	for (int i = 0; i < 5; i++){
 		auto mask = 1 << i;
-		if (!(this->interrupt_flag & mask) || !(this->interrupt_enable_flag & mask))
+		if (!(combined & mask))
 			continue;
 		main_integer_t stack_pointer = this->registers.sp();
 		main_integer_t new_stack_pointer = stack_pointer - 2;
@@ -98,7 +133,9 @@ void GameboyCpu::attempt_to_handle_interrupts(){
 		this->interrupt_flag &= ~mask;
 		this->interrupt_toggle(false);
 		this->take_time(4 * 5);
+		return true;
 	}
+	return false;
 }
 
 byte_t GameboyCpu::get_interrupt_flag() const{

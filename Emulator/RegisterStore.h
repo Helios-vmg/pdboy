@@ -82,50 +82,70 @@ public:
 	void set_flags(bool zero, bool subtract, bool half_carry, bool carry);
 	void set_flags(main_integer_t mode_mask, main_integer_t value_mask);
 
-	byte_t &a(){
-		return this->data.af.u8.a;
+#define DEFINE_REG8_ACCESSORS(xy, x) \
+	byte_t &x(){ \
+		return this->data.xy.u8.x; \
+	} \
+	const byte_t &x() const{ \
+		return this->data.xy.u8.x; \
+	} \
+	byte_t get_##x() const{ \
+		return this->x(); \
+	} \
+	byte_t &set_##x(){ \
+		return this->x(); \
 	}
-	byte_t &f(){
-		return this->data.af.u8.f;
-	}
-	const byte_t &f() const{
-		return this->data.af.u8.f;
-	}
-	byte_t &b(){
-		return this->data.bc.u8.b;
-	}
-	byte_t &c(){
-		return this->data.bc.u8.c;
-	}
-	byte_t &d(){
-		return this->data.de.u8.d;
-	}
-	byte_t &e(){
-		return this->data.de.u8.e;
-	}
-	byte_t &h(){
-		return this->data.hl.u8.h;
-	}
-	byte_t &l(){
-		return this->data.hl.u8.l;
+#define DEFINE_REG16_ACCESSORS(xy) \
+	std::uint16_t &xy(){ \
+		return this->data.xy.xy; \
+	} \
+	const std::uint16_t &xy() const{ \
+		return this->data.xy.xy; \
+	} \
+	std::uint16_t get_##xy() const{ \
+		return this->xy(); \
+	} \
+	std::uint16_t &set_##xy(){ \
+		return this->xy(); \
 	}
 
-	std::uint16_t &af(){
-		return this->data.af.af;
-	}
-	std::uint16_t &bc(){
-		return this->data.bc.bc;
-	}
-	std::uint16_t &de(){
-		return this->data.de.de;
-	}
-	std::uint16_t &hl(){
-		return this->data.hl.hl;
-	}
+	DEFINE_REG8_ACCESSORS(af, a);
+	DEFINE_REG8_ACCESSORS(af, f);
+	DEFINE_REG8_ACCESSORS(bc, b);
+	DEFINE_REG8_ACCESSORS(bc, c);
+	DEFINE_REG8_ACCESSORS(de, d);
+	DEFINE_REG8_ACCESSORS(de, e);
+	DEFINE_REG8_ACCESSORS(hl, h);
+	DEFINE_REG8_ACCESSORS(hl, l);
+
+	DEFINE_REG16_ACCESSORS(af);
+	DEFINE_REG16_ACCESSORS(bc);
+	DEFINE_REG16_ACCESSORS(de);
+	DEFINE_REG16_ACCESSORS(hl);
+
 	std::uint16_t &sp(){
+			return this->data.sp;
+	}
+	const std::uint16_t &sp() const{
 		return this->data.sp;
 	}
+	std::uint16_t get_sp() const{
+		return this->sp();
+	}
+	std::uint16_t &set_sp(){
+		return this->sp();
+	}
+
 	std::uint16_t &pc(){
 		return this->data.pc;
+	}
+	const std::uint16_t &pc() const{
+		return this->data.pc;
+	}
+	std::uint16_t get_pc() const{
+		return this->pc();
+	}
+	std::uint16_t &set_pc(){
+		return this->pc();
 	}
 };

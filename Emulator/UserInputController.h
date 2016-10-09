@@ -27,7 +27,6 @@ class UserInputController{
 	InputState input_state;
 	byte_t saved_state = 0;
 	bool state_changed = false;
-	std::mutex mutex;
 
 	static const byte_t pin10_mask = 1 << 0;
 	static const byte_t pin11_mask = 1 << 1;
@@ -37,11 +36,17 @@ class UserInputController{
 	static const byte_t pin15_mask = 1 << 5;
 public:
 	UserInputController(Gameboy &system);
-	void set_input_state(const InputState &state);
-	InputState get_input_state();
+	void set_input_state(const InputState &state, bool button_down, bool button_up);
+	InputState get_input_state(){
+		return this->input_state;
+	}
 	void request_input_state(byte_t select);
 	byte_t get_requested_input_state(){
 		return this->saved_state;
 	}
-	bool query_input_update();
+	bool query_input_update(){
+		auto ret = this->state_changed;
+		this->state_changed = false;
+		return ret;
+	}
 };

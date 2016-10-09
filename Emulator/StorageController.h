@@ -31,6 +31,7 @@ struct CartridgeCapabilities{
 		has_sensor,
 		has_special_features;
 	unsigned ram_size;
+	unsigned rom_bank_count;
 };
 
 class Cartridge{
@@ -88,7 +89,7 @@ protected:
 	std::vector<byte_t> buffer;
 	size_t size;
 	byte_t *data;
-	unsigned rom_bank_count;
+	unsigned rom_bank_count = 0;
 	unsigned current_rom_bank = 0;
 	unsigned current_ram_bank = 0;
 	unsigned ram_bank_bits_copy = 0;

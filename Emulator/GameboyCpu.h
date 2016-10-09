@@ -24,12 +24,15 @@ class GameboyCpu{
 	byte_t interrupt_enable_flag = 0;
 	int dma_scheduled = -1;
 	std::uint64_t last_dma_at = 0;
+	bool halted = false;
+	bool dmg_halt_bug = false;
 
 	static const unsigned vblank_flag_bit = 0;
 	static const unsigned lcd_stat_flag_bit = 1;
 	static const unsigned timer_flag_bit = 2;
 	static const unsigned serial_flag_bit = 3;
 	static const unsigned joypad_flag_bit = 4;
+	static const unsigned all_interrupts_mask = (1 << 5) - 1;
 
 	static const unsigned vblank_mask   = 1 << vblank_flag_bit;
 	static const unsigned lcd_stat_mask = 1 << lcd_stat_flag_bit;
@@ -45,7 +48,8 @@ class GameboyCpu{
 
 	main_integer_t decimal_adjust(main_integer_t);
 	byte_t load_pc_and_increment();
-	void attempt_to_handle_interrupts();
+	byte_t load_pc();
+	bool attempt_to_handle_interrupts();
 	void perform_dmg_dma();
 	void check_timer();
 
@@ -61,11 +65,18 @@ public:
 	void abort();
 	void run_one_instruction();
 	void vblank_irq();
+	void joystick_irq();
 	byte_t get_interrupt_flag() const;
 	void set_interrupt_flag(byte_t b);
 	byte_t get_interrupt_enable_flag() const;
 	void set_interrupt_enable_flag(byte_t b);
 	void begin_dmg_dma_transfer(byte_t position);
+	bool get_halted() const{
+		return this->halted;
+	}
+	main_integer_t get_current_pc() const{
+		return this->current_pc;
+	}
 };
 
 template <typename T>

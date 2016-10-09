@@ -40,6 +40,8 @@ class MemoryController{
 	void initialize_functions();
 	void initialize_memory_map_functions();
 	void initialize_io_register_functions();
+	void store_nothing(main_integer_t, byte_t);
+	byte_t load_nothing(main_integer_t) const;
 	void store_not_implemented(main_integer_t, byte_t);
 	byte_t load_not_implemented(main_integer_t) const;
 	void store_no_io(main_integer_t, byte_t);
@@ -101,4 +103,7 @@ public:
 	void store16(main_integer_t address, main_integer_t value);
 	void copy_memory(main_integer_t src, main_integer_t dst, size_t length);
 	void toggle_boostrap_rom(bool);
+	bool get_boostrap_enabled() const{
+		return this->boostrap_enabled;
+	}
 };

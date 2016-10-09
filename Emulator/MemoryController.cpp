@@ -137,20 +137,10 @@ void MemoryController::initialize_io_register_functions(){
 	this->io_registers_load[0x06] = &MemoryController::load_TMA;
 	this->io_registers_stor[0x07] = &MemoryController::store_TAC;
 	this->io_registers_load[0x07] = &MemoryController::load_TAC;
-	this->io_registers_stor[0x08] = &MemoryController::store_not_implemented;
-	this->io_registers_load[0x08] = &MemoryController::load_not_implemented;
-	this->io_registers_stor[0x09] = &MemoryController::store_not_implemented;
-	this->io_registers_load[0x09] = &MemoryController::load_not_implemented;
-	this->io_registers_stor[0x0a] = &MemoryController::store_not_implemented;
-	this->io_registers_load[0x0a] = &MemoryController::load_not_implemented;
-	this->io_registers_stor[0x0b] = &MemoryController::store_not_implemented;
-	this->io_registers_load[0x0b] = &MemoryController::load_not_implemented;
-	this->io_registers_stor[0x0c] = &MemoryController::store_not_implemented;
-	this->io_registers_load[0x0c] = &MemoryController::load_not_implemented;
-	this->io_registers_stor[0x0d] = &MemoryController::store_not_implemented;
-	this->io_registers_load[0x0d] = &MemoryController::load_not_implemented;
-	this->io_registers_stor[0x0e] = &MemoryController::store_not_implemented;
-	this->io_registers_load[0x0e] = &MemoryController::load_not_implemented;
+	for (unsigned i = 0x08; i < 0x0f; i++){
+		this->io_registers_stor[i] = &MemoryController::store_nothing;
+		this->io_registers_load[i] = &MemoryController::load_nothing;
+	}
 	this->io_registers_stor[0x0f] = &MemoryController::store_IF;
 	this->io_registers_load[0x0f] = &MemoryController::load_IF;
 
@@ -210,24 +200,10 @@ void MemoryController::initialize_io_register_functions(){
 	//this->io_registers_stor[0x26] = &MemoryController::stor_not_implemented;
 	//this->io_registers_load[0x26] = &MemoryController::load_not_implemented;
 
-	this->io_registers_stor[0x27] = &MemoryController::store_not_implemented;
-	this->io_registers_load[0x27] = &MemoryController::load_not_implemented;
-	this->io_registers_stor[0x28] = &MemoryController::store_not_implemented;
-	this->io_registers_load[0x28] = &MemoryController::load_not_implemented;
-	this->io_registers_stor[0x29] = &MemoryController::store_not_implemented;
-	this->io_registers_load[0x29] = &MemoryController::load_not_implemented;
-	this->io_registers_stor[0x2a] = &MemoryController::store_not_implemented;
-	this->io_registers_load[0x2a] = &MemoryController::load_not_implemented;
-	this->io_registers_stor[0x2b] = &MemoryController::store_not_implemented;
-	this->io_registers_load[0x2b] = &MemoryController::load_not_implemented;
-	this->io_registers_stor[0x2c] = &MemoryController::store_not_implemented;
-	this->io_registers_load[0x2c] = &MemoryController::load_not_implemented;
-	this->io_registers_stor[0x2d] = &MemoryController::store_not_implemented;
-	this->io_registers_load[0x2d] = &MemoryController::load_not_implemented;
-	this->io_registers_stor[0x2e] = &MemoryController::store_not_implemented;
-	this->io_registers_load[0x2e] = &MemoryController::load_not_implemented;
-	this->io_registers_stor[0x2f] = &MemoryController::store_not_implemented;
-	this->io_registers_load[0x2f] = &MemoryController::load_not_implemented;
+	for (unsigned i = 0x27; i < 0x30; i++){
+		this->io_registers_stor[i] = &MemoryController::store_nothing;
+		this->io_registers_load[i] = &MemoryController::load_nothing;
+	}
 
 	//Audio:
 	//this->io_registers_stor[0x30] = &MemoryController::stor_not_implemented;
@@ -380,6 +356,13 @@ void MemoryController::write_oam(main_integer_t address, byte_t value){
 		return;
 
 	this->display->access_oam(address) = value;
+}
+
+void MemoryController::store_nothing(main_integer_t, byte_t){
+}
+
+byte_t MemoryController::load_nothing(main_integer_t) const{
+	return 0xFF;
 }
 
 void MemoryController::store_not_implemented(main_integer_t, byte_t){

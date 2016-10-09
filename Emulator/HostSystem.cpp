@@ -95,30 +95,38 @@ void SdlHostSystem::render(){
 	SDL_RenderPresent(this->renderer);
 }
 
-static void handle_event(InputState &state, SDL_Event &event, byte_t new_state){
+static void handle_event(InputState &state, SDL_Event &event, byte_t new_state, bool &flag){
 	switch (event.key.keysym.sym){
 		case SDLK_UP:
+			flag = true;
 			state.up = new_state;
 			break;
 		case SDLK_DOWN:
+			flag = true;
 			state.down = new_state;
 			break;
 		case SDLK_LEFT:
+			flag = true;
 			state.left = new_state;
 			break;
 		case SDLK_RIGHT:
+			flag = true;
 			state.right = new_state;
 			break;
 		case SDLK_z:
+			flag = true;
 			state.a = new_state;
 			break;
 		case SDLK_x:
+			flag = true;
 			state.b = new_state;
 			break;
 		case SDLK_a:
+			flag = true;
 			state.start = new_state;
 			break;
 		case SDLK_s:
+			flag = true;
 			state.select = new_state;
 			break;
 	}
@@ -127,21 +135,23 @@ static void handle_event(InputState &state, SDL_Event &event, byte_t new_state){
 bool SdlHostSystem::handle_events(){
 	SDL_Event event;
 	auto &state = this->input_state;
+	bool button_down = false;
+	bool button_up = false;
 	while (SDL_PollEvent(&event)){
 		switch (event.type){
 			case SDL_QUIT:
 				return false;
 			case SDL_KEYDOWN:
-				handle_event(state, event, 0x00);
+				handle_event(state, event, 0x00, button_down);
 				break;
 			case SDL_KEYUP:
-				handle_event(state, event, 0xFF);
+				handle_event(state, event, 0xFF, button_up);
 				break;
 			default:
 				break;
 		}
 	}
-	this->gameboy->get_input_controller().set_input_state(state);
+	this->gameboy->get_input_controller().set_input_state(state, button_down, button_up);
 	return true;
 }
 

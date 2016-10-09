@@ -76,10 +76,12 @@ void Gameboy::run_until_next_frame(){
 	while (this->continue_running){
 		if (this->display_controller.in_new_frame())
 			break;
-		this->cpu.run_one_instruction();
-		if (this->display_controller.ready_to_draw()){
-			this->cpu.vblank_irq();
+		{
+			automutex_t am(this->interpreter_thread_mutex);
+			this->cpu.run_one_instruction();
 		}
+		if (this->display_controller.ready_to_draw())
+			this->cpu.vblank_irq();
 	}
 }
 
