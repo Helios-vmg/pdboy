@@ -583,9 +583,9 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 	if (match_opcode(opcode, "110xx100")){
 		// Handle conditional calls.
 		auto type = (ConditionalJumpType)((opcode >> 3) & 3);
-		generator.opcode_ends(2);
-		generator.do_nothing_if(generator.condition_to_value(type), 12, true);
 		auto imm = generator.load_program_counter16();
+		generator.opcode_ends();
+		generator.do_nothing_if(generator.condition_to_value(type), 12, true);
 		generator.push_PC();
 		generator.write_register16(Register16::PC, imm);
 		generator.take_time(24);
