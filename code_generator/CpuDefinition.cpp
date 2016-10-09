@@ -174,13 +174,13 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 			return;
 		case 0xF8:
 			{
-				// Handle (SP + imm8)16 -> HL
+				// Handle SP + imm8 -> HL
 				auto imm = generator.load_program_counter8();
 				generator.opcode_ends();
 				auto sp = generator.get_register_value16(Register16::SP);
-				auto sum = generator.add8(sp, imm);
-				auto mem = generator.load_sp_offset16(sum[0]);
-				generator.write_register16(Register16::HL, mem);
+				auto sum = generator.add16(sp, imm);
+				auto val = sum[0];
+				generator.write_register16(Register16::HL, val);
 				generator.set_flags({ FlagSetting::Reset, FlagSetting::Reset, FlagSetting::IfNonZero(sum[1]), FlagSetting::IfNonZero(sum[2]) });
 				generator.take_time(12);
 				return;
