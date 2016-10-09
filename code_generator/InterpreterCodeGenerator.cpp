@@ -25,43 +25,85 @@ static constexpr size_t array_length(const T (&)[N]){
 	return N;
 }
 
-static const char *to_string(Register8 reg){
+static const char *to_string_r(Register8 reg){
 	switch (reg){
 		case Register8::B:
-			return "this->registers.b()";
+			return "this->registers.get_b()";
 		case Register8::C:
-			return "this->registers.c()";
+			return "this->registers.get_c()";
 		case Register8::D:
-			return "this->registers.d()";
+			return "this->registers.get_d()";
 		case Register8::E:
-			return "this->registers.e()";
+			return "this->registers.get_e()";
 		case Register8::H:
-			return "this->registers.h()";
+			return "this->registers.get_h()";
 		case Register8::L:
-			return "this->registers.l()";
+			return "this->registers.get_l()";
 		case Register8::None:
 			return nullptr;
 		case Register8::A:
-			return "this->registers.a()";
+			return "this->registers.get_a()";
 		default:
 			return nullptr;
 	}
 }
 
-static const char *to_string(Register16 reg){
+static const char *to_string_w(Register8 reg){
+	switch (reg){
+		case Register8::B:
+			return "this->registers.set_b()";
+		case Register8::C:
+			return "this->registers.set_c()";
+		case Register8::D:
+			return "this->registers.set_d()";
+		case Register8::E:
+			return "this->registers.set_e()";
+		case Register8::H:
+			return "this->registers.set_h()";
+		case Register8::L:
+			return "this->registers.set_l()";
+		case Register8::None:
+			return nullptr;
+		case Register8::A:
+			return "this->registers.set_a()";
+		default:
+			return nullptr;
+	}
+}
+
+static const char *to_string_r(Register16 reg){
 	switch (reg){
 		case Register16::AF:
-			return "this->registers.af()";
+			return "this->registers.get_af()";
 		case Register16::BC:
-			return "this->registers.bc()";
+			return "this->registers.get_bc()";
 		case Register16::DE:
-			return "this->registers.de()";
+			return "this->registers.get_de()";
 		case Register16::HL:
-			return "this->registers.hl()";
+			return "this->registers.get_hl()";
 		case Register16::SP:
-			return "this->registers.sp()";
+			return "this->registers.get_sp()";
 		case Register16::PC:
-			return "this->registers.pc()";
+			return "this->registers.get_pc()";
+		default:
+			return nullptr;
+	}
+}
+
+static const char *to_string_w(Register16 reg){
+	switch (reg){
+		case Register16::AF:
+			return "this->registers.set_af()";
+		case Register16::BC:
+			return "this->registers.set_bc()";
+		case Register16::DE:
+			return "this->registers.set_de()";
+		case Register16::HL:
+			return "this->registers.set_hl()";
+		case Register16::SP:
+			return "this->registers.set_sp()";
+		case Register16::PC:
+			return "this->registers.set_pc()";
 		default:
 			return nullptr;
 	}
@@ -188,8 +230,8 @@ uintptr_t InterpreterCodeGenerator::load_program_counter16(){
 	auto temp_name = get_temp_name(n++);
 	auto result_name = get_temp_name(n++);
 	s
-		<< TEMPDECL << temp_name << " = this->registers.pc();\n"
-		<< "\tthis->registers.pc() = (std::uint16_t)(" << temp_name << " + 2);\n"
+		<< TEMPDECL << temp_name << " = " << to_string_r(Register16::PC) << ";\n"
+		<< "\t" << to_string_w(Register16::PC) << " = (std::uint16_t)(" << temp_name << " + 2);\n"
 		<< TEMPDECL << result_name << " = this->memory_controller.load16(" << temp_name << ");\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
@@ -201,7 +243,7 @@ uintptr_t InterpreterCodeGenerator::get_register_value8(Register8 reg){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
-	s << TEMPDECL << result_name << " = " << to_string(reg) << ";\n";
+	s << TEMPDECL << result_name << " = " << to_string_r(reg) << ";\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -212,7 +254,7 @@ uintptr_t InterpreterCodeGenerator::get_register_value16(Register16 reg){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
-	s << TEMPDECL << result_name << " = " << to_string(reg) << ";\n";
+	s << TEMPDECL << result_name << " = " << to_string_r(reg) << ";\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -223,7 +265,7 @@ uintptr_t InterpreterCodeGenerator::load_hl8(){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
-	s << TEMPDECL << result_name << " = this->memory_controller.load8(this->registers.hl());\n";
+	s << TEMPDECL << result_name << " = this->memory_controller.load8(" << to_string_r(Register16::HL) << ");\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -256,7 +298,7 @@ uintptr_t InterpreterCodeGenerator::load_sp_offset16(uintptr_t val){
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
-	s << TEMPDECL << result_name << " = this->memory_controller.load16(this->registers.sp() + " << temp_to_string(val) << ");\n";
+	s << TEMPDECL << result_name << " = this->memory_controller.load16(" << get_register_value16(Register16::SP) << " + " << temp_to_string(val) << ");\n";
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);
 	return (uintptr_t)ret;
@@ -265,19 +307,19 @@ uintptr_t InterpreterCodeGenerator::load_sp_offset16(uintptr_t val){
 void InterpreterCodeGenerator::write_register8(Register8 reg, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\t" << to_string(reg) << " = (byte_t)" << temp_to_string(val) << ";\n";
+	s << "\t" << to_string_w(reg) << " = (byte_t)" << temp_to_string(val) << ";\n";
 }
 
 void InterpreterCodeGenerator::write_register16(Register16 reg, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\t" << to_string(reg) << " = (std::uint16_t)" << temp_to_string(val) << ";\n";
+	s << "\t" << to_string_w(reg) << " = (std::uint16_t)" << temp_to_string(val) << ";\n";
 }
 
 void InterpreterCodeGenerator::store_hl8(uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
-	s << "\tthis->memory_controller.store8(this->registers.hl(), " << temp_to_string(val) << ");\n";
+	s << "\tthis->memory_controller.store8(" << to_string_r(Register16::HL) << ", " << temp_to_string(val) << ");\n";
 }
 
 void InterpreterCodeGenerator::store_mem8(uintptr_t mem, uintptr_t val){
