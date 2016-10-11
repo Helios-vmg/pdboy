@@ -106,11 +106,11 @@ void MemoryController::initialize_memory_map_functions(){
 }
 
 void MemoryController::initialize_io_register_functions(){
-	std::fill(this->io_registers_stor.get() + 0x00, this->io_registers_stor.get() + 0x4C, nullptr);
+	std::fill(this->io_registers_stor.get() + 0x00, this->io_registers_stor.get() + 0x4C, &MemoryController::store_no_io);
 	std::fill(this->io_registers_stor.get() + 0x4C, this->io_registers_stor.get() + 0x80, &MemoryController::store_no_io);
 	std::fill(this->io_registers_stor.get() + 0x80, this->io_registers_stor.get() + io_function_table_sizes, &MemoryController::store_high_ram);
 
-	std::fill(this->io_registers_load.get() + 0x00, this->io_registers_load.get() + 0x4C, nullptr);
+	std::fill(this->io_registers_load.get() + 0x00, this->io_registers_load.get() + 0x4C, &MemoryController::load_no_io);
 	std::fill(this->io_registers_load.get() + 0x4C, this->io_registers_load.get() + 0x80, &MemoryController::load_no_io);
 	std::fill(this->io_registers_load.get() + 0x80, this->io_registers_load.get() + io_function_table_sizes, &MemoryController::load_high_ram);
 
@@ -300,9 +300,7 @@ void MemoryController::write_ram_mirror2(main_integer_t address, byte_t value){
 
 byte_t MemoryController::read_io_registers_and_high_ram(main_integer_t address) const{
 	auto fp = this->io_registers_load[address & 0xFF];
-	if (fp)
-		return (this->*fp)(address);
-	return 0xFF;
+	return (this->*fp)(address);
 }
 
 void MemoryController::write_io_registers_and_high_ram(main_integer_t address, byte_t value){
@@ -576,14 +574,25 @@ void MemoryController::store16(main_integer_t address, main_integer_t value){
 	this->store8(address, value);
 }
 
-void MemoryController::copy_memory(main_integer_t src, main_integer_t dst, size_t length){
+void MemoryController::copy_memory_force(main_integer_t src, main_integer_t dst, size_t length){
 	if (src == dst)
 		return;
 	if (dst > src && dst < src + length || src > dst && src < dst + length)
 		throw GenericException("Invalid memory transfer: source and destination overlap.");
 
+	auto oam = this->get_oam_access_enabled();
+	auto vram = this->get_vram_access_enabled();
+	//auto palette = this->get_palette_access_enabled()
+	this->toggle_oam_access(true);
+	this->toggle_vram_access(true);
+	//this->toggle_palette_access(true);
+
 	for (size_t i = 0; i < length; i++)
 		this->store8(dst + i, this->load8(src + i));
+
+	this->toggle_oam_access(oam);
+	this->toggle_vram_access(vram);
+	//this->toggle_palette_access(palette);
 }
 
 void MemoryController::toggle_boostrap_rom(bool on){
@@ -605,6 +614,19 @@ void MemoryController::toggle_oam_access(bool enable){
 		this->memory_map_load[0xFE] = &MemoryController::read_disabled_oam;
 		this->memory_map_store[0xFE] = &MemoryController::write_disabled_oam;
 	}
+}
+
+bool MemoryController::get_oam_access_enabled() const{
+	return this->memory_map_load[0xFE] == &MemoryController::read_oam;
+}
+
+bool MemoryController::get_vram_access_enabled() const{
+	return this->vram_enabled;
+}
+
+bool MemoryController::get_palette_access_enabled() const{
+	throw NotImplementedException();
+	return true;
 }
 
 void MemoryController::toggle_vram_access(bool enable){

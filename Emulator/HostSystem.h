@@ -6,6 +6,10 @@
 #include <memory>
 #include <limits>
 
+//#define BENCHMARKING
+
+extern std::atomic<bool> slow_mode;
+
 class DisplayController;
 struct InputState;
 

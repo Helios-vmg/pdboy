@@ -64,6 +64,7 @@ class DisplayController{
 	std::atomic<bool> display_enabled;
 	std::uint64_t display_clock_start = 0;
 	int last_row_state = -1;
+	unsigned swallow_frames = 0;
 
 	std::vector<std::unique_ptr<RenderedFrame>> allocated_frames;
 	std::vector<RenderedFrame *> ready_frames;
@@ -163,6 +164,9 @@ public:
 		return &this->access_oam(0xFE00);
 	}
 	std::uint64_t get_display_clock() const;
-	//Returns true if a new frame has just begun.
+	//Returns true if synchronization with real time is required.
 	bool update();
+	bool get_display_enabled() const{
+		return this->display_enabled;
+	}
 };

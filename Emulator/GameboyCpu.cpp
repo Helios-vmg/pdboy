@@ -6,11 +6,27 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
+#include <algorithm>
 
 GameboyCpu::GameboyCpu(Gameboy &system):
 		registers(*this),
 		memory_controller(*this->system, *this),
 		system(&system){
+}
+
+GameboyCpu::~GameboyCpu(){
+#ifdef GATHER_INSTRUCTION_STATISTICS
+	std::vector<std::pair<unsigned, unsigned>> histogram;
+	for (auto &kv : this->instruction_histogram){
+		if (kv.first == 0xCB)
+			continue;
+		histogram.push_back(kv);
+	}
+	std::sort(histogram.begin(), histogram.end(), [](const auto &a, const auto &b){ return a.second > b.second; });
+	for (auto &kv : histogram){
+		std::cout << "0x" << std::hex << std::setw(2) << std::setfill('0') << kv.first << '\t' << std::dec << kv.second << std::endl;
+	}
+#endif
 }
 
 void GameboyCpu::initialize(){
@@ -64,6 +80,10 @@ void GameboyCpu::run_one_instruction(){
 		this->take_time(4);
 	}else{
 		this->current_pc = this->registers.pc();
+
+		auto ly = this->system->get_display_controller().get_y_coordinate();
+
+		//BREAKPOINT(0x282E);
 		
 		byte_t opcode;
 		if (!this->dmg_halt_bug)
@@ -74,6 +94,9 @@ void GameboyCpu::run_one_instruction(){
 		}
 
 		auto function_pointer = this->opcode_table[opcode];
+#ifdef GATHER_INSTRUCTION_STATISTICS
+		this->instruction_histogram[opcode]++;
+#endif
 
 		(this->*function_pointer)();
 		this->total_instructions++;
@@ -160,10 +183,12 @@ void GameboyCpu::begin_dmg_dma_transfer(byte_t position){
 	this->dma_scheduled = position;
 }
 
+extern std::atomic<bool> slow_mode;
+
 void GameboyCpu::perform_dmg_dma(){
 	if (this->dma_scheduled < 0)
 		return;
-	this->memory_controller.copy_memory(this->dma_scheduled << 8, 0xFE00, 0xA0);
+	this->memory_controller.copy_memory_force(this->dma_scheduled << 8, 0xFE00, 0xA0);
 	this->dma_scheduled = -1;
 	this->last_dma_at = this->system->get_system_clock().get_clock_value();
 }
@@ -171,4 +196,13 @@ void GameboyCpu::perform_dmg_dma(){
 void GameboyCpu::check_timer(){
 	if (this->system->get_system_clock().get_trigger_interrupt())
 		this->interrupt_flag |= this->timer_mask;
+}
+
+void GameboyCpu::opcode_cb(){
+	byte_t opcode = this->load_pc_and_increment();
+	auto function_pointer = this->opcode_table_cb[opcode];
+#ifdef GATHER_INSTRUCTION_STATISTICS
+	this->instruction_histogram[0xCB00 | opcode]++;
+#endif
+	(this->*function_pointer)();
 }

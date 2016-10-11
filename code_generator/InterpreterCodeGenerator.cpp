@@ -156,6 +156,8 @@ void InterpreterCodeGenerator::dump_function_definitions(std::ostream &stream){
 	stream << "}\n\n";
 
 	for (auto &kv : this->functions){
+		if (kv.first == "opcode_cb")
+			continue;
 		stream
 			<< "void " << this->class_name << "::" << kv.first << "(){\n"
 			<< kv.second.contents.str()

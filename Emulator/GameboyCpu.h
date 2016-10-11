@@ -6,6 +6,9 @@
 #include "CommonTypes.h"
 #include <cstdint>
 #include <type_traits>
+#include <map>
+
+//#define GATHER_INSTRUCTION_STATISTICS
 
 const unsigned gb_cpu_frequency = 1 << 22; //4194304
 const double gb_cpu_clock_period_us = 1.0 / ((double)gb_cpu_frequency * 1e-6);
@@ -53,10 +56,15 @@ class GameboyCpu{
 	void perform_dmg_dma();
 	void check_timer();
 
+#ifdef GATHER_INSTRUCTION_STATISTICS
+	std::map<unsigned, unsigned> instruction_histogram;
+#endif
+
 #include "../generated_files/cpu.generated.h"
 
 public:
 	GameboyCpu(Gameboy &);
+	~GameboyCpu();
 	void initialize();
 	void take_time(std::uint32_t cycles);
 	void interrupt_toggle(bool);

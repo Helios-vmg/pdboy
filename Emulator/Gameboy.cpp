@@ -53,7 +53,9 @@ void Gameboy::interpreter_thread_function(){
 			auto t0 = get_timer_count();
 			this->run_until_next_frame();
 			auto t1 = get_timer_count();
+#ifndef BENCHMARKING
 			this->sync_with_real_time(start);
+#endif
 			auto t2 = get_timer_count();
 			time_running += t1 - t0;
 			time_waiting += t2 - t1;
@@ -68,20 +70,18 @@ void Gameboy::interpreter_thread_function(){
 		<< "Time spent running: " << (double)time_running / (double)this->realtime_counter_frequency << " s.\n"
 		<< "Time spent waiting: " << (double)time_waiting / (double)this->realtime_counter_frequency << " s.\n"
 		<< "CPU usage:          " << (double)time_running / (double)(time_running + time_waiting) * 100 << " %\n"
-		<< "Speed:              " << (double)(time_running + time_waiting) / (double)time_running << "x\n";
+		<< "Speed:              " << (double)(time_running + time_waiting) / (double)time_running << "x\n"
+		<< "Speed 2:            " << ((double)this->clock.get_clock_value() / (double)gb_cpu_frequency) / ((double)(time_running + time_waiting) / (double)(double)this->realtime_counter_frequency) << "x\n";
 
 	this->host->throw_exception(thrown);
 }
 
 void Gameboy::run_until_next_frame(){
-	while (this->continue_running){
-		{
-			automutex_t am(this->interpreter_thread_mutex);
-			this->cpu.run_one_instruction();
-		}
-		if (this->display_controller.update())
-			break;
-	}
+	do{
+		this->cpu.run_one_instruction();
+		if (this->input_controller.get_button_down())
+			this->cpu.joystick_irq();
+	}while (!this->display_controller.update() && this->continue_running);
 }
 
 void Gameboy::sync_with_real_time(std::uint64_t real_time_start){
@@ -94,4 +94,15 @@ void Gameboy::sync_with_real_time(std::uint64_t real_time_start){
 			break;
 		this->periodic_notification.reset_and_wait_for(250);
 	}
+	if (slow_mode){
+		auto start = get_timer_count();
+		while (true){
+			auto now = get_timer_count();
+			double real_time = (double)(now - start) * rt_multiplier;
+			if (real_time >= 1)
+				break;
+			this->periodic_notification.reset_and_wait_for(250);
+		}
+	}
+
 }

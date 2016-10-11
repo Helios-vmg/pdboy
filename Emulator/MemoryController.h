@@ -103,9 +103,13 @@ public:
 	void store8(main_integer_t address, main_integer_t value);
 	main_integer_t load16(main_integer_t address) const;
 	void store16(main_integer_t address, main_integer_t value);
-	void copy_memory(main_integer_t src, main_integer_t dst, size_t length);
+	//Copies memory while momentarily enabling memory ranges disabled by the display controller.
+	void copy_memory_force(main_integer_t src, main_integer_t dst, size_t length);
 	void toggle_boostrap_rom(bool);
 	bool get_boostrap_enabled() const;
+	bool get_oam_access_enabled() const;
+	bool get_vram_access_enabled() const;
+	bool get_palette_access_enabled() const;
 	void toggle_oam_access(bool);
 	void toggle_vram_access(bool);
 	void toggle_palette_access(bool);

@@ -7,9 +7,10 @@
 #include <fstream>
 #include <cassert>
 
+std::atomic<bool> slow_mode(false);
+
 HostSystem::HostSystem(){
 	this->reinit();
-
 }
 
 void HostSystem::reinit(){
@@ -33,7 +34,14 @@ std::unique_ptr<std::vector<byte_t>> HostSystem::load_file(const char *path, siz
 void HostSystem::run(){
 	this->gameboy->run();
 	try{
+#ifdef BENCHMARKING
+		auto start = SDL_GetTicks();
+#endif
 		while (this->handle_events()){
+#ifdef BENCHMARKING
+			if (SDL_GetTicks() - start >= 20000)
+				break;
+#endif
 			this->check_exceptions();
 			this->render();
 		}
@@ -77,7 +85,7 @@ SdlHostSystem::~SdlHostSystem(){
 	SDL_Quit();
 }
 
-const int lcd_fade_period = 30;
+const int lcd_fade_period = 0;
 const int lcd_fade = 0xFF / lcd_fade_period;
 
 void SdlHostSystem::render(){
@@ -122,6 +130,7 @@ void SdlHostSystem::render(){
 	SDL_RenderPresent(this->renderer);
 }
 
+template <bool DOWN>
 static void handle_event(InputState &state, SDL_Event &event, byte_t new_state, bool &flag){
 	switch (event.key.keysym.sym){
 		case SDLK_UP:
@@ -156,6 +165,10 @@ static void handle_event(InputState &state, SDL_Event &event, byte_t new_state, 
 			flag = true;
 			state.select = new_state;
 			break;
+		case SDLK_q:
+			if (DOWN)
+				slow_mode = !slow_mode;
+			break;
 	}
 }
 
@@ -169,16 +182,17 @@ bool SdlHostSystem::handle_events(){
 			case SDL_QUIT:
 				return false;
 			case SDL_KEYDOWN:
-				handle_event(state, event, 0x00, button_down);
+				handle_event<true>(state, event, 0x00, button_down);
 				break;
 			case SDL_KEYUP:
-				handle_event(state, event, 0xFF, button_up);
+				handle_event<false>(state, event, 0xFF, button_up);
 				break;
 			default:
 				break;
 		}
 	}
-	this->gameboy->get_input_controller().set_input_state(state, button_down, button_up);
+	if (button_down || button_up)
+		this->gameboy->get_input_controller().set_input_state(new InputState(state), button_down, button_up);
 	return true;
 }
 

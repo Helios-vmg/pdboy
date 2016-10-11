@@ -7,6 +7,13 @@
 #include <iostream>
 #include <iomanip>
 
+const unsigned sprite_y_pos_offset = 0;
+const unsigned sprite_x_pos_offset = 1;
+const unsigned sprite_tile_offset = 2;
+const unsigned sprite_attr_offset = 3;
+
+unsigned frames_drawn = 0;
+
 DisplayController::DisplayController(Gameboy &system):
 		system(&system),
 		vram(0x2000),
@@ -67,13 +74,6 @@ void DisplayController::return_used_frame(RenderedFrame *frame){
 	std::lock_guard<std::mutex> lg(this->ready_frames_mutex);
 	this->ready_frames.push_back(frame);
 }
-
-const unsigned sprite_y_pos_offset = 0;
-const unsigned sprite_x_pos_offset = 1;
-const unsigned sprite_tile_offset = 2;
-const unsigned sprite_attr_offset = 3;
-
-unsigned frames_drawn = 0;
 
 int DisplayController::get_row_status(){
 	if (!this->display_enabled)
@@ -204,6 +204,7 @@ void DisplayController::toggle_lcd(){
 	this->display_enabled = enable;
 	if (this->display_enabled){
 		this->display_clock_start = this->system->get_system_clock().get_clock_value();
+		this->swallow_frames = 1;
 	}else{
 		this->clear_rendered_frame();
 		this->last_row_state = -1;
@@ -269,7 +270,8 @@ void DisplayController::switch_to_row_state_1(unsigned row){
 }
 
 void DisplayController::switch_to_row_state_2(unsigned row){
-	this->render_current_scanline(row);
+	if (!this->swallow_frames)
+		this->render_current_scanline(row);
 	this->enable_memories();
 	if (check_flag(this->lcd_status, stat_hblank_interrupt_mask))
 		this->system->get_cpu().lcd_stat_irq();
@@ -283,8 +285,11 @@ void DisplayController::enable_memories(){
 }
 
 void DisplayController::switch_to_row_state_3(unsigned row){
-	this->publish_rendered_frame();
-	frames_drawn++;
+	if (!this->swallow_frames){
+		this->publish_rendered_frame();
+		frames_drawn++;
+	}else
+		this->swallow_frames--;
 	if (check_flag(this->lcd_status, stat_vblank_interrupt_mask))
 		this->system->get_cpu().lcd_stat_irq();
 	this->system->get_cpu().vblank_irq();
