@@ -33,9 +33,9 @@ class MemoryController{
 	std::unique_ptr<load_func_t[]> io_registers_load;
 	std::unique_ptr<store_func_t[]> memory_map_store;
 	std::unique_ptr<load_func_t[]> memory_map_load;
-	bool boostrap_enabled = false;
 
 	unsigned selected_ram_bank = 0;
+	bool vram_enabled = true;
 
 	void initialize_functions();
 	void initialize_memory_map_functions();
@@ -73,7 +73,9 @@ class MemoryController{
 	byte_t read_switchable_ram(main_integer_t) const;
 	void write_switchable_ram(main_integer_t, byte_t);
 	byte_t read_oam(main_integer_t) const;
+	byte_t read_disabled_oam(main_integer_t) const;
 	void write_oam(main_integer_t, byte_t);
+	void write_disabled_oam(main_integer_t, byte_t);
 
 
 	DECLARE_IO_REGISTER(STAT);
@@ -103,7 +105,8 @@ public:
 	void store16(main_integer_t address, main_integer_t value);
 	void copy_memory(main_integer_t src, main_integer_t dst, size_t length);
 	void toggle_boostrap_rom(bool);
-	bool get_boostrap_enabled() const{
-		return this->boostrap_enabled;
-	}
+	bool get_boostrap_enabled() const;
+	void toggle_oam_access(bool);
+	void toggle_vram_access(bool);
+	void toggle_palette_access(bool);
 };

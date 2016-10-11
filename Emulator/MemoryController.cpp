@@ -99,15 +99,10 @@ void MemoryController::initialize_memory_map_functions(){
 		this->memory_map_store[i] = &MemoryController::write_ram_mirror2;
 	}
 	//[0xFE00; 0xFF00)
-	MEMORY_RANGE_FOR(0xFF){
-		this->memory_map_load[i] = &MemoryController::read_oam;
-		this->memory_map_store[i] = &MemoryController::write_oam;
-	}
+	this->toggle_oam_access(true);
 	//[0xFF00; 0xFFFF]
-	MEMORY_RANGE_FOR(0x100){
-		this->memory_map_load[i] = &MemoryController::read_io_registers_and_high_ram;
-		this->memory_map_store[i] = &MemoryController::write_io_registers_and_high_ram;
-	}
+	this->memory_map_load[0xFF] = &MemoryController::read_io_registers_and_high_ram;
+	this->memory_map_store[0xFF] = &MemoryController::write_io_registers_and_high_ram;
 }
 
 void MemoryController::initialize_io_register_functions(){
@@ -321,10 +316,14 @@ byte_t MemoryController::read_dmg_bootstrap(main_integer_t address) const{
 }
 
 byte_t MemoryController::read_vram(main_integer_t address) const{
+	if (!this->vram_enabled)
+		return 0xFF;
 	return this->display->access_vram(address);
 }
 
 void MemoryController::write_vram(main_integer_t address, byte_t value){
+	if (!this->vram_enabled)
+		return;
 	this->display->access_vram(address) = value;
 }
 
@@ -351,11 +350,19 @@ byte_t MemoryController::read_oam(main_integer_t address) const{
 	return this->display->access_oam(address);
 }
 
+byte_t MemoryController::read_disabled_oam(main_integer_t address) const{
+	return (address < 0xFEA0) * 0xFF;
+}
+
 void MemoryController::write_oam(main_integer_t address, byte_t value){
 	if (address >= 0xFEA0)
 		return;
 
 	this->display->access_oam(address) = value;
+}
+
+void MemoryController::write_disabled_oam(main_integer_t address, byte_t value){
+	this->store_nothing(address, value);
 }
 
 void MemoryController::store_nothing(main_integer_t, byte_t){
@@ -580,11 +587,30 @@ void MemoryController::copy_memory(main_integer_t src, main_integer_t dst, size_
 }
 
 void MemoryController::toggle_boostrap_rom(bool on){
-	if (this->boostrap_enabled == on)
-		return;
-	this->boostrap_enabled = on;
 	if (on)
 		this->memory_map_load[0x00] = &MemoryController::read_dmg_bootstrap;
 	else
 		this->memory_map_load[0x00] = &MemoryController::read_storage;
+}
+
+bool MemoryController::get_boostrap_enabled() const{
+	return this->memory_map_load[0x00] == &MemoryController::read_dmg_bootstrap;
+}
+
+void MemoryController::toggle_oam_access(bool enable){
+	if (enable){
+		this->memory_map_load[0xFE] = &MemoryController::read_oam;
+		this->memory_map_store[0xFE] = &MemoryController::write_oam;
+	}else{
+		this->memory_map_load[0xFE] = &MemoryController::read_disabled_oam;
+		this->memory_map_store[0xFE] = &MemoryController::write_disabled_oam;
+	}
+}
+
+void MemoryController::toggle_vram_access(bool enable){
+	this->vram_enabled = enable;
+}
+
+void MemoryController::toggle_palette_access(bool enable){
+	throw NotImplementedException();
 }

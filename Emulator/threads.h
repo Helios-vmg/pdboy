@@ -13,6 +13,7 @@ class Event{
 public:
 	void signal();
 	void reset_and_wait();
+	void reset_and_wait_for(unsigned ms);
 	void wait();
 	void wait_for(unsigned ms);
 };

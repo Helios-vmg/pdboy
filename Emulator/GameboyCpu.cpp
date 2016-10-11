@@ -64,8 +64,6 @@ void GameboyCpu::run_one_instruction(){
 		this->take_time(4);
 	}else{
 		this->current_pc = this->registers.pc();
-		auto stat = this->system->get_display_controller().get_status();
-		auto ly = this->system->get_display_controller().get_y_coordinate();
 		
 		byte_t opcode;
 		if (!this->dmg_halt_bug)
@@ -104,6 +102,10 @@ main_integer_t GameboyCpu::decimal_adjust(main_integer_t value){
 
 void GameboyCpu::vblank_irq(){
 	this->interrupt_flag |= (1 << this->vblank_flag_bit);
+}
+
+void GameboyCpu::lcd_stat_irq(){
+	this->interrupt_flag |= (1 << this->lcd_stat_flag_bit);
 }
 
 void GameboyCpu::joystick_irq(){

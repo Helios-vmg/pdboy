@@ -414,13 +414,7 @@ void Mbc3Cartridge::set_rtc_registers(){
 	throw NotImplementedException();
 }
 
-extern bool hit1;
-int state = 0;
-
 void Mbc3Cartridge::write8_switch_rom_bank(StandardCartridge *sc, main_integer_t address, byte_t value){
-	state++;
-	if (state >= 11)
-		hit1 = true;
 	auto This = static_cast<Mbc3Cartridge *>(sc);
 	This->current_rom_bank = value & 0x7F;
 	This->current_rom_bank %= This->rom_bank_count;

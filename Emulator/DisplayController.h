@@ -56,7 +56,6 @@ class DisplayController{
 	unsigned scroll_x = 0,
 		scroll_y = 0;
 	byte_t lcd_control = 0;
-	bool renderer_notified = false;
 	byte_t lcd_status = 0;
 	unsigned window_x = 0,
 		window_y = 0;
@@ -64,6 +63,7 @@ class DisplayController{
 	unsigned last_in_new_frame = 0;
 	std::atomic<bool> display_enabled;
 	std::uint64_t display_clock_start = 0;
+	int last_row_state = -1;
 
 	std::vector<std::unique_ptr<RenderedFrame>> allocated_frames;
 	std::vector<RenderedFrame *> ready_frames;
@@ -105,15 +105,19 @@ class DisplayController{
 	RenderedFrame *reuse_or_allocate_frame();
 	void publish_rendered_frame();
 	void clear_rendered_frame();
-	void render();
 	void toggle_lcd();
+
+	void switch_to_row_state_0(unsigned);
+	void switch_to_row_state_1(unsigned);
+	void switch_to_row_state_2(unsigned);
+	void switch_to_row_state_3(unsigned);
+	void render_current_scanline(unsigned);
+	void enable_memories();
 public:
 	DisplayController(Gameboy &system);
 	void set_memory_controller(MemoryController &mc){
 		this->memory_controller = &mc;
 	}
-	bool in_new_frame();
-	bool ready_to_draw();
 
 	RenderedFrame *get_current_frame();
 	void return_used_frame(RenderedFrame *);
@@ -159,4 +163,6 @@ public:
 		return &this->access_oam(0xFE00);
 	}
 	std::uint64_t get_display_clock() const;
+	//Returns true if a new frame has just begun.
+	bool update();
 };

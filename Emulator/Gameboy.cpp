@@ -3,8 +3,9 @@
 #include "UserInputController.h"
 #include "StorageController.h"
 #include "timer.h"
-#include <iostream>
 #include "exceptions.h"
+#include <iostream>
+#include <sstream>
 
 Gameboy::Gameboy(HostSystem &host):
 		host(&host),
@@ -74,14 +75,12 @@ void Gameboy::interpreter_thread_function(){
 
 void Gameboy::run_until_next_frame(){
 	while (this->continue_running){
-		if (this->display_controller.in_new_frame())
-			break;
 		{
 			automutex_t am(this->interpreter_thread_mutex);
 			this->cpu.run_one_instruction();
 		}
-		if (this->display_controller.ready_to_draw())
-			this->cpu.vblank_irq();
+		if (this->display_controller.update())
+			break;
 	}
 }
 
@@ -93,6 +92,6 @@ void Gameboy::sync_with_real_time(std::uint64_t real_time_start){
 		double real_time = (double)(now - real_time_start) * rt_multiplier;
 		if (real_time >= emulated_time)
 			break;
-		this->periodic_notification.reset_and_wait();
+		this->periodic_notification.reset_and_wait_for(250);
 	}
 }

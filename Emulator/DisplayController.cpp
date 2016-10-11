@@ -5,12 +5,13 @@
 #include <memory>
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 
 DisplayController::DisplayController(Gameboy &system):
 		system(&system),
 		vram(0x2000),
 		oam(0xA0),
-		display_enabled(true){
+		display_enabled(false){
 	this->set_background_palette(0);
 	this->set_obj0_palette(0);
 	this->set_obj1_palette(0);
@@ -67,121 +68,12 @@ void DisplayController::return_used_frame(RenderedFrame *frame){
 	this->ready_frames.push_back(frame);
 }
 
-bool DisplayController::in_new_frame(){
-	auto row_status = this->get_row_status();
-	if (row_status < 0)
-		return false;
-	auto status = (unsigned)row_status & 3;
-	auto ret = status != this->last_in_new_frame;
-	this->last_in_new_frame = status;
-	return ret;
-}
-
-bool DisplayController::ready_to_draw(){
-	auto row_status = this->get_row_status();
-	if (row_status < 0)
-		return false;
-	auto status = ((unsigned)row_status & 3) != 3;
-	if (this->renderer_notified){
-		if (status)
-			this->renderer_notified = false;
-		return false;
-	}
-	auto ret = this->renderer_notified = !status;
-	if (ret)
-		this->render();
-	return ret;
-}
-
 const unsigned sprite_y_pos_offset = 0;
 const unsigned sprite_x_pos_offset = 1;
 const unsigned sprite_tile_offset = 2;
 const unsigned sprite_attr_offset = 3;
 
 unsigned frames_drawn = 0;
-
-void DisplayController::render(){
-	if (!this->display_enabled)
-		return;
-
-	if (!this->memory_controller)
-		throw GenericException("Emulator internal error: DisplayController::render() has been called before calling DisplayController::set_memory_controller().");
-
-	auto *pixels = this->frame_being_drawn->pixels;
-	const unsigned pitch = lcd_width;
-
-	auto bg_tile_vram = this->get_bg_tile_vram();
-	auto bg_vram = this->get_bg_vram();
-	auto oam = this->get_oam();
-	auto sprite_tile_vram = this->get_sprite_tile_vram();
-	bool bg_enabled = check_flag(this->lcd_control, lcdc_bg_enable_mask);
-	bool sprites_enabled = check_flag(this->lcd_control, lcdc_sprite_enable_mask);
-	const unsigned sprite_width = 8;
-	bool tall_sprites = check_flag(this->lcd_control, lcdc_tall_sprite_enable_mask);
-	unsigned sprite_height = tall_sprites ? 16 : 8;
-	for (unsigned y = 0; y != lcd_height; y++){
-		auto row = pixels + pitch * y;
-		auto src_y = (y + this->scroll_y) & 0xFF;
-		auto src_y_prime = src_y / 8 * 32;
-		auto tile_offset_y = src_y & 7;
-
-		const byte_t *sprites_for_scanline[40];
-		unsigned sprites_for_scanline_size = 0;
-		if (sprites_enabled){
-			for (unsigned i = 40; i--;){
-				auto sprite = oam + i * 4;
-				auto spry = (unsigned)sprite[sprite_y_pos_offset] - 16U;
-				if (y >= spry && y < spry + sprite_height)
-					sprites_for_scanline[sprites_for_scanline_size++] = sprite;
-			}
-		}
-
-		if (sprites_for_scanline_size > 10)
-			sprites_for_scanline_size = 0;
-
-		for (unsigned x = 0; x != lcd_width; x++){
-			unsigned color = 0;
-			auto rgba = this->bg_palette[color];
-			auto dst_pixel = row + x;
-			if (bg_enabled){
-				auto src_x = (x + this->scroll_x) & 0xFF;
-				auto src_bg_tile = src_x / 8 + src_y_prime;
-				auto tile_offset_x = src_x & 7;
-				auto tile_no = bg_vram[src_bg_tile];
-				auto tile = bg_tile_vram + tile_no * 16;
-				auto src_pixelA = tile[tile_offset_y * 2 + 0];
-				auto src_pixelB = tile[tile_offset_y * 2 + 1];
-				color = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
-				rgba = this->bg_palette[color];
-			}
-			for (unsigned i = sprites_for_scanline_size; i--;){
-				auto sprite = sprites_for_scanline[i];
-				auto sprx = (unsigned)sprite[sprite_x_pos_offset] - 8U;
-				if (x >= sprx && x < sprx + sprite_width){
-					auto attr = sprite[sprite_attr_offset];
-					auto tile_no = sprite[sprite_tile_offset];
-					auto spry = (unsigned)sprite[sprite_y_pos_offset] - 16U;
-					auto tile_offset_y = y - spry;
-					auto tile_offset_x = x - sprx;
-					if (tall_sprites){
-						tile_no &= 0xFE;
-						tile_no += tile_offset_y / 8;
-					}
-					auto tile = sprite_tile_vram + tile_no * 16;
-					auto src_pixelA = tile[tile_offset_y * 2 + 0];
-					auto src_pixelB = tile[tile_offset_y * 2 + 1];
-					color = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
-					rgba = this->bg_palette[color];
-					break;
-				}
-			}
-			*dst_pixel = rgba;
-		}
-	}
-	frames_drawn++;
-
-	this->publish_rendered_frame();
-}
 
 int DisplayController::get_row_status(){
 	if (!this->display_enabled)
@@ -310,10 +202,13 @@ void DisplayController::toggle_lcd(){
 		return;
 
 	this->display_enabled = enable;
-	if (this->display_enabled)
+	if (this->display_enabled){
 		this->display_clock_start = this->system->get_system_clock().get_clock_value();
-	else
+	}else{
 		this->clear_rendered_frame();
+		this->last_row_state = -1;
+		this->enable_memories();
+	}
 }
 
 byte_t DisplayController::get_obj0_palette(){
@@ -338,4 +233,134 @@ std::uint64_t DisplayController::get_display_clock() const{
 	if (!this->display_enabled)
 		return 0;
 	return this->system->get_system_clock().get_clock_value() - this->display_clock_start;
+}
+
+bool DisplayController::update(){
+	if (!this->display_enabled)
+		return false;
+	auto row_status = (unsigned)this->get_row_status();
+	auto state = row_status & 3;
+	auto row = row_status >> 2;
+	if (this->last_row_state == state)
+		return false;
+	typedef void (DisplayController::*fp_t)(unsigned);
+	static const fp_t functions[] = {
+		&DisplayController::switch_to_row_state_0,
+		&DisplayController::switch_to_row_state_1,
+		&DisplayController::switch_to_row_state_2,
+		&DisplayController::switch_to_row_state_3,
+	};
+	(this->*functions[state])(row);
+	bool ret = this->last_row_state == 3;
+	this->last_row_state = state;
+	return ret;
+}
+
+void DisplayController::switch_to_row_state_0(unsigned row){
+	this->memory_controller->toggle_oam_access(false);
+	if (check_flag(this->lcd_status, stat_oam_interrupt_mask))
+		this->system->get_cpu().lcd_stat_irq();
+}
+
+void DisplayController::switch_to_row_state_1(unsigned row){
+	this->memory_controller->toggle_vram_access(false);
+	if (this->system->get_mode() == GameboyMode::CGB)
+		this->memory_controller->toggle_palette_access(false);
+}
+
+void DisplayController::switch_to_row_state_2(unsigned row){
+	this->render_current_scanline(row);
+	this->enable_memories();
+	if (check_flag(this->lcd_status, stat_hblank_interrupt_mask))
+		this->system->get_cpu().lcd_stat_irq();
+}
+
+void DisplayController::enable_memories(){
+	this->memory_controller->toggle_oam_access(true);
+	this->memory_controller->toggle_vram_access(true);
+	if (this->system->get_mode() == GameboyMode::CGB)
+		this->memory_controller->toggle_palette_access(true);
+}
+
+void DisplayController::switch_to_row_state_3(unsigned row){
+	this->publish_rendered_frame();
+	frames_drawn++;
+	if (check_flag(this->lcd_status, stat_vblank_interrupt_mask))
+		this->system->get_cpu().lcd_stat_irq();
+	this->system->get_cpu().vblank_irq();
+}
+
+void DisplayController::render_current_scanline(unsigned y){
+	auto *pixels = this->frame_being_drawn->pixels;
+	const unsigned pitch = lcd_width;
+
+	auto bg_tile_vram = this->get_bg_tile_vram();
+	auto bg_vram = this->get_bg_vram();
+	auto oam = this->get_oam();
+	auto sprite_tile_vram = this->get_sprite_tile_vram();
+	bool bg_enabled = check_flag(this->lcd_control, lcdc_bg_enable_mask);
+	bool sprites_enabled = check_flag(this->lcd_control, lcdc_sprite_enable_mask);
+	const unsigned sprite_width = 8;
+	bool tall_sprites = check_flag(this->lcd_control, lcdc_tall_sprite_enable_mask);
+	unsigned sprite_height = tall_sprites ? 16 : 8;
+
+	auto row = pixels + pitch * y;
+	auto src_y = (y + this->scroll_y) & 0xFF;
+	auto src_y_prime = src_y / 8 * 32;
+
+	const byte_t *sprites_for_scanline[40];
+	unsigned sprites_for_scanline_size = 0;
+	if (sprites_enabled){
+		for (unsigned i = 40; i--;){
+			auto sprite = oam + i * 4;
+			auto spry = (unsigned)sprite[sprite_y_pos_offset] - 16U;
+			if (y >= spry && y < spry + sprite_height)
+				sprites_for_scanline[sprites_for_scanline_size++] = sprite;
+		}
+	}
+
+	if (sprites_for_scanline_size > 10)
+		sprites_for_scanline_size = 0;
+
+	for (unsigned x = 0; x != lcd_width; x++){
+		unsigned color = 0;
+		auto &rgba = row[x];
+		rgba = this->bg_palette[color];
+		if (bg_enabled){
+			auto src_x = (x + this->scroll_x) & 0xFF;
+			auto src_bg_tile = src_x / 8 + src_y_prime;
+			auto tile_offset_x = src_x & 7;
+			auto tile_no = bg_vram[src_bg_tile];
+			//std::cout << std::hex << std::setw(2) << std:: setfill('0') << (int)tile_no << ' ';
+			auto tile = bg_tile_vram + tile_no * 16;
+			auto tile_offset_y = src_y & 7;
+			auto src_pixelA = tile[tile_offset_y * 2 + 0];
+			auto src_pixelB = tile[tile_offset_y * 2 + 1];
+			color = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
+			rgba = this->bg_palette[color];
+		}
+		for (unsigned i = sprites_for_scanline_size; i--;){
+			auto sprite = sprites_for_scanline[i];
+			auto sprx = (unsigned)sprite[sprite_x_pos_offset] - 8U;
+			if (!(x >= sprx && x < sprx + sprite_width))
+				continue;
+
+			auto attr = sprite[sprite_attr_offset];
+			auto tile_no = sprite[sprite_tile_offset];
+			auto spry = (unsigned)sprite[sprite_y_pos_offset] - 16U;
+			auto tile_offset_y = y - spry;
+			auto tile_offset_x = x - sprx;
+			if (tall_sprites){
+				tile_no &= 0xFE;
+				tile_no += tile_offset_y / 8;
+			}
+			auto tile = sprite_tile_vram + tile_no * 16;
+			auto src_pixelA = tile[tile_offset_y * 2 + 0];
+			auto src_pixelB = tile[tile_offset_y * 2 + 1];
+			color = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
+			rgba = this->bg_palette[color];
+			break;
+		}
+	}
+	//std::cout << std::endl;
 }

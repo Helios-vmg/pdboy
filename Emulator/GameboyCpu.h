@@ -64,6 +64,7 @@ public:
 	void halt();
 	void abort();
 	void run_one_instruction();
+	void lcd_stat_irq();
 	void vblank_irq();
 	void joystick_irq();
 	byte_t get_interrupt_flag() const;

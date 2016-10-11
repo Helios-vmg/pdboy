@@ -25,6 +25,14 @@ void Event::reset_and_wait(){
 	this->wait();
 }
 
+void Event::reset_and_wait_for(unsigned ms){
+	{
+		std::unique_lock<std::mutex> lock(this->mutex);
+		this->signalled = false;
+	}
+	this->wait_for(ms);
+}
+
 void Event::wait_for(unsigned ms){
 	std::unique_lock<std::mutex> lock(this->mutex);
 	if (this->signalled){

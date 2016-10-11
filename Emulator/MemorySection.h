@@ -18,4 +18,8 @@ public:
 	const byte_t &access(main_integer_t address) const{
 		return this->memory[address - START];
 	}
+	void copy_from(const MemorySection<START> &src){
+		size_t length = std::min(dst.size, this->size);
+		memcy(this->memory, src.memory, length);
+	}
 };
