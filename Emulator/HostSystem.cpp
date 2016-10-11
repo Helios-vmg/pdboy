@@ -8,6 +8,8 @@
 #include <cassert>
 
 std::atomic<bool> slow_mode(false);
+const int lcd_fade_period = 0;
+const int lcd_fade = 0xFF / lcd_fade_period;
 
 HostSystem::HostSystem(){
 	this->reinit();
@@ -74,6 +76,16 @@ SdlHostSystem::SdlHostSystem(){
 	if (!this->main_texture)
 		throw GenericException("Failed to create main texture.");
 	this->realtime_counter_frequency = get_timer_resolution();
+
+	{
+		void *void_pixels;
+		int pitch;
+		if (SDL_LockTexture(this->main_texture, nullptr, &void_pixels, &pitch) >= 0){
+			assert(pitch == lcd_width * 4);
+			memset(void_pixels, 0xFF, sizeof(this->gameboy->get_current_frame()->pixels));
+			SDL_UnlockTexture(this->main_texture);
+		}
+	}
 }
 
 SdlHostSystem::~SdlHostSystem(){
@@ -85,8 +97,7 @@ SdlHostSystem::~SdlHostSystem(){
 	SDL_Quit();
 }
 
-const int lcd_fade_period = 0;
-const int lcd_fade = 0xFF / lcd_fade_period;
+#define X old = (old * 11 + current) / 12
 
 void SdlHostSystem::render(){
 	void *void_pixels;
@@ -123,8 +134,31 @@ void SdlHostSystem::render(){
 			}
 		}
 		this->gameboy->return_used_frame(current_frame);
-	}else
-		memset(void_pixels, 0xFF, sizeof(current_frame->pixels));
+	} else{
+		if (!lcd_fade_period)
+			memset(void_pixels, 0xFF, sizeof(current_frame->pixels));
+		else{
+			for (unsigned i = sizeof(current_frame->pixels); i--;){
+				auto mod = i % 4;
+				if (mod == 3){
+					pixels[i] = 0xFF;
+					continue;
+				}
+				int old = pixels[i];
+				int current = 0xFF;
+				if (current <= old){
+					pixels[i] = current;
+					continue;
+				}
+				old += lcd_fade;
+				if (old >= current){
+					pixels[i] = current;
+					continue;
+				}
+				pixels[i] = old;
+			}
+		}
+	}
 	SDL_UnlockTexture(this->main_texture);
 	SDL_RenderCopy(this->renderer, this->main_texture, nullptr, nullptr);
 	SDL_RenderPresent(this->renderer);
