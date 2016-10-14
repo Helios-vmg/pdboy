@@ -10,11 +10,13 @@ class InterpreterCodeGenerator : public CodeGenerator{
 	struct Function{
 		int opcode;
 		bool double_opcode;
+		bool opcode_is_jump;
 		std::stringstream contents;
 	};
 	std::map<std::string, Function> functions;
 	struct DefinitionContext{
 		std::stringstream *function_contents;
+		Function *function;
 		unsigned temporary_index;
 	};
 	std::vector<DefinitionContext> definition_stack;
@@ -31,8 +33,8 @@ protected:
 public:
 	InterpreterCodeGenerator(std::shared_ptr<CpuDefinition> definition, const char *class_name): CodeGenerator(definition), class_name(class_name){}
 	~InterpreterCodeGenerator();
-	void dump_function_definitions(std::ostream &stream);
-	void dump_function_declarations(std::ostream &stream);
+	void dump_definitions(std::ostream &stream);
+	void dump_declarations(std::ostream &stream);
 
 
 	// Overrides:
@@ -76,6 +78,7 @@ public:
 	uintptr_t bitwise_not(uintptr_t) override;
 	void disable_interrupts() override;
 	void enable_interrupts() override;
+	void schedule_interrupt_enable() override;
 	uintptr_t rotate8(uintptr_t, bool left, bool through_carry) override;
 	void stop() override;
 	uintptr_t shift8_left(uintptr_t val) override;

@@ -192,8 +192,9 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 			generator.take_time(8);
 			return;
 		case 0xFB:
+			// Handle EI (enable interrupts)
 			generator.opcode_ends();
-			generator.enable_interrupts();
+			generator.schedule_interrupt_enable();
 			generator.take_time(4);
 			return;
 		case 0xFA:

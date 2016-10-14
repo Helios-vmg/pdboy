@@ -84,6 +84,7 @@ public:
 	virtual uintptr_t bitwise_not(uintptr_t) = 0;
 	virtual void disable_interrupts() = 0;
 	virtual void enable_interrupts() = 0;
+	virtual void schedule_interrupt_enable() = 0;
 	virtual uintptr_t rotate8(uintptr_t, bool left, bool through_carry) = 0;
 	void push_PC(){
 		auto sp = this->dec2_SP();

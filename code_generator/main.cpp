@@ -11,10 +11,10 @@ int main(int argc, char **argv){
 	icg.generate();
 	{
 		std::ofstream file(argv[1]);
-		icg.dump_function_declarations(file);
+		icg.dump_declarations(file);
 	}
 	{
 		std::ofstream file(argv[2]);
-		icg.dump_function_definitions(file);
+		icg.dump_definitions(file);
 	}
 }

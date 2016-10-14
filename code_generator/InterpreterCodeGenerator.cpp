@@ -128,20 +128,27 @@ InterpreterCodeGenerator::~InterpreterCodeGenerator(){
 #define OPCODE_TABLE_INIT_FUNCTION "initialize_opcode_tables"
 #define MAIN_OPCODE_TABLE "opcode_table"
 #define SECOND_OPCODE_TABLE "opcode_table_cb"
+#define MAIN_JUMPS_TABLE "opcode_is_jump_table"
+#define SECOND_JUMPS_TABLE "opcode_is_jump_table_cb"
 
-void InterpreterCodeGenerator::dump_function_declarations(std::ostream &stream){
+void InterpreterCodeGenerator::dump_declarations(std::ostream &stream){
 	stream
 		<< "typedef void (" << this->class_name << "::*opcode_function_pointer)();\n"
 		<< "opcode_function_pointer " MAIN_OPCODE_TABLE "[256];\n"
 		<< "opcode_function_pointer " SECOND_OPCODE_TABLE "[256];\n"
+		<< "static const bool " MAIN_JUMPS_TABLE "[256];\n"
+		<< "static const bool " SECOND_JUMPS_TABLE "[256];\n"
 		<< "void " OPCODE_TABLE_INIT_FUNCTION "();\n";
 	for (auto &kv : this->functions)
 		stream << "void " << kv.first << "();\n";
 	stream << "\n";
 }
 
-void InterpreterCodeGenerator::dump_function_definitions(std::ostream &stream){
+void InterpreterCodeGenerator::dump_definitions(std::ostream &stream){
 	stream << "#include <GameboyCpu.h>\n\n";
+
+	// Functions.
+
 	stream << "void " << this->class_name << "::" OPCODE_TABLE_INIT_FUNCTION "(){\n";
 	for (auto &kv : this->functions){
 		if (kv.second.double_opcode)
@@ -163,6 +170,24 @@ void InterpreterCodeGenerator::dump_function_definitions(std::ostream &stream){
 			<< kv.second.contents.str()
 			<< "}\n\n";
 	}
+
+	// Tables.
+
+	stream << "const bool " << this->class_name << "::" MAIN_JUMPS_TABLE "[256] = { ";
+	for (auto &kv : this->functions){
+		if (kv.second.double_opcode)
+			continue;
+		stream << (kv.second.opcode_is_jump ? "true, " : "false, ");
+	}
+	stream << "};\n\n";
+
+	stream << "const bool " << this->class_name << "::" SECOND_JUMPS_TABLE "[256] = { ";
+	for (auto &kv : this->functions){
+		if (!kv.second.double_opcode)
+			continue;
+		stream << (kv.second.opcode_is_jump ? "true, " : "false, ");
+	}
+	stream << "};\n\n";
 }
 
 void InterpreterCodeGenerator::begin_opcode_definition(unsigned first){
@@ -172,8 +197,9 @@ void InterpreterCodeGenerator::begin_opcode_definition(unsigned first){
 	auto &value = this->functions[name];
 	value.opcode = first;
 	value.double_opcode = false;
+	value.opcode_is_jump = false;
 	auto contents = &value.contents;
-	this->definition_stack.push_back({ contents, 0 });
+	this->definition_stack.push_back({ contents, &value, 0 });
 }
 
 void InterpreterCodeGenerator::end_opcode_definition(unsigned first){
@@ -190,8 +216,9 @@ void InterpreterCodeGenerator::begin_double_opcode_definition(unsigned first, un
 	auto &value = this->functions[name];
 	value.opcode = second;
 	value.double_opcode = true;
+	value.opcode_is_jump = false;
 	auto contents = &value.contents;
-	this->definition_stack.push_back({ contents, 0 });
+	this->definition_stack.push_back({ contents, &value, 0 });
 }
 
 void InterpreterCodeGenerator::end_double_opcode_definition(unsigned first, unsigned second){
@@ -316,6 +343,8 @@ void InterpreterCodeGenerator::write_register16(Register16 reg, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	s << "\t" << to_string_w(reg) << " = (std::uint16_t)" << temp_to_string(val) << ";\n";
+	if (reg == Register16::PC)
+		back.function->opcode_is_jump = true;
 }
 
 void InterpreterCodeGenerator::store_hl8(uintptr_t val){
@@ -662,6 +691,12 @@ void InterpreterCodeGenerator::enable_interrupts(){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	s << "\tthis->interrupt_toggle(true);\n";
+}
+
+void InterpreterCodeGenerator::schedule_interrupt_enable(){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	s << "\tthis->schedule_interrupt_enable();\n";
 }
 
 uintptr_t InterpreterCodeGenerator::rotate8(uintptr_t val, bool left, bool through_carry){
