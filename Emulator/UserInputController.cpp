@@ -21,23 +21,23 @@ void UserInputController::request_input_state(byte_t select){
 	InputState *copy = nullptr;
 	copy = (InputState *)std::atomic_exchange(&this->input_state, copy);
 	auto &state = *copy;
-	this->saved_state = 0;
+	byte_t accum = 0;
 	if (!(select & pin14_mask)){
-		this->saved_state |= state.right & pin10_mask;
-		this->saved_state |= state.left & pin11_mask;
-		this->saved_state |= state.up & pin12_mask;
-		this->saved_state |= state.down & pin13_mask;
+		accum |= state.right & pin10_mask;
+		accum |= state.left & pin11_mask;
+		accum |= state.up & pin12_mask;
+		accum |= state.down & pin13_mask;
 	}
 	if (!(select & pin15_mask)){
-		this->saved_state |= state.a & pin10_mask;
-		this->saved_state |= state.b & pin11_mask;
-		this->saved_state |= state.select & pin12_mask;
-		this->saved_state |= state.start & pin13_mask;
+		accum |= state.a & pin10_mask;
+		accum |= state.b & pin11_mask;
+		accum |= state.select & pin12_mask;
+		accum |= state.start & pin13_mask;
 	}
+	this->saved_state = 0xFF ^ accum;
 	InputState *null = nullptr;
 	if (!std::atomic_compare_exchange_strong(&this->input_state, &null, copy))
 		delete copy;
-	this->saved_state |= 0xC0;
 }
 
 bool UserInputController::get_button_down(){

@@ -9,7 +9,7 @@ class Gameboy;
 struct InputState{
 	byte_t up, down, left, right, a, b, start, select;
 	InputState(){
-		memset(this, 0xFF, sizeof(*this));
+		memset(this, 0x00, sizeof(*this));
 	}
 	bool operator==(const InputState &other) const{
 		return
