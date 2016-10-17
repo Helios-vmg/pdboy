@@ -6,11 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
-
-const unsigned sprite_y_pos_offset = 0;
-const unsigned sprite_x_pos_offset = 1;
-const unsigned sprite_tile_offset = 2;
-const unsigned sprite_attr_offset = 3;
+#include <algorithm>
 
 unsigned frames_drawn = 0;
 
@@ -312,6 +308,33 @@ void DisplayController::switch_to_row_state_3(unsigned row){
 	this->system->get_cpu().vblank_irq();
 }
 
+struct SpriteDescription{
+	byte_t y, x, tile_no, attributes;
+	int get_y() const{
+		return (int)this->y - 16U;
+	}
+	int get_x() const{
+		return (int)this->x - 8U;
+	}
+};
+
+struct FullSprite{
+	int sprite_number;
+	SpriteDescription sprite_description;
+	GameboyMode operation_mode;
+	//Returns true if *this has less priority than other.
+	bool operator<(const FullSprite &other) const{
+		if (operation_mode == GameboyMode::CGB)
+			return this->sprite_number > other.sprite_number;
+
+		if (this->sprite_description.x > other.sprite_description.x)
+			return true;
+		if (this->sprite_description.x < other.sprite_description.x)
+			return false;
+		return this->sprite_number > other.sprite_number;
+	}
+};
+
 void DisplayController::render_current_scanline(unsigned y){
 	auto *pixels = this->frame_being_drawn->pixels;
 	const unsigned pitch = lcd_width;
@@ -323,9 +346,9 @@ void DisplayController::render_current_scanline(unsigned y){
 	auto sprite_tile_vram = this->get_sprite_tile_vram();
 	bool bg_enabled = check_flag(this->lcd_control, lcdc_bg_enable_mask);
 	bool sprites_enabled = check_flag(this->lcd_control, lcdc_sprite_enable_mask);
-	const unsigned sprite_width = 8;
+	const int sprite_width = 8;
 	bool tall_sprites = check_flag(this->lcd_control, lcdc_tall_sprite_enable_mask);
-	unsigned sprite_height = tall_sprites ? 16 : 8;
+	int sprite_height = tall_sprites ? 16 : 8;
 
 	auto row = pixels + pitch * y;
 	auto src_y = (y + this->scroll_y) & 0xFF;
@@ -341,19 +364,31 @@ void DisplayController::render_current_scanline(unsigned y){
 #endif
 
 
-	const byte_t *sprites_for_scanline[40];
+	FullSprite sprites_for_scanline[40];
 	unsigned sprites_for_scanline_size = 0;
+	auto operation_mode = this->system->get_mode();
 	if (sprites_enabled){
 		for (unsigned i = 40; i--;){
-			auto sprite = oam + i * 4;
-			auto spry = (unsigned)sprite[sprite_y_pos_offset] - 16U;
-			if (y >= spry && y < spry + sprite_height)
-				sprites_for_scanline[sprites_for_scanline_size++] = sprite;
+			auto &sprite = *(SpriteDescription *)(oam + i * 4);
+			auto spry = sprite.get_y();
+			if ((int)y >= spry && (int)y < spry + sprite_height){
+				sprites_for_scanline[sprites_for_scanline_size].sprite_number = i;
+				sprites_for_scanline[sprites_for_scanline_size].sprite_description = sprite;
+				sprites_for_scanline[sprites_for_scanline_size].operation_mode = operation_mode;
+				sprites_for_scanline_size++;
+			}
 		}
 	}
 
-	if (sprites_for_scanline_size > 10)
-		sprites_for_scanline_size = 0;
+	FullSprite *sprites = sprites_for_scanline;
+
+	if (sprites_for_scanline_size){
+		std::sort(sprites_for_scanline, sprites_for_scanline + sprites_for_scanline_size);
+		if (sprites_for_scanline_size > 10){
+			sprites += sprites_for_scanline_size - 10;
+			sprites_for_scanline_size = 10;
+		}
+	}
 
 	for (unsigned x = 0; x != lcd_width; x++){
 		unsigned color = 0;
@@ -398,17 +433,17 @@ void DisplayController::render_current_scanline(unsigned y){
 #endif
 
 		}
-		for (unsigned i = sprites_for_scanline_size; i--;){
-			auto sprite = sprites_for_scanline[i];
-			auto sprx = (unsigned)sprite[sprite_x_pos_offset] - 8U;
-			if (!(x >= sprx && x < sprx + sprite_width))
+		for (unsigned i = 0; i != sprites_for_scanline_size; i++){
+			auto sprite = sprites[i].sprite_description;
+			auto sprx = sprite.get_x();
+			if (!((int)x >= sprx && (int)x < sprx + sprite_width))
 				continue;
 
-			auto attr = sprite[sprite_attr_offset];
-			byte_t tile_no = sprite[sprite_tile_offset]/* + tile_no_offset*/;
-			auto spry = (unsigned)sprite[sprite_y_pos_offset] - 16U;
-			auto tile_offset_y = y - spry;
-			auto tile_offset_x = x - sprx;
+			auto attr = sprite.attributes;
+			byte_t tile_no = sprite.tile_no;
+			auto spry = sprite.get_y();
+			auto tile_offset_y = (int)y - spry;
+			auto tile_offset_x = (int)x - sprx;
 			if (tall_sprites){
 				tile_no &= 0xFE;
 				tile_no += tile_offset_y / 8;
