@@ -458,7 +458,7 @@ std::array<uintptr_t, 3> InterpreterCodeGenerator::sub8(uintptr_t valA, uintptr_
 	auto &valA_name = temp_to_string(valA);
 	auto &valB_name = temp_to_string(valB);
 	s
-		<< "\tint " << result_name << " = uint8_to_int(" << valA_name << ") - uint8_to_int(" << valB_name << ");\n"
+		<< "\tint " << result_name << " = int(" << valA_name << ") - int(" << valB_name << ");\n"
 		<< "\tint " << hc_temp_name << " = (int)((" << valA_name << ") & 0x0F) - (int)((" << valB_name << ") & 0x0F);\n"
 		<< TEMPDECL << half_carry_name << " = " << hc_temp_name << " < 0;\n"
 		<< TEMPDECL << full_carry_name << " = " << result_name << " < 0;\n"
