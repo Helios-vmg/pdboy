@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iomanip>
 #include <algorithm>
+#include <cassert>
 
 GameboyCpu::GameboyCpu(Gameboy &system):
 		registers(*this),
@@ -43,11 +44,25 @@ void GameboyCpu::interrupt_toggle(bool enable){
 	this->interrupts_enabled = enable;
 }
 
+void GameboyCpu::schedule_interrupt_enable(){
+	this->interrupt_enable_scheduled = true;
+}
+
 void GameboyCpu::stop(){
 	throw NotImplementedException();
 }
 
 void GameboyCpu::halt(){
+	//If HALT immediately follows an EI instruction, enable interrupts, roll back
+	//PC to the start of HALT, and allow any pending interrupts to be handled.
+	//Then HALT will be allowed a second chance to execute.
+	if (this->interrupt_enable_scheduled){
+		this->interrupt_enable_scheduled = false;
+		this->interrupt_toggle(true);
+		this->registers.pc() = (std::uint16_t)this->current_pc;
+		return;
+	}
+
 	if (!this->interrupts_enabled || !(this->interrupt_enable_flag & all_interrupts_mask)){
 		if (this->system->get_mode() == GameboyMode::DMG)
 			this->dmg_halt_bug = true;
@@ -76,15 +91,16 @@ void GameboyCpu::run_one_instruction(){
 	if (this->attempt_to_handle_interrupts())
 		this->halted = false;
 
+	bool enable_interrupts = this->interrupt_enable_scheduled;
+	this->interrupt_enable_scheduled = false;
+
+	assert(!(enable_interrupts && this->halted));
+
 	if (this->halted){
 		this->take_time(4);
 	}else{
 		this->current_pc = this->registers.pc();
 
-		auto ly = this->system->get_display_controller().get_y_coordinate();
-
-		//BREAKPOINT(0x282E);
-		
 		byte_t opcode;
 		if (!this->dmg_halt_bug)
 			opcode = this->load_pc_and_increment();
@@ -101,6 +117,10 @@ void GameboyCpu::run_one_instruction(){
 		(this->*function_pointer)();
 		this->total_instructions++;
 	}
+
+	if (enable_interrupts)
+		this->interrupt_toggle(true);
+
 	this->check_timer();
 	this->perform_dmg_dma();
 }
@@ -182,8 +202,6 @@ void GameboyCpu::set_interrupt_enable_flag(byte_t b){
 void GameboyCpu::begin_dmg_dma_transfer(byte_t position){
 	this->dma_scheduled = position;
 }
-
-extern std::atomic<bool> slow_mode;
 
 void GameboyCpu::perform_dmg_dma(){
 	if (this->dma_scheduled < 0)

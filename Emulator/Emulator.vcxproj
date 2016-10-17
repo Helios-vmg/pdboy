@@ -177,6 +177,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="MemorySection.h" />
+    <ClInclude Include="point.h" />
     <ClInclude Include="StorageController.h" />
     <ClInclude Include="SystemClock.h" />
     <ClInclude Include="CommonTypes.h" />
@@ -190,6 +191,7 @@
     <ClInclude Include="threads.h" />
     <ClInclude Include="timer.h" />
     <ClInclude Include="UserInputController.h" />
+    <ClInclude Include="utility.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

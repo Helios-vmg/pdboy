@@ -29,6 +29,7 @@ class GameboyCpu{
 	std::uint64_t last_dma_at = 0;
 	bool halted = false;
 	bool dmg_halt_bug = false;
+	bool interrupt_enable_scheduled = false;
 
 	static const unsigned vblank_flag_bit = 0;
 	static const unsigned lcd_stat_flag_bit = 1;
@@ -68,6 +69,7 @@ public:
 	void initialize();
 	void take_time(std::uint32_t cycles);
 	void interrupt_toggle(bool);
+	void schedule_interrupt_enable();
 	void stop();
 	void halt();
 	void abort();

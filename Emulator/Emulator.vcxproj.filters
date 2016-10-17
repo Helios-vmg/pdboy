@@ -51,6 +51,9 @@
     <ClCompile Include="StorageController.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="threads.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="RegisterStore.h">
@@ -90,6 +93,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="MemorySection.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="threads.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="point.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="utility.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

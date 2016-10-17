@@ -5,6 +5,10 @@
 #include <unordered_map>
 #include <atomic>
 #include <mutex>
+#include "point.h"
+#include "utility.h"
+
+//#define PIXEL_DETAILS
 
 class Gameboy;
 class GameboyCpu;
@@ -38,8 +42,32 @@ struct RGB{
 	byte_t r, g, b, a;
 };
 
+std::ostream &operator<<(std::ostream &, const RGB &);
+
 struct RenderedFrame{
 	RGB pixels[lcd_width * lcd_height];
+};
+
+struct PixelDetails{
+	int x, y;
+	int indexed_color;
+	RGB rgb_color;
+	enum ColorSource{
+		Nothing,
+		Background,
+		Sprite,
+		Window,
+	};
+	ColorSource source;
+
+	int 
+		tile_map_position,
+		tile_map_address,
+		tile_number,
+		tile_address,
+		tile_offset_x,
+		tile_offset_y,
+		sprite_number;
 };
 
 class DisplayController{
@@ -62,9 +90,15 @@ class DisplayController{
 	byte_t y_compare = 0;
 	unsigned last_in_new_frame = 0;
 	std::atomic<bool> display_enabled;
-	std::uint64_t display_clock_start = 0;
+	static const std::uint64_t invalid_clock = std::numeric_limits<std::uint64_t>::max();
+	std::uint64_t display_clock_start = invalid_clock;
 	int last_row_state = -1;
 	unsigned swallow_frames = 0;
+	bool clock_start_scheduled = false;
+#ifdef PIXEL_DETAILS
+	Maybe<point2> requested_pixel_details_coordinates;
+	PixelDetails pixel_details;
+#endif
 
 	std::vector<std::unique_ptr<RenderedFrame>> allocated_frames;
 	std::vector<RenderedFrame *> ready_frames;
@@ -96,8 +130,14 @@ class DisplayController{
 	unsigned get_tile_vram_offset() const{
 		return 0x800 * !check_flag(this->lcd_control, lcdc_tile_map_select_mask);
 	}
+	unsigned get_tile_vram_address() const{
+		return 0x8000 + this->get_tile_vram_offset();
+	}
 	unsigned get_bg_vram_offset() const{
 		return 0x400 * check_flag(this->lcd_control, lcdc_bg_map_select_mask);
+	}
+	unsigned get_bg_vram_address() const{
+		return 0x9800 + this->get_bg_vram_offset();
 	}
 	unsigned get_window_vram_offset() const{
 		return 0x400 * check_flag(this->lcd_control, lcdc_window_map_select_mask);
@@ -114,6 +154,7 @@ class DisplayController{
 	void switch_to_row_state_3(unsigned);
 	void render_current_scanline(unsigned);
 	void enable_memories();
+	std::uint64_t get_system_clock() const;
 public:
 	DisplayController(Gameboy &system);
 	void set_memory_controller(MemoryController &mc){
@@ -152,10 +193,13 @@ public:
 		return &this->access_vram(0x8000);
 	}
 	const byte_t *get_bg_tile_vram() const{
-		return &this->access_vram(0x8000 + this->get_tile_vram_offset());
+		return &this->access_vram(this->get_tile_vram_address());
+	}
+	byte_t get_tile_no_offset() const{
+		return 0x80 * !check_flag(this->lcd_control, lcdc_tile_map_select_mask);
 	}
 	const byte_t *get_bg_vram() const{
-		return &this->access_vram(0x9800 + this->get_bg_vram_offset());
+		return &this->access_vram(this->get_bg_vram_address());
 	}
 	const byte_t *get_window_vram() const{
 		return &this->access_vram(0x9800 + this->get_window_vram_offset());
@@ -164,9 +208,18 @@ public:
 		return &this->access_oam(0xFE00);
 	}
 	std::uint64_t get_display_clock() const;
+	std::int64_t get_signed_display_clock() const;
 	//Returns true if synchronization with real time is required.
 	bool update();
 	bool get_display_enabled() const{
 		return this->display_enabled;
 	}
+#ifdef PIXEL_DETAILS
+	void set_requested_pixel_details_coordinates(const point2 &p){
+		this->requested_pixel_details_coordinates = p;
+	}
+	PixelDetails get_pixel_details() const{
+		return this->pixel_details;
+	}
+#endif
 };

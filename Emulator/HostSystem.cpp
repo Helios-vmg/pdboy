@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fstream>
 #include <cassert>
+#include <iomanip>
 
 std::atomic<bool> slow_mode(false);
 const int lcd_fade_period = 0;
@@ -45,11 +46,22 @@ void HostSystem::run(){
 				break;
 #endif
 			this->check_exceptions();
+#ifdef PIXEL_DETAILS
+			this->pre_render();
+#endif
 			this->render();
+#ifdef PIXEL_DETAILS
+			this->post_render();
+#endif
 		}
 	}catch (std::exception &e){
 		std::cerr << "Exception: " << e.what() << std::endl;
 	}
+}
+
+
+void HostSystem::stop_and_dump_vram(){
+	this->gameboy->stop_and_dump_vram("vram.bin");
 }
 
 void HostSystem::check_exceptions(){
@@ -97,6 +109,60 @@ SdlHostSystem::~SdlHostSystem(){
 	SDL_Quit();
 }
 
+#ifdef PIXEL_DETAILS
+void SdlHostSystem::pre_render(){
+	if (!this->requested_pixel_details.is_initialized())
+		return;
+	this->gameboy->stop();
+	this->gameboy->set_requested_pixel_details(*this->requested_pixel_details);
+	this->gameboy->run_until_next_frame(true);
+	this->gameboy->run_until_next_frame(true);
+	{
+		auto details = this->gameboy->get_pixel_details();
+
+		std::cout << "---------------------------\n";
+		switch (details.source){
+			case PixelDetails::Nothing:
+				std::cout <<
+					"Source:        nothing.\n"
+					"(x, y):        (" << details.x << ", " << details.y << ")\n"
+					"Indedex color: " << details.indexed_color << "\n"
+					"Color:         " << details.rgb_color << "\n";
+				break;
+			case PixelDetails::Background:
+				std::cout <<
+					"Source:            background.\n"
+					"(x, y):            (" << details.x << ", " << details.y << ")\n"
+					"Indedex color:     " << details.indexed_color << "\n"
+					"Color:             " << details.rgb_color << "\n"
+					"Tile map position: 0x" << std::hex << std::setw(2) << std::setfill('0') << details.tile_map_position << "\n"
+					"Tile map address:  0x" << std::hex << std::setw(4) << std::setfill('0') << details.tile_map_address << "\n"
+					"Tile number:       0x" << std::hex << std::setw(2) << std::setfill('0') << details.tile_number << "\n"
+					"Tile address:      0x" << std::hex << std::setw(4) << std::setfill('0') << details.tile_address << "\n"
+					"Tile offset:       (" << std::dec << details.tile_offset_x << ", " << details.tile_offset_y << ")\n"
+					;
+				break;
+			case PixelDetails::Sprite:
+				std::cout <<
+					"Source:        sprite.\n"
+					"(x, y):        (" << details.x << ", " << details.y << ")\n"
+					"Indedex color: " << details.indexed_color << "\n"
+					"Color:         " << details.rgb_color << "\n"
+					"Tile number:   0x" << std::hex << std::setw(2) << std::setfill('0') << details.tile_number << "\n"
+					"Tile address:  0x" << std::hex << std::setw(4) << std::setfill('0') << details.tile_address << "\n"
+					"Tile offset:   (" << std::dec << details.tile_offset_x << ", " << details.tile_offset_y << ")\n"
+					;
+				break;
+			case PixelDetails::Window:
+				break;
+		}
+		std::cout << "---------------------------\n";
+	}
+	this->requested_pixel_details.clear();
+	this->gameboy->run();
+}
+#endif
+
 #define X old = (old * 11 + current) / 12
 
 void SdlHostSystem::render(){
@@ -134,7 +200,7 @@ void SdlHostSystem::render(){
 			}
 		}
 		this->gameboy->return_used_frame(current_frame);
-	} else{
+	}else{
 		if (!lcd_fade_period)
 			memset(void_pixels, 0xFF, sizeof(current_frame->pixels));
 		else{
@@ -199,10 +265,6 @@ static void handle_event(InputState &state, SDL_Event &event, byte_t new_state, 
 			flag = true;
 			state.select = new_state;
 			break;
-		case SDLK_q:
-			if (DOWN)
-				slow_mode = !slow_mode;
-			break;
 	}
 }
 
@@ -216,11 +278,31 @@ bool SdlHostSystem::handle_events(){
 			case SDL_QUIT:
 				return false;
 			case SDL_KEYDOWN:
-				handle_event<true>(state, event, 0x00, button_down);
+				handle_event<true>(state, event, 0xFF, button_down);
+				{
+					switch (event.key.keysym.sym){
+						case SDLK_q:
+							slow_mode = !slow_mode;
+							break;
+						case SDLK_w:
+							this->stop_and_dump_vram();
+							return false;
+							break;
+					}
+				}
 				break;
 			case SDL_KEYUP:
-				handle_event<false>(state, event, 0xFF, button_up);
+				handle_event<false>(state, event, 0x00, button_up);
 				break;
+#ifdef PIXEL_DETAILS
+			case SDL_MOUSEBUTTONDOWN:
+				{
+					auto button = event.button;
+					if (button.button == SDL_BUTTON_LEFT)
+						this->requested_pixel_details = point2(button.x, button.y) / 4;
+				}
+				break;
+#endif
 			default:
 				break;
 		}

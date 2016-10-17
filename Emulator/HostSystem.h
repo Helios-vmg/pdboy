@@ -2,6 +2,8 @@
 #include "Gameboy.h"
 #include "threads.h"
 #include "exceptions.h"
+#include "point.h"
+#include "utility.h"
 #include <SDL.h>
 #include <memory>
 #include <limits>
@@ -24,6 +26,10 @@ protected:
 	void check_exceptions();
 	virtual void render() = 0;
 	virtual bool handle_events() = 0;
+#ifdef PIXEL_DETAILS
+	virtual void pre_render(){}
+	virtual void post_render(){}
+#endif
 public:
 	HostSystem();
 	virtual ~HostSystem(){}
@@ -36,6 +42,7 @@ public:
 	virtual void unregister_periodic_notification() = 0;
 	void throw_exception(const std::shared_ptr<std::exception> &);
 	void run();
+	void stop_and_dump_vram();
 };
 
 class SdlHostSystem : public HostSystem{
@@ -46,10 +53,16 @@ class SdlHostSystem : public HostSystem{
 	static const std::uint64_t invalid_time = std::numeric_limits<std::uint64_t>::max();
 	std::uint64_t realtime_counter_frequency = 0;
 	InputState input_state;
+#ifdef PIXEL_DETAILS
+	Maybe<point2> requested_pixel_details;
+#endif
 
 	void render() override;
 	bool handle_events() override;
 	static Uint32 SDLCALL timer_callback(Uint32 interval, void *param);
+#ifdef PIXEL_DETAILS
+	void pre_render() override;
+#endif
 public:
 	SdlHostSystem();
 	~SdlHostSystem();

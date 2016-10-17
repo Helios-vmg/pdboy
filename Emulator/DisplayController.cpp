@@ -196,18 +196,23 @@ void DisplayController::set_lcd_control(byte_t b){
 	CHECK_FLAG(lcdc_bg_enable_mask);
 }
 
+std::uint64_t DisplayController::get_system_clock() const{
+	return this->system->get_system_clock().get_clock_value();
+}
+
 void DisplayController::toggle_lcd(){
 	bool enable = !!(this->lcd_control & lcdc_display_enable_mask);
 	if (enable == this->display_enabled)
 		return;
 
-	this->display_enabled = enable;
-	if (this->display_enabled){
-		this->display_clock_start = this->system->get_system_clock().get_clock_value();
+	if (enable){
+		this->display_clock_start = this->get_system_clock() + 244;
 		this->swallow_frames = 1;
 	}else{
+		this->display_enabled = false;
 		this->clear_rendered_frame();
 		this->last_row_state = -1;
+		this->display_clock_start = this->invalid_clock;
 		this->enable_memories();
 	}
 }
@@ -233,12 +238,24 @@ void DisplayController::set_obj1_palette(byte_t palette){
 std::uint64_t DisplayController::get_display_clock() const{
 	if (!this->display_enabled)
 		return 0;
-	return this->system->get_system_clock().get_clock_value() - this->display_clock_start;
+	return this->get_system_clock() - this->display_clock_start;
+}
+
+std::int64_t DisplayController::get_signed_display_clock() const{
+	std::int64_t c;
+	if (this->display_clock_start == this->invalid_clock)
+		c = std::numeric_limits<std::int64_t>::max();
+	else
+		c = this->display_clock_start;
+	return (std::int64_t)this->get_system_clock() - c;
 }
 
 bool DisplayController::update(){
-	if (!this->display_enabled)
-		return false;
+	if (!this->display_enabled){
+		if (this->display_clock_start > this->get_system_clock())
+			return false;
+		this->display_enabled = true;
+	}
 	auto row_status = (unsigned)this->get_row_status();
 	auto state = row_status & 3;
 	auto row = row_status >> 2;
@@ -300,6 +317,7 @@ void DisplayController::render_current_scanline(unsigned y){
 	const unsigned pitch = lcd_width;
 
 	auto bg_tile_vram = this->get_bg_tile_vram();
+	auto tile_no_offset = this->get_tile_no_offset();
 	auto bg_vram = this->get_bg_vram();
 	auto oam = this->get_oam();
 	auto sprite_tile_vram = this->get_sprite_tile_vram();
@@ -312,6 +330,16 @@ void DisplayController::render_current_scanline(unsigned y){
 	auto row = pixels + pitch * y;
 	auto src_y = (y + this->scroll_y) & 0xFF;
 	auto src_y_prime = src_y / 8 * 32;
+
+#ifdef PIXEL_DETAILS
+	auto &coords = this->requested_pixel_details_coordinates;
+	auto &details = this->pixel_details;
+	bool set = false;
+	if (coords.is_initialized() && coords->y == y){
+		details.y = y;
+	}
+#endif
+
 
 	const byte_t *sprites_for_scanline[40];
 	unsigned sprites_for_scanline_size = 0;
@@ -331,18 +359,44 @@ void DisplayController::render_current_scanline(unsigned y){
 		unsigned color = 0;
 		auto &rgba = row[x];
 		rgba = this->bg_palette[color];
+
+#ifdef PIXEL_DETAILS
+		if (coords.is_initialized() && coords->y == y && coords->x == x){
+			details.x = x;
+			details.source = PixelDetails::Nothing;
+			details.indexed_color = color;
+			details.rgb_color = rgba;
+			set = true;
+		}
+#endif
+
 		if (bg_enabled){
 			auto src_x = (x + this->scroll_x) & 0xFF;
 			auto src_bg_tile = src_x / 8 + src_y_prime;
-			auto tile_offset_x = src_x & 7;
-			auto tile_no = bg_vram[src_bg_tile];
-			//std::cout << std::hex << std::setw(2) << std:: setfill('0') << (int)tile_no << ' ';
+			byte_t tile_no = bg_vram[src_bg_tile] + tile_no_offset;
 			auto tile = bg_tile_vram + tile_no * 16;
+			auto tile_offset_x = src_x & 7;
 			auto tile_offset_y = src_y & 7;
 			auto src_pixelA = tile[tile_offset_y * 2 + 0];
 			auto src_pixelB = tile[tile_offset_y * 2 + 1];
 			color = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
 			rgba = this->bg_palette[color];
+
+#ifdef PIXEL_DETAILS
+			if (coords.is_initialized() && coords->y == y && coords->x == x){
+				details.source = PixelDetails::Background;
+				details.indexed_color = color;
+				details.rgb_color = rgba;
+				details.tile_map_position = src_bg_tile;
+				details.tile_map_address = this->get_bg_vram_address() + src_bg_tile;
+				details.tile_number = tile_no - tile_no_offset;
+				details.tile_address = this->get_tile_vram_address() + tile_no * 16;
+				details.tile_offset_x = tile_offset_x;
+				details.tile_offset_y = tile_offset_y;
+				set = true;
+			}
+#endif
+
 		}
 		for (unsigned i = sprites_for_scanline_size; i--;){
 			auto sprite = sprites_for_scanline[i];
@@ -351,7 +405,7 @@ void DisplayController::render_current_scanline(unsigned y){
 				continue;
 
 			auto attr = sprite[sprite_attr_offset];
-			auto tile_no = sprite[sprite_tile_offset];
+			byte_t tile_no = sprite[sprite_tile_offset]/* + tile_no_offset*/;
 			auto spry = (unsigned)sprite[sprite_y_pos_offset] - 16U;
 			auto tile_offset_y = y - spry;
 			auto tile_offset_x = x - sprx;
@@ -364,8 +418,38 @@ void DisplayController::render_current_scanline(unsigned y){
 			auto src_pixelB = tile[tile_offset_y * 2 + 1];
 			color = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
 			rgba = this->bg_palette[color];
+
+
+#ifdef PIXEL_DETAILS
+			if (coords.is_initialized() && coords->y == y && coords->x == x){
+				details.source = PixelDetails::Sprite;
+				details.indexed_color = color;
+				details.rgb_color = rgba;
+				details.tile_map_position = 0;
+				details.tile_address = 0;
+				details.tile_number = tile_no;
+				details.tile_address = 0x8000 + tile_no * 16;
+				details.tile_offset_x = tile_offset_x;
+				details.tile_offset_y = tile_offset_y;
+			}
+#endif
+
 			break;
 		}
 	}
-	//std::cout << std::endl;
+	
+#ifdef PIXEL_DETAILS
+	if (set)
+		this->requested_pixel_details_coordinates.clear();
+#endif
+}
+
+std::ostream &operator<<(std::ostream &stream, const RGB &rgb){
+	stream << std::hex;
+	stream << std::setw(2) << std::setfill('0') << (int)rgb.r;
+	stream << std::setw(2) << std::setfill('0') << (int)rgb.g;
+	stream << std::setw(2) << std::setfill('0') << (int)rgb.b;
+	stream << std::setw(2) << std::setfill('0') << (int)rgb.a;
+	stream << std::dec;
+	return stream;
 }

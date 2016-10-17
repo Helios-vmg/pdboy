@@ -5,7 +5,7 @@
 #include "timer.h"
 #include "exceptions.h"
 #include <iostream>
-#include <sstream>
+#include <fstream>
 
 Gameboy::Gameboy(HostSystem &host):
 		host(&host),
@@ -13,18 +13,16 @@ Gameboy::Gameboy(HostSystem &host):
 		display_controller(*this),
 		input_controller(*this),
 		storage_controller(*this, host),
-		clock(*this){
+		clock(*this),
+		continue_running(false){
 	this->cpu.initialize();
 	this->realtime_counter_frequency = get_timer_resolution();
 }
 
 Gameboy::~Gameboy(){
-	this->host->unregister_periodic_notification();
-	this->continue_running = false;
-	if (this->interpreter_thread){
-		this->periodic_notification.signal();
-		this->interpreter_thread->join();
-	}
+	if (this->registered)
+		this->host->unregister_periodic_notification();
+	this->stop();
 }
 
 RenderedFrame *Gameboy::get_current_frame(){
@@ -36,14 +34,20 @@ void Gameboy::return_used_frame(RenderedFrame *frame){
 }
 
 void Gameboy::run(){
-	this->host->register_periodic_notification(this->periodic_notification);
+	if (this->continue_running)
+		return;
+	if (!this->registered){
+		this->registered = true;
+		this->host->register_periodic_notification(this->periodic_notification);
+	}
 	this->continue_running = true;
 	auto This = this;
 	this->interpreter_thread.reset(new std::thread([This](){ This->interpreter_thread_function(); }));
 }
 
 void Gameboy::interpreter_thread_function(){
-	auto start = get_timer_count();
+	if (!this->timer_start.is_initialized())
+		this->timer_start = get_timer_count();
 	std::uint64_t time_running = 0;
 	std::uint64_t time_waiting = 0;
 
@@ -54,7 +58,7 @@ void Gameboy::interpreter_thread_function(){
 			this->run_until_next_frame();
 			auto t1 = get_timer_count();
 #ifndef BENCHMARKING
-			this->sync_with_real_time(start);
+			this->sync_with_real_time(*this->timer_start);
 #endif
 			auto t2 = get_timer_count();
 			time_running += t1 - t0;
@@ -76,12 +80,12 @@ void Gameboy::interpreter_thread_function(){
 	this->host->throw_exception(thrown);
 }
 
-void Gameboy::run_until_next_frame(){
+void Gameboy::run_until_next_frame(bool force){
 	do{
 		this->cpu.run_one_instruction();
 		if (this->input_controller.get_button_down())
 			this->cpu.joystick_irq();
-	}while (!this->display_controller.update() && this->continue_running);
+	}while (!this->display_controller.update() && (this->continue_running || force));
 }
 
 void Gameboy::sync_with_real_time(std::uint64_t real_time_start){
@@ -105,4 +109,29 @@ void Gameboy::sync_with_real_time(std::uint64_t real_time_start){
 		}
 	}
 
+}
+
+void Gameboy::stop_and_dump_vram(const char *path){
+	this->continue_running = false;
+	if (std::this_thread::get_id() != this->interpreter_thread->get_id()){
+		this->interpreter_thread->join();
+		this->interpreter_thread.reset();
+	}
+	auto vram = &this->display_controller.access_vram(0x8000);
+	std::unique_ptr<byte_t[]> temp(new byte_t[0x8000]);
+	memset(temp.get(), 0, 0x8000);
+	std::ofstream dump(path, std::ios::binary);
+	dump.write((const char *)temp.get(), 0x8000);
+	dump.write((const char *)vram, 0x2000);
+}
+
+void Gameboy::stop(){
+	if (!this->continue_running)
+		return;
+	this->continue_running = false;
+	if (this->interpreter_thread){
+		this->periodic_notification.signal();
+		this->interpreter_thread->join();
+		this->interpreter_thread.reset();
+	}
 }
