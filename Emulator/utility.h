@@ -45,3 +45,7 @@ public:
 		this->initialized = false;
 	}
 };
+
+constexpr unsigned bit(unsigned i){
+	return 1U << i;
+}

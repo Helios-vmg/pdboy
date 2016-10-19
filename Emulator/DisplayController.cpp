@@ -10,6 +10,22 @@
 
 unsigned frames_drawn = 0;
 
+struct SpriteDescription{
+	byte_t y, x, tile_no, attributes;
+	int get_y() const{
+		return (int)this->y - 16U;
+	}
+	int get_x() const{
+		return (int)this->x - 8U;
+	}
+	int palette_number() const{
+		return !!(this->attributes & bit(4));
+	}
+	bool has_priority() const{
+		return !(this->attributes & bit(7));
+	}
+};
+
 DisplayController::DisplayController(Gameboy &system):
 		system(&system),
 		vram(0x2000),
@@ -308,16 +324,6 @@ void DisplayController::switch_to_row_state_3(unsigned row){
 	this->system->get_cpu().vblank_irq();
 }
 
-struct SpriteDescription{
-	byte_t y, x, tile_no, attributes;
-	int get_y() const{
-		return (int)this->y - 16U;
-	}
-	int get_x() const{
-		return (int)this->x - 8U;
-	}
-};
-
 struct FullSprite{
 	int sprite_number;
 	SpriteDescription sprite_description;
@@ -353,6 +359,11 @@ void DisplayController::render_current_scanline(unsigned y){
 	auto row = pixels + pitch * y;
 	auto src_y = (y + this->scroll_y) & 0xFF;
 	auto src_y_prime = src_y / 8 * 32;
+
+	RGB *obj_palettes[] = {
+		this->obj0_palette,
+		this->obj1_palette,
+	};
 
 #ifdef PIXEL_DETAILS
 	auto &coords = this->requested_pixel_details_coordinates;
@@ -391,9 +402,8 @@ void DisplayController::render_current_scanline(unsigned y){
 	}
 
 	for (unsigned x = 0; x != lcd_width; x++){
-		unsigned color = 0;
-		auto &rgba = row[x];
-		rgba = this->bg_palette[color];
+		unsigned color_index = 0;
+		RGB *palette = nullptr;
 
 #ifdef PIXEL_DETAILS
 		if (coords.is_initialized() && coords->y == y && coords->x == x){
@@ -414,8 +424,8 @@ void DisplayController::render_current_scanline(unsigned y){
 			auto tile_offset_y = src_y & 7;
 			auto src_pixelA = tile[tile_offset_y * 2 + 0];
 			auto src_pixelB = tile[tile_offset_y * 2 + 1];
-			color = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
-			rgba = this->bg_palette[color];
+			color_index = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
+			palette = this->bg_palette;
 
 #ifdef PIXEL_DETAILS
 			if (coords.is_initialized() && coords->y == y && coords->x == x){
@@ -436,10 +446,11 @@ void DisplayController::render_current_scanline(unsigned y){
 		for (unsigned i = 0; i != sprites_for_scanline_size; i++){
 			auto sprite = sprites[i].sprite_description;
 			auto sprx = sprite.get_x();
-			if (!((int)x >= sprx && (int)x < sprx + sprite_width))
+			auto sprite_not_here = !((int)x >= sprx & (int)x < sprx + sprite_width);
+			auto sprite_covered_here = !sprite.has_priority() & !!color_index;
+			if (sprite_not_here | sprite_covered_here)
 				continue;
 
-			auto attr = sprite.attributes;
 			byte_t tile_no = sprite.tile_no;
 			auto spry = sprite.get_y();
 			auto tile_offset_y = (int)y - spry;
@@ -451,9 +462,11 @@ void DisplayController::render_current_scanline(unsigned y){
 			auto tile = sprite_tile_vram + tile_no * 16;
 			auto src_pixelA = tile[tile_offset_y * 2 + 0];
 			auto src_pixelB = tile[tile_offset_y * 2 + 1];
-			color = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
-			rgba = this->bg_palette[color];
-
+			auto index = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
+			if (!index)
+				continue;
+			color_index = index;
+			palette = obj_palettes[sprite.palette_number()];
 
 #ifdef PIXEL_DETAILS
 			if (coords.is_initialized() && coords->y == y && coords->x == x){
@@ -471,6 +484,11 @@ void DisplayController::render_current_scanline(unsigned y){
 
 			break;
 		}
+		if (palette)
+			row[x] = palette[color_index];
+		else
+			row[x] = { 0, 0, 0, 0xFF };
+
 	}
 	
 #ifdef PIXEL_DETAILS
