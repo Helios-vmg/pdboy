@@ -77,7 +77,6 @@ void HostSystem::throw_exception(const std::shared_ptr<std::exception> &ex){
 
 SdlHostSystem::SdlHostSystem(){
 	SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER);
-	memset(&this->input_state, 0xFF, sizeof(this->input_state));
 	this->window = SDL_CreateWindow("Gameboy", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, lcd_width * 4, lcd_height * 4, 0);
 	if (!this->window)
 		throw GenericException("Failed to initialize SDL window.");
