@@ -538,7 +538,7 @@ void DisplayController::render_current_scanline(unsigned y){
 		if (palette)
 			row[x] = palette[color_index];
 		else
-			row[x] = { 0, 0, 0, 0xFF };
+			row[x] = { 0xFF, 0xFF, 0xFF, 0xFF };
 
 	}
 	
