@@ -442,11 +442,13 @@ void DisplayController::render_current_scanline(unsigned y){
 			auto src_bg_tile = src_x / 8 + src_y_prime;
 			byte_t tile_no = bg_vram[src_bg_tile] + tile_no_offset;
 			auto tile = bg_tile_vram + tile_no * 16;
-			auto tile_offset_x = src_x & 7;
-			auto tile_offset_y = src_y & 7;
-			auto src_pixelA = tile[tile_offset_y * 2 + 0];
-			auto src_pixelB = tile[tile_offset_y * 2 + 1];
-			color_index = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
+			auto tile_offset_x = ~src_x & 7;
+			auto tile_offset_y = (src_y & 7) << 1;
+			auto src_pixelA = tile[tile_offset_y | 0];
+			auto src_pixelB = tile[tile_offset_y | 1];
+			auto first_part = (src_pixelA >> tile_offset_x) & 1;
+			auto second_part = ((src_pixelB >> tile_offset_x) & 1) << 1;
+			color_index = first_part | second_part;
 			palette = this->bg_palette;
 
 #ifdef PIXEL_DETAILS
