@@ -107,24 +107,24 @@ class DisplayController{
 	RenderedFrame *frame_being_drawn;
 	std::atomic<RenderedFrame *> current_frame;
 
-	static const byte_t stat_coincidence_interrupt_mask = 1 << 6;
-	static const byte_t stat_oam_interrupt_mask = 1 << 5;
-	static const byte_t stat_vblank_interrupt_mask = 1 << 4;
-	static const byte_t stat_hblank_interrupt_mask = 1 << 3;
-	static const byte_t stat_coincidence_flag_mask = 1 << 2;
+	static const byte_t stat_coincidence_interrupt_mask = bit(6);
+	static const byte_t stat_oam_interrupt_mask = bit(5);
+	static const byte_t stat_vblank_interrupt_mask = bit(4);
+	static const byte_t stat_hblank_interrupt_mask = bit(3);
+	static const byte_t stat_coincidence_flag_mask = bit(2);
 	static const byte_t stat_comp_coincidence_flag_mask = ~stat_coincidence_flag_mask;
 	static const byte_t stat_mode_flag_mask = 3;
 	static const byte_t stat_writing_filter_mask = 0x78;
 	static const byte_t stat_comp_writing_filter_mask = ~stat_writing_filter_mask;
 
-	static const byte_t lcdc_display_enable_mask = 1 << 7;
-	static const byte_t lcdc_window_map_select_mask = 1 << 6;
-	static const byte_t lcdc_window_enable_mask = 1 << 5;
-	static const byte_t lcdc_tile_map_select_mask = 1 << 4;
-	static const byte_t lcdc_bg_map_select_mask = 1 << 3;
-	static const byte_t lcdc_tall_sprite_enable_mask = 1 << 2;
-	static const byte_t lcdc_sprite_enable_mask = 1 << 1;
-	static const byte_t lcdc_bg_enable_mask = 1 << 0;
+	static const byte_t lcdc_display_enable_mask = bit(7);
+	static const byte_t lcdc_window_map_select_mask = bit(6);
+	static const byte_t lcdc_window_enable_mask = bit(5);
+	static const byte_t lcdc_tile_map_select_mask = bit(4);
+	static const byte_t lcdc_bg_map_select_mask = bit(3);
+	static const byte_t lcdc_tall_sprite_enable_mask = bit(2);
+	static const byte_t lcdc_sprite_enable_mask = bit(1);
+	static const byte_t lcdc_bg_enable_mask = bit(0);
 
 	int get_row_status();
 	unsigned get_tile_vram_offset() const{

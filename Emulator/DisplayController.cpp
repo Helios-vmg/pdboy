@@ -345,9 +345,11 @@ void DisplayController::render_current_scanline(unsigned y){
 	auto *pixels = this->frame_being_drawn->pixels;
 	const unsigned pitch = lcd_width;
 
+	auto wy = (int)this->window_y;
 	auto bg_tile_vram = this->get_bg_tile_vram();
 	auto tile_no_offset = this->get_tile_no_offset();
 	auto bg_vram = this->get_bg_vram();
+	auto window_vram = this->get_window_vram();
 	auto oam = this->get_oam();
 	auto sprite_tile_vram = this->get_sprite_tile_vram();
 	bool bg_enabled = check_flag(this->lcd_control, lcdc_bg_enable_mask);
@@ -359,6 +361,10 @@ void DisplayController::render_current_scanline(unsigned y){
 	auto row = pixels + pitch * y;
 	auto src_y = (y + this->scroll_y) & 0xFF;
 	auto src_y_prime = src_y / 8 * 32;
+
+	auto y_prime = (int)y - wy;
+	bool window_enabled = check_flag(this->lcd_control, lcdc_window_enable_mask) && y_prime >= 0 && y_prime < lcd_height;
+	y_prime = y_prime / 8 * 32;
 
 	RGB *obj_palettes[] = {
 		this->obj0_palette,
@@ -415,7 +421,23 @@ void DisplayController::render_current_scanline(unsigned y){
 		}
 #endif
 
-		if (bg_enabled){
+		if (window_enabled){
+			auto wx = (int)this->window_x - 7;
+			auto src_x = (int)x - wx;
+			if (src_x >= 0 & src_x < (int)lcd_width){
+				auto src_window_tile = src_x / 8 + y_prime;
+				byte_t tile_no = window_vram[src_window_tile] + tile_no_offset;
+				auto tile = bg_tile_vram + tile_no * 16;
+				auto tile_offset_x = src_x & 7;
+				auto tile_offset_y = y & 7;
+				auto src_pixelA = tile[tile_offset_y * 2 + 0];
+				auto src_pixelB = tile[tile_offset_y * 2 + 1];
+				color_index = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
+				palette = this->bg_palette;
+			}
+		}
+
+		if (bg_enabled & !palette){
 			auto src_x = (x + this->scroll_x) & 0xFF;
 			auto src_bg_tile = src_x / 8 + src_y_prime;
 			byte_t tile_no = bg_vram[src_bg_tile] + tile_no_offset;
