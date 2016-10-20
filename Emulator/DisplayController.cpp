@@ -7,6 +7,7 @@
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
+#include <cassert>
 
 unsigned frames_drawn = 0;
 
@@ -88,20 +89,41 @@ void DisplayController::return_used_frame(RenderedFrame *frame){
 }
 
 int DisplayController::get_row_status(){
-	if (!this->display_enabled)
-		return -1;
+	assert(this->display_enabled);
 	auto clock = this->get_display_clock();
 	auto cycle = (unsigned)(clock % lcd_refresh_period);
 	auto row = cycle / 456;
 	auto sub_row = cycle % 456;
-	if (row >= lcd_height)
-		return row * 4 + 3;
 	row *= 4;
+	if (cycle >= lcd_height * 456)
+		return row + 3;
 	if (sub_row < 80)
 		return row + 0;
 	if (sub_row < 252)
 		return row + 1;
 	return row + 2;
+}
+
+int DisplayController::get_LY(){
+	if (!this->display_enabled)
+		return -1;
+	auto clock = this->get_display_clock();
+	auto cycle = (unsigned)(clock % lcd_refresh_period);
+	return cycle / 456;
+}
+
+int DisplayController::get_lcd_transfer_status(){
+	assert(this->display_enabled);
+	auto clock = this->get_display_clock();
+	auto cycle = (unsigned)(clock % lcd_refresh_period);
+	auto sub_row = (unsigned)(clock % 456);
+	if (cycle >= lcd_height * 456)
+		return 3;
+	if (sub_row < 80)
+		return 0;
+	if (sub_row < 252)
+		return 1;
+	return 2;
 }
 
 byte_t DisplayController::get_background_palette(){
@@ -125,10 +147,10 @@ void DisplayController::set_background_palette(byte_t palette){
 }
 
 byte_t DisplayController::get_y_coordinate(){
-	auto row_status = this->get_row_status();
+	auto row_status = this->get_LY();
 	if (row_status < 0)
 		return 0;
-	return (byte_t)(row_status / 4);
+	return (byte_t)row_status;
 }
 
 byte_t DisplayController::get_status(){
@@ -136,7 +158,7 @@ byte_t DisplayController::get_status(){
 		return 0;
 	auto ret = this->lcd_status & this->stat_writing_filter_mask;
 	ret |= (this->get_y_coordinate_compare() == this->get_y_coordinate()) * this->stat_coincidence_flag_mask;
-	ret |= ((unsigned)this->get_row_status() + 2) & 3;
+	ret |= ((unsigned)this->get_lcd_transfer_status() + 2) & 3;
 	return ret;
 }
 
@@ -467,28 +489,33 @@ void DisplayController::render_current_scanline(unsigned y){
 #endif
 
 		}
+
 		for (unsigned i = 0; i != sprites_for_scanline_size; i++){
 			auto sprite = sprites[i].sprite_description;
 			auto sprx = sprite.get_x();
-			auto sprite_not_here = !((int)x >= sprx & (int)x < sprx + sprite_width);
-			auto sprite_covered_here = !sprite.has_priority() & !!color_index;
-			if (sprite_not_here | sprite_covered_here)
+			auto sprite_is_here = (int)x >= sprx & (int)x < sprx + sprite_width;
+			auto sprite_is_not_covered_here = sprite.has_priority() | !color_index;
+			if (!(sprite_is_here & sprite_is_not_covered_here))
 				continue;
 
 			byte_t tile_no = sprite.tile_no;
 			auto spry = sprite.get_y();
 			auto tile_offset_y = (int)y - spry;
-			auto tile_offset_x = (int)x - sprx;
+			auto tile_offset_x = 7 ^ ((int)x - sprx);
 			if (tall_sprites){
 				tile_no &= 0xFE;
 				tile_no += tile_offset_y / 8;
 			}
+			tile_offset_y <<= 1;
 			auto tile = sprite_tile_vram + tile_no * 16;
-			auto src_pixelA = tile[tile_offset_y * 2 + 0];
-			auto src_pixelB = tile[tile_offset_y * 2 + 1];
-			auto index = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
+			auto src_pixelA = tile[tile_offset_y | 0];
+			auto src_pixelB = tile[tile_offset_y | 1];
+			auto first_part = (src_pixelA >> tile_offset_x) & 1;
+			auto second_part = ((src_pixelB >> tile_offset_x) & 1) << 1;
+			auto index = first_part | second_part;
 			if (!index)
 				continue;
+
 			color_index = index;
 			palette = obj_palettes[sprite.palette_number()];
 

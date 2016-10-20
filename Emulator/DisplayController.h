@@ -127,6 +127,8 @@ class DisplayController{
 	static const byte_t lcdc_bg_enable_mask = bit(0);
 
 	int get_row_status();
+	int get_LY();
+	int get_lcd_transfer_status();
 	unsigned get_tile_vram_offset() const{
 		return 0x800 * !check_flag(this->lcd_control, lcdc_tile_map_select_mask);
 	}
