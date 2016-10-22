@@ -25,6 +25,12 @@ struct SpriteDescription{
 	bool has_priority() const{
 		return !(this->attributes & bit(7));
 	}
+	bool flipped_x() const{
+		return !!(this->attributes & bit(5));
+	}
+	bool flipped_y() const{
+		return !!(this->attributes & bit(6));
+	}
 };
 
 DisplayController::DisplayController(Gameboy &system):
@@ -465,11 +471,14 @@ void DisplayController::render_current_scanline(unsigned y){
 
 			byte_t tile_no = sprite.tile_no;
 			auto spry = sprite.get_y();
+			auto tile_offset_x = (int)x - sprx;
 			auto tile_offset_y = (int)y - spry;
-			auto tile_offset_x = 7 ^ ((int)x - sprx);
+			tile_offset_x ^= 7 * !sprite.flipped_x();
+			tile_offset_y ^= 7 * sprite.flipped_y();
+
 			if (tall_sprites){
 				tile_no &= 0xFE;
-				tile_no += tile_offset_y / 8;
+				tile_no |= tile_offset_y / 8;
 			}
 			tile_offset_y <<= 1;
 			auto tile = sprite_tile_vram + tile_no * 16;
