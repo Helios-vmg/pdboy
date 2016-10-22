@@ -3,7 +3,7 @@
 #include <cassert>
 
 bool StorageController::load_cartridge(const char *path){
-	auto buffer = this->host->load_file(path, 16 << 20);
+	auto buffer = this->host->get_storage_provider()->load_file(path, 16 << 20);
 	if (!buffer || !buffer->size())
 		return false;
 	auto new_cart = Cartridge::construct_from_buffer(std::move(buffer));

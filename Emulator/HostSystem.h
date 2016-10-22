@@ -1,16 +1,14 @@
 #pragma once
 #include "Gameboy.h"
+#include "HostSystemServiceProviders.h"
 #include "threads.h"
 #include "exceptions.h"
 #include "point.h"
 #include "utility.h"
-#include <SDL.h>
 #include <memory>
 #include <limits>
 
 //#define BENCHMARKING
-
-extern std::atomic<bool> slow_mode;
 
 class DisplayController;
 struct InputState;
@@ -18,54 +16,37 @@ struct InputState;
 class HostSystem{
 protected:
 	std::unique_ptr<Gameboy> gameboy;
-	Event *periodic_event = nullptr;
-	std::mutex periodic_event_mutex;
+	StorageProvider *storage_provider;
+	std::unique_ptr<StorageProvider> owned_storage_provider;
+	TimingProvider *timing_provider;
+	GraphicsOutputProvider *graphics_provider;
+	EventProvider *event_provider;
 	std::shared_ptr<std::exception> thrown_exception;
 	std::mutex thrown_exception_mutex;
 
 	void check_exceptions();
-	virtual void render() = 0;
-	virtual bool handle_events() = 0;
-#ifdef PIXEL_DETAILS
-	virtual void pre_render(){}
-	virtual void post_render(){}
-#endif
+	void render();
+	bool handle_events();
 public:
-	HostSystem();
-	virtual ~HostSystem(){}
-	virtual std::unique_ptr<std::vector<byte_t>> load_file(const char *path, size_t maximum_size);
+	HostSystem(StorageProvider *, TimingProvider *, GraphicsOutputProvider *, EventProvider *);
+	~HostSystem();
 	void reinit();
 	Gameboy &get_guest(){
 		return *this->gameboy;
 	}
-	virtual void register_periodic_notification(Event &) = 0;
-	virtual void unregister_periodic_notification() = 0;
 	void throw_exception(const std::shared_ptr<std::exception> &);
 	void run();
 	void stop_and_dump_vram();
-};
-
-class SdlHostSystem : public HostSystem{
-	SDL_Window *window;
-	SDL_Renderer *renderer;
-	SDL_Texture *main_texture;
-	SDL_TimerID timer_id = 0;
-	static const std::uint64_t invalid_time = std::numeric_limits<std::uint64_t>::max();
-	std::uint64_t realtime_counter_frequency = 0;
-	InputState input_state;
-#ifdef PIXEL_DETAILS
-	Maybe<point2> requested_pixel_details;
-#endif
-
-	void render() override;
-	bool handle_events() override;
-	static Uint32 SDLCALL timer_callback(Uint32 interval, void *param);
-#ifdef PIXEL_DETAILS
-	void pre_render() override;
-#endif
-public:
-	SdlHostSystem();
-	~SdlHostSystem();
-	void register_periodic_notification(Event &) override;
-	void unregister_periodic_notification() override;
+	StorageProvider *get_storage_provider() const{
+		return this->storage_provider;
+	}
+	TimingProvider *get_timing_provider() const{
+		return this->timing_provider;
+	}
+	GraphicsOutputProvider *get_graphics_provider() const{
+		return this->graphics_provider;
+	}
+	EventProvider *get_event_provider() const{
+		return this->event_provider;
+	}
 };

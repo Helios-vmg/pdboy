@@ -60,12 +60,4 @@ public:
 	RenderedFrame *get_current_frame();
 	void return_used_frame(RenderedFrame *);
 	void stop_and_dump_vram(const char *path);
-#ifdef PIXEL_DETAILS
-	void set_requested_pixel_details(const point2 &p){
-		this->display_controller.set_requested_pixel_details_coordinates(p);
-	}
-	PixelDetails get_pixel_details(){
-		return this->display_controller.get_pixel_details();
-	}
-#endif
 };

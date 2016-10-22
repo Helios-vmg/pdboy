@@ -2,6 +2,7 @@
 #include "Gameboy.h"
 #include "UserInputController.h"
 #include "StorageController.h"
+#include "HostSystemServiceProviders.h"
 #include "timer.h"
 #include "exceptions.h"
 #include <iostream>
@@ -21,7 +22,7 @@ Gameboy::Gameboy(HostSystem &host):
 
 Gameboy::~Gameboy(){
 	if (this->registered)
-		this->host->unregister_periodic_notification();
+		this->host->get_timing_provider()->unregister_periodic_notification();
 	this->stop();
 }
 
@@ -38,7 +39,7 @@ void Gameboy::run(){
 		return;
 	if (!this->registered){
 		this->registered = true;
-		this->host->register_periodic_notification(this->periodic_notification);
+		this->host->get_timing_provider()->register_periodic_notification(this->periodic_notification);
 	}
 	this->continue_running = true;
 	auto This = this;

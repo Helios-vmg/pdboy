@@ -54,6 +54,12 @@
     <ClCompile Include="threads.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="SdlProvider.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HostSystemServiceProviders.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="RegisterStore.h">
@@ -102,6 +108,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="utility.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="HostSystemServiceProviders.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SdlProvider.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

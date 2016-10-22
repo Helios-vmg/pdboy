@@ -172,9 +172,11 @@
     <ClCompile Include="Gameboy.cpp" />
     <ClCompile Include="GameboyCpu.cpp" />
     <ClCompile Include="HostSystem.cpp" />
+    <ClCompile Include="HostSystemServiceProviders.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MemoryController.cpp" />
     <ClCompile Include="RegisterStore.cpp" />
+    <ClCompile Include="SdlProvider.cpp" />
     <ClCompile Include="StorageController.cpp" />
     <ClCompile Include="SystemClock.cpp" />
     <ClCompile Include="threads.cpp" />
@@ -182,8 +184,10 @@
     <ClCompile Include="UserInputController.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="HostSystemServiceProviders.h" />
     <ClInclude Include="MemorySection.h" />
     <ClInclude Include="point.h" />
+    <ClInclude Include="SdlProvider.h" />
     <ClInclude Include="StorageController.h" />
     <ClInclude Include="SystemClock.h" />
     <ClInclude Include="CommonTypes.h" />

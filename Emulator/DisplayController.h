@@ -8,8 +8,6 @@
 #include "point.h"
 #include "utility.h"
 
-//#define PIXEL_DETAILS
-
 class Gameboy;
 class GameboyCpu;
 class MemoryController;
@@ -45,7 +43,9 @@ struct RGB{
 std::ostream &operator<<(std::ostream &, const RGB &);
 
 struct RenderedFrame{
-	RGB pixels[lcd_width * lcd_height];
+	static const size_t size = lcd_width * lcd_height;
+	static const size_t bytes_size = lcd_width * lcd_height * sizeof(RGB);
+	RGB pixels[size];
 };
 
 struct PixelDetails{
@@ -95,10 +95,6 @@ class DisplayController{
 	int last_row_state = -1;
 	unsigned swallow_frames = 0;
 	bool clock_start_scheduled = false;
-#ifdef PIXEL_DETAILS
-	Maybe<point2> requested_pixel_details_coordinates;
-	PixelDetails pixel_details;
-#endif
 
 	std::vector<std::unique_ptr<RenderedFrame>> allocated_frames;
 	std::vector<RenderedFrame *> ready_frames;
@@ -216,12 +212,4 @@ public:
 	bool get_display_enabled() const{
 		return this->display_enabled;
 	}
-#ifdef PIXEL_DETAILS
-	void set_requested_pixel_details_coordinates(const point2 &p){
-		this->requested_pixel_details_coordinates = p;
-	}
-	PixelDetails get_pixel_details() const{
-		return this->pixel_details;
-	}
-#endif
 };

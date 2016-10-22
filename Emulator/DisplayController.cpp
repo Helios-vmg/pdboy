@@ -393,16 +393,6 @@ void DisplayController::render_current_scanline(unsigned y){
 		this->obj1_palette,
 	};
 
-#ifdef PIXEL_DETAILS
-	auto &coords = this->requested_pixel_details_coordinates;
-	auto &details = this->pixel_details;
-	bool set = false;
-	if (coords.is_initialized() && coords->y == y){
-		details.y = y;
-	}
-#endif
-
-
 	FullSprite sprites_for_scanline[40];
 	unsigned sprites_for_scanline_size = 0;
 	auto operation_mode = this->system->get_mode();
@@ -433,20 +423,10 @@ void DisplayController::render_current_scanline(unsigned y){
 		unsigned color_index = 0;
 		RGB *palette = nullptr;
 
-#ifdef PIXEL_DETAILS
-		if (coords.is_initialized() && coords->y == y && coords->x == x){
-			details.x = x;
-			details.source = PixelDetails::Nothing;
-			details.indexed_color = color;
-			details.rgb_color = rgba;
-			set = true;
-		}
-#endif
-
 		if (window_enabled){
 			auto wx = (int)this->window_x - 7;
 			auto src_x = (int)x - wx;
-			if (src_x >= 0 & src_x < (int)lcd_width){
+			if ((src_x >= 0) & (src_x < (int)lcd_width)){
 				auto src_window_tile = src_x / 8 + y_prime;
 				byte_t tile_no = window_vram[src_window_tile] + tile_no_offset;
 				auto tile = bg_tile_vram + tile_no * 16;
@@ -473,27 +453,12 @@ void DisplayController::render_current_scanline(unsigned y){
 			color_index = first_part | second_part;
 			palette = this->bg_palette;
 
-#ifdef PIXEL_DETAILS
-			if (coords.is_initialized() && coords->y == y && coords->x == x){
-				details.source = PixelDetails::Background;
-				details.indexed_color = color;
-				details.rgb_color = rgba;
-				details.tile_map_position = src_bg_tile;
-				details.tile_map_address = this->get_bg_vram_address() + src_bg_tile;
-				details.tile_number = tile_no - tile_no_offset;
-				details.tile_address = this->get_tile_vram_address() + tile_no * 16;
-				details.tile_offset_x = tile_offset_x;
-				details.tile_offset_y = tile_offset_y;
-				set = true;
-			}
-#endif
-
 		}
 
 		for (unsigned i = 0; i != sprites_for_scanline_size; i++){
 			auto sprite = sprites[i].sprite_description;
 			auto sprx = sprite.get_x();
-			auto sprite_is_here = (int)x >= sprx & (int)x < sprx + sprite_width;
+			auto sprite_is_here = ((int)x >= sprx) & ((int)x < sprx + sprite_width);
 			auto sprite_is_not_covered_here = sprite.has_priority() | !color_index;
 			if (!(sprite_is_here & sprite_is_not_covered_here))
 				continue;
@@ -519,20 +484,6 @@ void DisplayController::render_current_scanline(unsigned y){
 			color_index = index;
 			palette = obj_palettes[sprite.palette_number()];
 
-#ifdef PIXEL_DETAILS
-			if (coords.is_initialized() && coords->y == y && coords->x == x){
-				details.source = PixelDetails::Sprite;
-				details.indexed_color = color;
-				details.rgb_color = rgba;
-				details.tile_map_position = 0;
-				details.tile_address = 0;
-				details.tile_number = tile_no;
-				details.tile_address = 0x8000 + tile_no * 16;
-				details.tile_offset_x = tile_offset_x;
-				details.tile_offset_y = tile_offset_y;
-			}
-#endif
-
 			break;
 		}
 		if (palette)
@@ -541,11 +492,6 @@ void DisplayController::render_current_scanline(unsigned y){
 			row[x] = { 0xFF, 0xFF, 0xFF, 0xFF };
 
 	}
-	
-#ifdef PIXEL_DETAILS
-	if (set)
-		this->requested_pixel_details_coordinates.clear();
-#endif
 }
 
 std::ostream &operator<<(std::ostream &stream, const RGB &rgb){
