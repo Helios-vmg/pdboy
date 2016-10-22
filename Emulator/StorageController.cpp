@@ -2,66 +2,95 @@
 #include "HostSystem.h"
 #include <cassert>
 
-bool StorageController::load_cartridge(const char *path){
+bool StorageController::load_cartridge(const path_t &path){
 	auto buffer = this->host->get_storage_provider()->load_file(path, 16 << 20);
 	if (!buffer || !buffer->size())
 		return false;
-	auto new_cart = Cartridge::construct_from_buffer(std::move(buffer));
+	auto new_cart = Cartridge::construct_from_buffer(*this->host, path, std::move(buffer));
 	if (!new_cart)
 		return false;
 	this->cartridge = std::move(new_cart);
 	return true;
 }
 
+Cartridge::Cartridge(HostSystem &host): host(&host){
+}
+
 Cartridge::~Cartridge(){
 }
 
-std::unique_ptr<Cartridge> Cartridge::construct_from_buffer_inner(std::unique_ptr<std::vector<byte_t>> &&buffer){
+std::unique_ptr<Cartridge> Cartridge::construct_from_buffer_inner(HostSystem &host, std::unique_ptr<std::vector<byte_t>> &&buffer){
 	CartridgeCapabilities capabilities;
+	std::unique_ptr<Cartridge> ret;
 	if (!Cartridge::determine_capabilities(capabilities, *buffer))
-		return nullptr;
+		return ret;
 
 	if (capabilities.has_special_features){
 		switch (capabilities.cartridge_type){
 			case 0xFC:
-				return std::make_unique<PocketCameraCartridge>(std::move(buffer));
+				ret = std::make_unique<PocketCameraCartridge>(host, std::move(buffer));
+				break;
 			case 0xFD:
-				return std::make_unique<BandaiTama5Cartridge>(std::move(buffer));
+				ret = std::make_unique<BandaiTama5Cartridge>(host, std::move(buffer));
+				break;
 			case 0xFE:
-				return std::make_unique<Hudson3Cartridge>(std::move(buffer));
+				ret = std::make_unique<Hudson3Cartridge>(host, std::move(buffer));
+				break;
 			case 0xFF:
-				return std::make_unique<Hudson1Cartridge>(std::move(buffer));
+				ret = std::make_unique<Hudson1Cartridge>(host, std::move(buffer));
+				break;
+			default:
+				throw GenericException("Internal error: control flow inside the emulator has reached a point that should have never been reached.");
 		}
-		throw GenericException("Internal error: control flow inside the emulator has reached a point that should have never been reached.");
 	}
 
-	switch (capabilities.memory_type){
-		case CartridgeMemoryType::ROM:
-			return std::make_unique<RomOnlyCartridge>(std::move(buffer), capabilities);
-		case CartridgeMemoryType::MBC1:
-			return std::make_unique<Mbc1Cartridge>(std::move(buffer), capabilities);
-		case CartridgeMemoryType::MBC2:
-			return std::make_unique<Mbc2Cartridge>(std::move(buffer), capabilities);
-		case CartridgeMemoryType::MBC3:
-			return std::make_unique<Mbc3Cartridge>(std::move(buffer), capabilities);
-		case CartridgeMemoryType::MBC4:
-			return std::make_unique<Mbc4Cartridge>(std::move(buffer), capabilities);
-		case CartridgeMemoryType::MBC5:
-			return std::make_unique<Mbc5Cartridge>(std::move(buffer), capabilities);
-		case CartridgeMemoryType::MBC6:
-			return std::make_unique<Mbc6Cartridge>(std::move(buffer), capabilities);
-		case CartridgeMemoryType::MBC7:
-			return std::make_unique<Mbc7Cartridge>(std::move(buffer), capabilities);
-		case CartridgeMemoryType::MMM01:
-			return std::make_unique<Mmm01Cartridge>(std::move(buffer), capabilities);
+	if (!ret){
+		switch (capabilities.memory_type){
+			case CartridgeMemoryType::ROM:
+				ret = std::make_unique<RomOnlyCartridge>(host, std::move(buffer), capabilities);
+				break;
+			case CartridgeMemoryType::MBC1:
+				ret = std::make_unique<Mbc1Cartridge>(host, std::move(buffer), capabilities);
+				break;
+			case CartridgeMemoryType::MBC2:
+				ret = std::make_unique<Mbc2Cartridge>(host, std::move(buffer), capabilities);
+				break;
+			case CartridgeMemoryType::MBC3:
+				ret = std::make_unique<Mbc3Cartridge>(host, std::move(buffer), capabilities);
+				break;
+			case CartridgeMemoryType::MBC4:
+				ret = std::make_unique<Mbc4Cartridge>(host, std::move(buffer), capabilities);
+				break;
+			case CartridgeMemoryType::MBC5:
+				ret = std::make_unique<Mbc5Cartridge>(host, std::move(buffer), capabilities);
+				break;
+			case CartridgeMemoryType::MBC6:
+				ret = std::make_unique<Mbc6Cartridge>(host, std::move(buffer), capabilities);
+				break;
+			case CartridgeMemoryType::MBC7:
+				ret = std::make_unique<Mbc7Cartridge>(host, std::move(buffer), capabilities);
+				break;
+			case CartridgeMemoryType::MMM01:
+				ret = std::make_unique<Mmm01Cartridge>(host, std::move(buffer), capabilities);
+				break;
+			default:
+				throw GenericException("Internal error: control flow inside the emulator has reached a point that should have never been reached.");
+		}
 	}
-	throw GenericException("Internal error: control flow inside the emulator has reached a point that should have never been reached.");
+
+	if (ret){
+		
+	}
+
+	return ret;
 }
 
-std::unique_ptr<Cartridge> Cartridge::construct_from_buffer(std::unique_ptr<std::vector<byte_t>> &&buffer){
-	auto ret = Cartridge::construct_from_buffer_inner(std::move(buffer));
-	if (ret)
+std::unique_ptr<Cartridge> Cartridge::construct_from_buffer(HostSystem &host, const path_t &path, std::unique_ptr<std::vector<byte_t>> &&buffer){
+	auto ret = Cartridge::construct_from_buffer_inner(host, std::move(buffer));
+	if (ret){
+		ret->path = path;
 		ret->post_initialization();
+	}
 	return ret;
 }
 
@@ -75,11 +104,13 @@ static bool any_match(byte_t n, const byte_t (&array)[N]){
 
 bool Cartridge::determine_capabilities(CartridgeCapabilities &capabilities, const std::vector<byte_t> &buffer){
 	memset(&capabilities, 0, sizeof(capabilities));
-	if (buffer.size() < 0x150)
+	if (buffer.size() < 0x100 + sizeof(CartridgeHeaderDmg))
 		return false;
-	auto type = buffer[0x147];
+	auto cgb = (CartridgeHeaderDmg *)&buffer[0x100];
 
-	auto rom_banks_value = buffer[0x148];
+	auto type = cgb->cartridge_type[0];
+
+	auto rom_banks_value = cgb->rom_size[0];
 	if (rom_banks_value < 8)
 		capabilities.rom_bank_count = 1 << (rom_banks_value + 1);
 	else if (rom_banks_value == 0x52)
@@ -153,7 +184,7 @@ bool Cartridge::determine_capabilities(CartridgeCapabilities &capabilities, cons
 	capabilities.has_special_features = false;
 
 	if (capabilities.has_ram){
-		auto size = buffer[0x149];
+		auto size = cgb->ram_size[0];
 		static const unsigned ram_sizes[] = {
 			0,
 			1 << 11,
@@ -167,10 +198,12 @@ bool Cartridge::determine_capabilities(CartridgeCapabilities &capabilities, cons
 	return true;
 }
 
-StandardCartridge::StandardCartridge(std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &capabilities){
+StandardCartridge::StandardCartridge(HostSystem &host, std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &capabilities):
+		Cartridge(host){
 	this->capabilities = capabilities;
 	this->buffer = std::move(*buffer);
 	buffer.reset();
+	this->initialize_cartridge_properties();
 	this->size = this->buffer.size();
 	assert(this->size);
 	this->data = &this->buffer[0];
@@ -190,6 +223,26 @@ void StandardCartridge::post_initialization(){
 	this->init_functions();
 }
 
+template <size_t N>
+std::string byte_array_to_string(const byte_t (&array)[N]){
+	std::string ret(array, array + N);
+	while (ret.size() && !ret.back())
+		ret.pop_back();
+	return ret;
+}
+
+void StandardCartridge::initialize_cartridge_properties(){
+	static_assert(sizeof(CartridgeHeaderDmg) == sizeof(CartridgeHeaderCgb), "Error in header structure definitions.");
+	auto dmg = (CartridgeHeaderDmg *)&this->buffer[0];
+	auto cgb = (CartridgeHeaderCgb *)&this->buffer[0];
+	this->supports_cgb = cgb->title_region.cbg_flag[0] == 0x80 || cgb->title_region.cbg_flag[0] == 0xC0;
+	if (this->supports_cgb){
+		this->title = byte_array_to_string(cgb->title_region.game_title);
+		this->requires_cgb = cgb->title_region.cbg_flag[0] == 0xC0;
+	}else
+		this->title = byte_array_to_string(dmg->title_region.game_title);
+}
+
 void StandardCartridge::init_functions(){
 	std::fill(this->write_callbacks, this->write_callbacks + 0x100, write8_do_nothing);
 	std::fill(this->read_callbacks, this->read_callbacks + 0x100, read8_do_nothing);
@@ -205,17 +258,26 @@ byte_t StandardCartridge::read8(main_integer_t address){
 }
 
 void StandardCartridge::commit_ram(){
-	throw NotImplementedException();
+	this->host->save_ram(*this, this->ram);
 }
 
-RomOnlyCartridge::RomOnlyCartridge(std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc): StandardCartridge(std::move(buffer), cc){
+void StandardCartridge::load_ram(){
+	auto ram = this->host->load_ram(*this, this->ram.size());
+	if (!ram || ram->size() < this->ram.size())
+		return;
+	this->ram = std::move(*ram);
+}
+
+RomOnlyCartridge::RomOnlyCartridge(HostSystem &host, std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc):
+	StandardCartridge(host, std::move(buffer), cc){
 }
 
 byte_t RomOnlyCartridge::read8(main_integer_t address){
 	return this->data[address & 0x7FFF];
 }
 
-Mbc1Cartridge::Mbc1Cartridge(std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc): StandardCartridge(std::move(buffer), cc){
+Mbc1Cartridge::Mbc1Cartridge(HostSystem &host, std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc):
+	StandardCartridge(host, std::move(buffer), cc){
 }
 
 void Mbc1Cartridge::init_functions_derived(){
@@ -322,8 +384,10 @@ void Mbc1Cartridge::write8_switch_rom_ram_banking_mode(StandardCartridge *sc, ma
 void Mbc1Cartridge::write8_switchable_ram_bank(StandardCartridge *sc, main_integer_t address, byte_t value){
 	auto This = static_cast<Mbc1Cartridge *>(sc);
 	auto offset = This->compute_ram_offset(address);
-	This->ram[offset] = value;
-	This->ram_written = true;
+	auto &position = This->ram[offset];
+	if (position != value)
+		This->ram_modified = true;
+	position = value;
 }
 
 byte_t Mbc1Cartridge::read8_invalid_ram(StandardCartridge *, main_integer_t){
@@ -334,8 +398,10 @@ void Mbc1Cartridge::write8_small_ram(StandardCartridge *sc, main_integer_t addre
 	auto This = static_cast<Mbc1Cartridge *>(sc);
 	//address -= 0xA000; (Unnecessary due to bitwise AND.)
 	auto offset = address & 0x7FF;
-	This->ram[offset] = value;
-	This->ram_written = true;
+	auto &position = This->ram[offset];
+	if (position != value)
+		This->ram_modified = true;
+	position = value;
 }
 
 void Mbc1Cartridge::write8_invalid_ram(StandardCartridge *, main_integer_t, byte_t){
@@ -354,7 +420,7 @@ main_integer_t Mbc1Cartridge::compute_ram_offset(main_integer_t address){
 void Mbc1Cartridge::toggle_ram(bool enable){
 	if (!(this->ram_enabled ^ enable))
 		return;
-	if (this->ram_enabled && this->ram_written)
+	if (this->ram_enabled && this->ram_modified)
 		this->commit_ram();
 	this->ram_enabled = enable;
 	this->set_ram_functions();
@@ -371,13 +437,18 @@ void Mbc1Cartridge::toggle_ram_banking(bool enable){
 	}
 }
 
-Mbc2Cartridge::Mbc2Cartridge(std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc):
-		StandardCartridge(std::move(buffer), cc){
+void Mbc1Cartridge::post_initialization(){
+	StandardCartridge::post_initialization();
+	this->load_ram();
+}
+
+Mbc2Cartridge::Mbc2Cartridge(HostSystem &host, std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc):
+		StandardCartridge(host, std::move(buffer), cc){
 	throw NotImplementedException();
 }
 
-Mbc3Cartridge::Mbc3Cartridge(std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc):
-		Mbc1Cartridge(std::move(buffer), cc){
+Mbc3Cartridge::Mbc3Cartridge(HostSystem &host, std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc):
+		Mbc1Cartridge(host, std::move(buffer), cc){
 }
 
 void Mbc3Cartridge::init_functions_derived(){
@@ -448,7 +519,7 @@ void Mbc3Cartridge::write8_rtc_register(StandardCartridge *sc, main_integer_t ad
 	throw NotImplementedException();
 }
 
-Mbc5Cartridge::Mbc5Cartridge(std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc) :
-		StandardCartridge(std::move(buffer), cc){
+Mbc5Cartridge::Mbc5Cartridge(HostSystem &host, std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc) :
+		StandardCartridge(host, std::move(buffer), cc){
 	throw NotImplementedException();
 }

@@ -1,16 +1,25 @@
 #include "HostSystemServiceProviders.h"
 #include <fstream>
+#include <iostream>
 
 std::atomic<bool> slow_mode(false);
 
 StorageProvider::~StorageProvider(){
 }
 
-std::unique_ptr<std::vector<byte_t>> StorageProvider::load_file(const char *path, size_t maximum_size){
+std::unique_ptr<std::vector<byte_t>> StorageProvider::load_file(const path_t &path, size_t maximum_size){
 	std::unique_ptr<std::vector<byte_t>> ret;
-	std::ifstream file(path, std::ios::binary);
+	auto casted_path = std::dynamic_pointer_cast<StdBasicString<char>>(path);
+	if (!casted_path)
+		return ret;
+
+	auto string = casted_path->get_std_basic_string();
+	std::cout << "Requested file load: \"" << string << "\", maximum size: " << maximum_size << " bytes.\n";
+
+	std::ifstream file(string.c_str(), std::ios::binary);
 	if (!file)
 		return ret;
+
 	file.seekg(0, std::ios::end);
 	if ((size_t)file.tellg() > maximum_size)
 		return ret;
@@ -20,28 +29,21 @@ std::unique_ptr<std::vector<byte_t>> StorageProvider::load_file(const char *path
 	return ret;
 }
 
-std::unique_ptr<std::vector<byte_t>> StorageProvider::load_file(const wchar_t *path, size_t maximum_size){
-	return nullptr;
-}
+bool StorageProvider::save_file(const path_t &path, const std::vector<byte_t> &buffer){
+	auto casted_path = std::dynamic_pointer_cast<StdBasicString<char>>(path);
+	if (!casted_path)
+		return false;
 
-bool StorageProvider::save_file(const char *path, const std::vector<byte_t> &buffer){
-	std::unique_ptr<std::vector<byte_t>> ret;
-	std::ofstream file(path, std::ios::binary);
+	auto string = casted_path->get_std_basic_string();
+	std::cout << "Requested file save: \"" << string << "\", size: " << buffer.size() << " bytes.\n";
+
+	std::ofstream file(string.c_str(), std::ios::binary);
 	if (!file)
 		return false;
 	file.write((const char *)&buffer[0], buffer.size());
 	return true;
 }
 
-bool StorageProvider::save_file(const wchar_t *path, const std::vector<byte_t> &){
-	return false;
+path_t StorageProvider::get_save_location(){
+	return path_t(new StdBasicString<char>("."));
 }
-
-std::string StorageProvider::get_save_location(){
-	return ".";
-}
-
-std::wstring StorageProvider::get_save_location_wide(){
-	return L".";
-}
-

@@ -1,6 +1,7 @@
 #include "HostSystem.h"
 #include "DisplayController.h"
 #include "Gameboy.h"
+#include "StorageController.h"
 #include <iostream>
 #include <iomanip>
 
@@ -76,5 +77,31 @@ bool HostSystem::handle_events(){
 	auto ret = this->event_provider->handle_events(result);
 	if (result.input_state)
 		this->gameboy->get_input_controller().set_input_state(result.input_state, result.button_down, result.button_up);
+	return ret;
+}
+
+path_t get_ram_location(Cartridge &cart, StorageProvider &storage_provider){
+	auto path = storage_provider.get_save_location();
+	auto name = cart.get_path()->get_filename()->remove_extension();
+	*name += ".ram";
+	path = path->append_path_part(name);
+	return path;
+}
+
+void HostSystem::save_ram(Cartridge &cart, const std::vector<byte_t> &ram){
+	std::cout << "Requested RAM save. " << ram.size() << " bytes.\n";
+	
+	auto path = get_ram_location(cart, *this->storage_provider);
+	if (!this->storage_provider->save_file(path, ram))
+		std::cout << "RAM save failed.\n";
+}
+
+std::unique_ptr<std::vector<byte_t>> HostSystem::load_ram(Cartridge &cart, size_t expected_size){
+	std::cout << "Requested RAM load.\n";
+
+	auto path = get_ram_location(cart, *this->storage_provider);
+	auto ret = this->storage_provider->load_file(path, expected_size);
+	if (!ret)
+		std::cout << "RAM load failed.\n";
 	return ret;
 }

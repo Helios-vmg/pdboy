@@ -116,5 +116,8 @@
     <ClInclude Include="SdlProvider.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="GeneralString.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

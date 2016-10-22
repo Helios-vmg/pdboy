@@ -7,8 +7,9 @@ int main(int argc, char **argv){
 		return 0;
 	auto sdl = new SdlProvider;
 	HostSystem system(nullptr, sdl, sdl, sdl);
-	system.get_guest().get_storage_controller().load_cartridge(argv[1]);
+	auto &storage_controller = system.get_guest().get_storage_controller();
 	try{
+		storage_controller.load_cartridge(path_t(new StdBasicString<char>(argv[1])));
 		system.run();
 	}catch (std::exception &e){
 		std::cerr << e.what() << std::endl;

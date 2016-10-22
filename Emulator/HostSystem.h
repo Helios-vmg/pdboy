@@ -11,6 +11,7 @@
 //#define BENCHMARKING
 
 class DisplayController;
+class Cartridge;
 struct InputState;
 
 class HostSystem{
@@ -49,4 +50,6 @@ public:
 	EventProvider *get_event_provider() const{
 		return this->event_provider;
 	}
+	void save_ram(Cartridge &, const std::vector<byte_t> &ram);
+	std::unique_ptr<std::vector<byte_t>> load_ram(Cartridge &, size_t expected_size);
 };

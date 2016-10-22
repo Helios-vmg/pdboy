@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CommonTypes.h"
+#include "GeneralString.h"
 #include "threads.h"
 #include <memory>
 #include <vector>
@@ -14,12 +15,9 @@ extern std::atomic<bool> slow_mode;
 class StorageProvider{
 public:
 	virtual ~StorageProvider() = 0;
-	virtual std::unique_ptr<std::vector<byte_t>> load_file(const char *path, size_t maximum_size);
-	virtual std::unique_ptr<std::vector<byte_t>> load_file(const wchar_t *path, size_t maximum_size);
-	virtual bool save_file(const char *path, const std::vector<byte_t> &);
-	virtual bool save_file(const wchar_t *path, const std::vector<byte_t> &);
-	virtual std::string get_save_location();
-	virtual std::wstring get_save_location_wide();
+	virtual std::unique_ptr<std::vector<byte_t>> load_file(const path_t &path, size_t maximum_size);;
+	virtual bool save_file(const path_t &path, const std::vector<byte_t> &);
+	virtual path_t get_save_location();
 };
 
 class StdStorageProvider : public StorageProvider{
