@@ -49,3 +49,19 @@ public:
 	virtual ~GraphicsOutputProvider(){}
 	virtual void render(const RenderedFrame *) = 0;
 };
+
+class NetworkProtocol{
+public:
+	virtual ~NetworkProtocol(){}
+	virtual void initiate_as_master() = 0;
+	virtual void initiate_as_slave() = 0;
+};
+
+class NetworkProvider{
+	std::unique_ptr<NetworkProtocol> protocol;
+public:
+	NetworkProvider(std::unique_ptr<NetworkProtocol> &protocol): protocol(std::move(protocol)){}
+	virtual ~NetworkProvider(){}
+	virtual void initiate_as_master() = 0;
+	virtual void initiate_as_slave() = 0;
+};
