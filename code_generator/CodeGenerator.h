@@ -69,7 +69,7 @@ public:
 	}
 	virtual std::array<uintptr_t, 3> add8(uintptr_t, uintptr_t) = 0;
 	virtual std::array<uintptr_t, 3> add16_using_carry_modulo_16(uintptr_t valA, uintptr_t valB) = 0;
-	virtual std::array<uintptr_t, 3> add8_carry(uintptr_t, uintptr_t, bool flip_carry = false) = 0;
+	virtual std::array<uintptr_t, 3> add8_carry(uintptr_t, uintptr_t) = 0;
 	virtual std::array<uintptr_t, 3> sub8(uintptr_t, uintptr_t) = 0;
 	virtual std::array<uintptr_t, 3> sub8_carry(uintptr_t, uintptr_t) = 0;
 	virtual uintptr_t sub16_no_carry(uintptr_t, uintptr_t) = 0;

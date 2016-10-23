@@ -432,19 +432,31 @@ uintptr_t InterpreterCodeGenerator::sub16_no_carry(uintptr_t a, uintptr_t b){
 	return (uintptr_t)ret;
 }
 
-std::array<uintptr_t, 3> InterpreterCodeGenerator::add8_carry(uintptr_t valA, uintptr_t valB, bool flip_carry){
+std::array<uintptr_t, 3> InterpreterCodeGenerator::add8_carry(uintptr_t valA, uintptr_t valB){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto carry_name = get_temp_name(n++);
-	auto temp_name = get_temp_name(n++);
+	auto &valA_name = temp_to_string(valA);
 	auto &valB_name = temp_to_string(valB);
+	auto result_name = get_temp_name(n++);
+	auto half_carry_name = get_temp_name(n++);
+	auto full_carry_name = get_temp_name(n++);
+
 	s
 		<< TEMPDECL << carry_name << " = this->registers.get(Flags::Carry);\n"
-		<< TEMPDECL << temp_name << " = " << valB_name << (flip_carry ? " - " : " + ") << carry_name << ";\n";
-	auto temp = copy(temp_name);
-	this->temporary_values.push_back(temp);
-	return this->add8(valA, (uintptr_t)temp);
+		<< TEMPDECL << result_name << " = " << valA_name << " + " << valB_name << " + " << carry_name << ";\n"
+		<< TEMPDECL << half_carry_name << " = (" << valA_name << " & 0x0F) + (" << valB_name << " & 0x0F) + " << carry_name << " >= 0x0F;\n"
+		<< TEMPDECL << full_carry_name << " = " << result_name << " & " << 0x100 << ";\n"
+		<< "\t" << result_name << " &= 0xFF;\n";
+
+	std::string *retp[] = { copy(result_name), copy(half_carry_name), copy(full_carry_name) };
+	std::array<uintptr_t, 3> ret;
+	for (auto i = 3; i--;){
+		this->temporary_values.push_back(retp[i]);
+		ret[i] = (uintptr_t)retp[i];
+	}
+	return ret;
 }
 
 std::array<uintptr_t, 3> InterpreterCodeGenerator::sub8(uintptr_t valA, uintptr_t valB){
