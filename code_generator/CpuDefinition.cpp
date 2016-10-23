@@ -234,18 +234,13 @@ void CpuDefinition::generate(unsigned opcode, CodeGenerator &generator){
 		// Handle rotations
 		generator.opcode_ends();
 		bool left = !((opcode >> 3) & 1);
-		bool through_carry = !((opcode >> 4) & 1);
+		bool using_carry = !!((opcode >> 4) & 1);
 		auto val = generator.get_register_value8(Register8::A);
 		auto old_a = val;
-		val = generator.rotate8(val, left, through_carry);
-		FlagSettings fs = { FlagSetting::IfZero(val), FlagSetting::Reset, FlagSetting::Reset, FlagSetting::Keep };
-		if (left){
-			auto old_bit_7 = generator.get_bit_value(old_a, 7);
-			fs.carry = FlagSetting::IfNonZero(old_bit_7);
-		}else{
-			auto old_bit_0 = generator.get_bit_value(old_a, 0);
-			fs.carry = FlagSetting::IfNonZero(old_bit_0);
-		}
+		val = generator.rotate8(val, left, using_carry);
+		int bit = left * 7;
+		auto carry = FlagSetting::IfNonZero(generator.get_bit_value(old_a, bit));
+		FlagSettings fs = { FlagSetting::Reset, FlagSetting::Reset, FlagSetting::Reset, carry };
 		generator.write_register8(Register8::A, val);
 		generator.set_flags(fs);
 		generator.take_time(4);
@@ -646,20 +641,20 @@ void CpuDefinition::generate(unsigned first_opcode, unsigned opcode, CodeGenerat
 		auto old_bit_7 = FlagSetting::IfNonZero(generator.get_bit_value(val, 7));
 		auto old_bit_0 = FlagSetting::IfNonZero(generator.get_bit_value(val, 0));
 		switch (operation){
-			case BitwiseOps::RotateLeft:
-				val = generator.rotate8(val, true, false);
-				carry = old_bit_7;
-				break;
-			case BitwiseOps::RotateRight:
-				val = generator.rotate8(val, false, false);
-				carry = old_bit_0;
-				break;
-			case BitwiseOps::RotateLeftThroughCarry:
+			case BitwiseOps::RotateLeftUsingCarry:
 				val = generator.rotate8(val, true, true);
 				carry = old_bit_7;
 				break;
-			case BitwiseOps::RotateRightThroughCarry:
+			case BitwiseOps::RotateRightUsingCarry:
 				val = generator.rotate8(val, false, true);
+				carry = old_bit_0;
+				break;
+			case BitwiseOps::RotateLeftNotUsingCarry:
+				val = generator.rotate8(val, true, false);
+				carry = old_bit_7;
+				break;
+			case BitwiseOps::RotateRightNotUsingCarry:
+				val = generator.rotate8(val, false, false);
 				carry = old_bit_0;
 				break;
 			case BitwiseOps::ShiftLeft:

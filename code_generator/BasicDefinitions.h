@@ -70,10 +70,10 @@ enum class ConditionalJumpType{
 };
 
 enum class BitwiseOps{
-	RotateLeftThroughCarry = 0,
-	RotateRightThroughCarry = 1,
-	RotateLeft = 2,
-	RotateRight = 3,
+	RotateLeftNotUsingCarry = 0,
+	RotateRightNotUsingCarry = 1,
+	RotateLeftUsingCarry = 2,
+	RotateRightUsingCarry = 3,
 	ShiftLeft = 4,
 	ArithmeticShiftRight = 5,
 	Swap = 6,

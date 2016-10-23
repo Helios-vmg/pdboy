@@ -699,14 +699,14 @@ void InterpreterCodeGenerator::schedule_interrupt_enable(){
 	s << "\tthis->schedule_interrupt_enable();\n";
 }
 
-uintptr_t InterpreterCodeGenerator::rotate8(uintptr_t val, bool left, bool through_carry){
+uintptr_t InterpreterCodeGenerator::rotate8(uintptr_t val, bool left, bool using_carry){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
 	auto carry_name = get_temp_name(n++);
 	if (left){
-		if (!through_carry){
+		if (using_carry){
 			s
 				<< TEMPDECL << carry_name << " = this->registers.get(Flags::Carry) ? 1U : 0U;\n"
 				<< TEMPDECL << result_name << " = (" << temp_to_string(val) << " << 1) | " << carry_name << ";\n";
@@ -718,7 +718,7 @@ uintptr_t InterpreterCodeGenerator::rotate8(uintptr_t val, bool left, bool throu
 
 		}
 	}else{
-		if (!through_carry){
+		if (using_carry){
 			s
 				<< TEMPDECL << carry_name << " = this->registers.get(Flags::Carry) ? 0x80U : 0U;\n"
 				<< TEMPDECL << result_name << " = (" << temp_to_string(val) << " >> 1) | " << carry_name << ";\n";
