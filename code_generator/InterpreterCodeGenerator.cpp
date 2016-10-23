@@ -515,7 +515,7 @@ std::array<uintptr_t, 3> InterpreterCodeGenerator::sub8_carry(uintptr_t valA, ui
 		<< TEMPDECL << temp_carry << " = this->registers.get(Flags::Carry);\n"
 		<< TEMPDECL << intermediate_name << " = " << valB_name << " + " << temp_carry << ";\n"
 		<< "\tint " << result_name << " = uint8_to_int(" << valA_name << ") - uint8_to_int(" << intermediate_name << ");\n"
-		<< "\tint " << hc_temp_name << " = (int)((" << valA_name << ") & 0x0F) - (int)((" << intermediate_name << ") & 0x0F);\n"
+		<< "\tint " << hc_temp_name << " = (int)((" << valA_name << ") & 0x0F) - (int)(" << valB_name << " & 0x0F) - (int)" << temp_carry << ";\n"
 		<< TEMPDECL << half_carry_name << " = " << hc_temp_name << " < 0;\n"
 		<< TEMPDECL << full_carry_name << " = " << result_name << " < 0;\n"
 		<< "\t" << result_name << " = (int)int_to_uint8(" << result_name << ");\n";
