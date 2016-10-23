@@ -54,7 +54,7 @@ void SdlProvider::register_periodic_notification(Event &event){
 	if (!this->timer_id){
 		this->periodic_event = &event;
 		this->timer_id = SDL_AddTimer(1, timer_callback, this);
-	} else{
+	}else{
 		std::lock_guard<std::mutex> lg(this->periodic_event_mutex);
 		this->periodic_event = &event;
 	}
@@ -183,22 +183,26 @@ bool SdlProvider::handle_events(HandleEventsResult &result){
 				return false;
 			case SDL_KEYDOWN:
 				handle_event<true>(state, event, 0xFF, button_down);
-#if 0
 				{
 					switch (event.key.keysym.sym){
-						case SDLK_q:
-							slow_mode = !slow_mode;
+						case SDLK_p:
+							this->toggle_pause(-1);
 							break;
-						case SDLK_w:
-							this->stop_and_dump_vram();
-							return false;
+						case SDLK_SPACE:
+							this->toggle_fastforward(true);
 							break;
 					}
 				}
-#endif
 				break;
 			case SDL_KEYUP:
 				handle_event<false>(state, event, 0x00, button_up);
+				{
+					switch (event.key.keysym.sym){
+						case SDLK_SPACE:
+							this->toggle_fastforward(false);
+							break;
+					}
+				}
 				break;
 			default:
 				break;

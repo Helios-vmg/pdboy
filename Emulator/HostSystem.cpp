@@ -15,6 +15,8 @@ HostSystem::HostSystem(StorageProvider *storage_provider, TimingProvider *timing
 		this->storage_provider = new StdStorageProvider;
 		this->owned_storage_provider.reset(this->storage_provider);
 	}
+	if (this->event_provider)
+		this->event_provider->set_host(*this);
 	this->reinit();
 }
 
@@ -104,4 +106,16 @@ std::unique_ptr<std::vector<byte_t>> HostSystem::load_ram(Cartridge &cart, size_
 	if (!ret)
 		std::cout << "RAM load failed.\n";
 	return ret;
+}
+
+void HostSystem::toggle_fastforward(bool fastforward) NOEXCEPT{
+	if (!this->gameboy->toggle_pause(true))
+		return;
+	double speed = fastforward ? 5.0 : 1.0;
+	this->gameboy->set_speed_multiplier(speed);
+	this->gameboy->toggle_pause(false);
+}
+
+void HostSystem::toggle_pause(int pause){
+	this->gameboy->toggle_pause(pause);
 }

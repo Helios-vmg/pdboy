@@ -1,8 +1,7 @@
 #include "HostSystemServiceProviders.h"
+#include "HostSystem.h"
 #include <fstream>
 #include <iostream>
-
-std::atomic<bool> slow_mode(false);
 
 StorageProvider::~StorageProvider(){
 }
@@ -46,4 +45,12 @@ bool StorageProvider::save_file(const path_t &path, const std::vector<byte_t> &b
 
 path_t StorageProvider::get_save_location(){
 	return path_t(new StdBasicString<char>("."));
+}
+
+void EventProvider::toggle_fastforward(bool fastforward){
+	this->host->toggle_fastforward(fastforward);
+}
+
+void EventProvider::toggle_pause(int pause){
+	this->host->toggle_pause(pause);
 }

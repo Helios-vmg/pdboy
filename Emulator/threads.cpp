@@ -6,6 +6,11 @@ void Event::signal(){
 	this->cv.notify_one();
 }
 
+void Event::reset(){
+	std::unique_lock<std::mutex> lock(this->mutex);
+	this->signalled = false;
+}
+
 bool Event::wait_impl(){
 	std::unique_lock<std::mutex> lock(this->mutex);
 	if (this->signalled){
@@ -25,19 +30,23 @@ void Event::reset_and_wait(){
 	this->wait();
 }
 
-void Event::reset_and_wait_for(unsigned ms){
+bool Event::reset_and_wait_for(unsigned ms){
 	{
 		std::unique_lock<std::mutex> lock(this->mutex);
 		this->signalled = false;
 	}
-	this->wait_for(ms);
+	return this->wait_for(ms);
 }
 
-void Event::wait_for(unsigned ms){
-	std::unique_lock<std::mutex> lock(this->mutex);
-	if (this->signalled){
-		this->signalled = false;
-		return;
+bool Event::wait_for(unsigned ms){
+	std::cv_status result;
+	{
+		std::unique_lock<std::mutex> lock(this->mutex);
+		if (this->signalled){
+			this->signalled = false;
+			return true;
+		}
+		result = this->cv.wait_for(lock, std::chrono::milliseconds(ms));
 	}
-	this->cv.wait_for(lock, std::chrono::milliseconds(ms));
+	return result == std::cv_status::no_timeout;
 }

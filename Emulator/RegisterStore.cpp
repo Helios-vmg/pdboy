@@ -21,3 +21,9 @@ void RegisterStore::set_flags(main_integer_t mode_mask, main_integer_t value_mas
 	auto &value = this->f();
 	value = (byte_t)((~mode_mask & value_mask) | (mode_mask & (value ^ value_mask)));
 }
+
+#ifdef DEBUG_REGISTERS
+void RegisterStore::set_last_set(std::uint16_t &dst){
+	dst = (std::uint16_t)this->cpu->get_current_pc();
+}
+#endif

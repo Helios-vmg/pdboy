@@ -9,8 +9,7 @@
 
 struct RenderedFrame;
 struct InputState;
-
-extern std::atomic<bool> slow_mode;
+class HostSystem;
 
 class StorageProvider{
 public:
@@ -34,6 +33,7 @@ public:
 };
 
 class EventProvider{
+	HostSystem *host = nullptr;
 public:
 	virtual ~EventProvider(){}
 	struct HandleEventsResult{
@@ -42,6 +42,11 @@ public:
 		bool button_up = false;
 	};
 	virtual bool handle_events(HandleEventsResult &) = 0;
+	void set_host(HostSystem &host){
+		this->host = &host;
+	}
+	void toggle_fastforward(bool);
+	void toggle_pause(int);
 };
 
 class GraphicsOutputProvider{

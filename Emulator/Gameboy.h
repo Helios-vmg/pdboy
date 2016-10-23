@@ -20,16 +20,29 @@ class Gameboy{
 	UserInputController input_controller;
 	StorageController storage_controller;
 	SystemClock clock;
-	Maybe<std::uint64_t> timer_start;
+	double accumulated_time = -1;
+	std::uint64_t current_timer_start;
 	std::uint64_t realtime_counter_frequency = 0;
 	std::uint64_t realtime_execution = 0;
+	std::uint64_t time_running = 0;
+	std::uint64_t time_waiting = 0;
+	double real_time_multiplier;
+	double speed_multiplier = 1;
 	GameboyMode mode = GameboyMode::DMG;
-	std::atomic<bool> continue_running;
+	std::atomic<bool> continue_running,
+		paused;
 	std::unique_ptr<std::thread> interpreter_thread;
 	Event periodic_notification;
 	bool registered = false;
+	Event pause_requested;
+	Event pause_accepted;
+
 	void interpreter_thread_function();
-	void sync_with_real_time(std::uint64_t);
+	void sync_with_real_time();
+	double get_real_time();
+	void report_time_statistics();
+	//Blocks until unpaused.
+	void execute_pause();
 public:
 	Gameboy(HostSystem &host);
 	~Gameboy();
@@ -54,10 +67,18 @@ public:
 	}
 
 	void run();
+	//When running from the main thread, set force = true to make the function
+	//ignore the value of Gameboy::continue_running.
 	void run_until_next_frame(bool force = false);
 	void stop();
-	//Note: May return nullptr! In which case, no frame is currently ready, and white should be drawn.
+	//Note: May return nullptr! In which case, no frame is currently ready, and
+	//white should be drawn.
 	RenderedFrame *get_current_frame();
 	void return_used_frame(RenderedFrame *);
 	void stop_and_dump_vram(const char *path);
+	bool toggle_pause(int) NOEXCEPT;
+	//Must be called while the CPU is paused!
+	void set_speed_multiplier(double speed) NOEXCEPT{
+		this->speed_multiplier = speed;
+	}
 };

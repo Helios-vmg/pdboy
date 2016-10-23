@@ -31,6 +31,15 @@ enum class Flags{
 };
 
 class GameboyCpu;
+#define DEBUG_REGISTERS
+
+#ifdef DEBUG_REGISTERS
+#define DECLARE_LAST_SET(name) std::uint16_t last_set_##name = 0
+#define SET_LAST_SET(name) this->set_last_set(this->last_set_##name);
+#else
+#define DECLARE_LAST_SET(name)
+#define SET_LAST_SET(name)
+#endif
 
 class RegisterStore{
 	GameboyCpu *cpu;
@@ -66,6 +75,10 @@ class RegisterStore{
 		std::uint16_t sp;
 		std::uint16_t pc;
 	} data;
+
+#ifdef DEBUG_REGISTERS
+	void set_last_set(std::uint16_t &);
+#endif
 public:
 	RegisterStore(GameboyCpu &cpu);
 	bool get(Flags flag) const{
@@ -83,6 +96,7 @@ public:
 	void set_flags(main_integer_t mode_mask, main_integer_t value_mask);
 
 #define DEFINE_REG8_ACCESSORS(xy, x) \
+	DECLARE_LAST_SET(x); \
 	byte_t &x(){ \
 		return this->data.xy.u8.x; \
 	} \
@@ -93,9 +107,11 @@ public:
 		return this->x(); \
 	} \
 	byte_t &set_##x(){ \
+		SET_LAST_SET(x); \
 		return this->x(); \
 	}
 #define DEFINE_REG16_ACCESSORS(xy) \
+	DECLARE_LAST_SET(xy); \
 	std::uint16_t &xy(){ \
 		return this->data.xy.xy; \
 	} \
@@ -106,6 +122,7 @@ public:
 		return this->xy(); \
 	} \
 	std::uint16_t &set_##xy(){ \
+		SET_LAST_SET(xy); \
 		return this->xy(); \
 	}
 
@@ -124,7 +141,7 @@ public:
 	DEFINE_REG16_ACCESSORS(hl);
 
 	std::uint16_t &sp(){
-			return this->data.sp;
+		return this->data.sp;
 	}
 	const std::uint16_t &sp() const{
 		return this->data.sp;

@@ -15,7 +15,8 @@ Gameboy::Gameboy(HostSystem &host):
 		input_controller(*this),
 		storage_controller(*this, host),
 		clock(*this),
-		continue_running(false){
+		continue_running(false),
+		paused(false){
 	this->cpu.initialize();
 	this->realtime_counter_frequency = get_timer_resolution();
 }
@@ -24,6 +25,19 @@ Gameboy::~Gameboy(){
 	if (this->registered)
 		this->host->get_timing_provider()->unregister_periodic_notification();
 	this->stop();
+	this->report_time_statistics();
+}
+
+void Gameboy::report_time_statistics(){
+	double time_running = (double)this->time_running;
+	double time_waiting = (double)this->time_waiting;
+	double realtime_counter_frequency = (double)this->realtime_counter_frequency;
+	std::cout
+		<< "Time spent running: " << time_running / realtime_counter_frequency << " s.\n"
+		<< "Time spent waiting: " << time_waiting / realtime_counter_frequency << " s.\n"
+		<< "CPU usage:          " << time_running / (time_running + time_waiting) * 100 << " %\n"
+		<< "Speed:              " << (time_running + time_waiting) / time_running << "x\n"
+		<< "Speed 2:            " << (this->clock.get_clock_value() / (double)gb_cpu_frequency) / ((time_running + time_waiting) / realtime_counter_frequency) << "x\n";
 }
 
 RenderedFrame *Gameboy::get_current_frame(){
@@ -47,36 +61,45 @@ void Gameboy::run(){
 }
 
 void Gameboy::interpreter_thread_function(){
-	if (!this->timer_start.is_initialized())
-		this->timer_start = get_timer_count();
-	std::uint64_t time_running = 0;
-	std::uint64_t time_waiting = 0;
+	if (this->accumulated_time < 0)
+		this->accumulated_time = 0;
 
 	std::shared_ptr<std::exception> thrown;
+
 	try{
-		while (this->continue_running){
-			auto t0 = get_timer_count();
-			this->run_until_next_frame();
-			auto t1 = get_timer_count();
+		while (true){
+			bool continue_running;
+			bool paused;
+			this->real_time_multiplier = this->speed_multiplier / (double)this->realtime_counter_frequency;
+			this->current_timer_start = get_timer_count();
+			while (true){
+				continue_running = this->continue_running;
+				paused = this->paused;
+				if (!continue_running || paused)
+					break;
+
+				auto t0 = get_timer_count();
+				this->run_until_next_frame();
+				auto t1 = get_timer_count();
 #ifndef BENCHMARKING
-			this->sync_with_real_time(*this->timer_start);
+				this->sync_with_real_time();
 #endif
-			auto t2 = get_timer_count();
-			time_running += t1 - t0;
-			time_waiting += t2 - t1;
+				auto t2 = get_timer_count();
+
+				this->time_running += t1 - t0;
+				this->time_waiting += t2 - t1;
+			}
+			if (!continue_running)
+				break;
+			this->accumulated_time = this->get_real_time();
+			if (paused)
+				this->execute_pause();
 		}
 	}catch (GameBoyException &ex){
 		thrown.reset(ex.clone());
 	}catch (...){
 		thrown.reset(new GenericException("Unknown exception."));
 	}
-
-	std::cout
-		<< "Time spent running: " << (double)time_running / (double)this->realtime_counter_frequency << " s.\n"
-		<< "Time spent waiting: " << (double)time_waiting / (double)this->realtime_counter_frequency << " s.\n"
-		<< "CPU usage:          " << (double)time_running / (double)(time_running + time_waiting) * 100 << " %\n"
-		<< "Speed:              " << (double)(time_running + time_waiting) / (double)time_running << "x\n"
-		<< "Speed 2:            " << ((double)this->clock.get_clock_value() / (double)gb_cpu_frequency) / ((double)(time_running + time_waiting) / (double)(double)this->realtime_counter_frequency) << "x\n";
 
 	this->host->throw_exception(thrown);
 }
@@ -89,27 +112,23 @@ void Gameboy::run_until_next_frame(bool force){
 	}while (!this->display_controller.update() && (this->continue_running || force));
 }
 
-void Gameboy::sync_with_real_time(std::uint64_t real_time_start){
+void Gameboy::sync_with_real_time(){
 	double emulated_time = (double)this->clock.get_clock_value() / (double)gb_cpu_frequency;
-	double rt_multiplier = 1.0 / (double)this->realtime_counter_frequency;
-	while (true){
-		auto now = get_timer_count();
-		double real_time = (double)(now - real_time_start) * rt_multiplier;
-		if (real_time >= emulated_time)
-			break;
+	while (this->get_real_time() < emulated_time)
 		this->periodic_notification.reset_and_wait_for(250);
-	}
-	if (slow_mode){
-		auto start = get_timer_count();
-		while (true){
-			auto now = get_timer_count();
-			double real_time = (double)(now - start) * rt_multiplier;
-			if (real_time >= 1)
-				break;
-			this->periodic_notification.reset_and_wait_for(250);
-		}
-	}
+}
 
+double Gameboy::get_real_time(){
+	auto now = get_timer_count();
+	return this->accumulated_time + (double)(now - this->current_timer_start) * this->real_time_multiplier;
+}
+
+void Gameboy::execute_pause(){
+	this->pause_accepted.signal();
+	do{
+		this->pause_requested.wait_for(250);
+	}while (this->continue_running && this->paused);
+	this->pause_accepted.signal();
 }
 
 void Gameboy::stop_and_dump_vram(const char *path){
@@ -132,7 +151,24 @@ void Gameboy::stop(){
 	this->continue_running = false;
 	if (this->interpreter_thread){
 		this->periodic_notification.signal();
+		this->pause_requested.signal();
 		this->interpreter_thread->join();
 		this->interpreter_thread.reset();
 	}
+}
+
+bool Gameboy::toggle_pause(int pause) NOEXCEPT{
+	this->pause_accepted.reset();
+	if (pause >= 0){
+		bool pause2 = !!pause;
+		if (pause2 == this->paused)
+			return true;
+		this->paused = pause2;
+	}else
+		this->paused = !this->paused;
+	this->pause_requested.signal();
+	bool ret = this->pause_accepted.wait_for(1000);
+	if (!ret)
+		std::cout << "Warning: Gameboy::toggle_pause() is returning without having received the pause acknowledgement from the thread.\n";
+	return ret;
 }

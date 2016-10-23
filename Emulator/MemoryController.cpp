@@ -32,19 +32,23 @@ const size_t gb_bootstrap_rom_size = sizeof(gb_bootstrap_rom);
 const size_t io_function_table_sizes = 0x100;
 
 MemoryController::MemoryController(Gameboy &system, GameboyCpu &cpu):
-	system(&system),
-	cpu(&cpu),
-	display(&system.get_display_controller()),
-	joypad(&system.get_input_controller()),
-	storage(&system.get_storage_controller()),
-	fixed_ram(0x1000),
-	switchable_ram(0x7000),
-	high_ram(0x80),
-	io_registers_stor(new store_func_t[io_function_table_sizes]),
-	io_registers_load(new load_func_t[io_function_table_sizes]),
-	memory_map_store(new store_func_t[0x100]),
-	memory_map_load(new load_func_t[0x100])
-{}
+		system(&system),
+		cpu(&cpu),
+		display(&system.get_display_controller()),
+		joypad(&system.get_input_controller()),
+		storage(&system.get_storage_controller()),
+		fixed_ram(0x1000),
+		switchable_ram(0x7000),
+		high_ram(0x80),
+		io_registers_stor(new store_func_t[io_function_table_sizes]),
+		io_registers_load(new load_func_t[io_function_table_sizes]),
+		memory_map_store(new store_func_t[0x100]),
+		memory_map_load(new load_func_t[0x100]){
+#ifdef DEBUG_MEMORY_STORES
+	this->last_store_at.reset(new std::uint16_t[0x10000]);
+	std::fill(this->last_store_at.get(), this->last_store_at.get() + 0x10000, 0xFFFF);
+#endif
+}
 
 void MemoryController::initialize(){
 	this->display->set_memory_controller(*this);
@@ -555,12 +559,20 @@ void MemoryController::store_TAC(main_integer_t, byte_t b){
 
 main_integer_t MemoryController::load8(main_integer_t address) const{
 	address &= 0xFFFF;
+	//if (address == 0xD0D8 || address == 0xD0D7){
+	//	__debugbreak();
+	//}
 	auto fp = this->memory_map_load[address >> 8];
 	return (this->*fp)(address);
 }
 
 void MemoryController::store8(main_integer_t address, main_integer_t value){
 	address &= 0xFFFF;
+#ifdef DEBUG_MEMORY_STORES
+	this->last_store_at[address] = (std::uint16_t)this->cpu->get_current_pc();
+#endif
+	//if (address == 0xD0D8 || address == 0xD0D7)
+	//	__debugbreak();
 	auto fp = this->memory_map_store[address >> 8];
 	(this->*fp)(address, (byte_t)value);
 }

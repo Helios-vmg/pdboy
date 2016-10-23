@@ -15,6 +15,8 @@ class Gameboy;
 class UserInputController;
 class StorageController;
 
+#define DEBUG_MEMORY_STORES
+
 class MemoryController{
 	typedef void (MemoryController::*store_func_t)(main_integer_t, byte_t);
 	typedef byte_t(MemoryController::*load_func_t)(main_integer_t) const;
@@ -24,6 +26,9 @@ class MemoryController{
 	DisplayController *display;
 	UserInputController *joypad;
 	StorageController *storage;
+#ifdef DEBUG_MEMORY_STORES
+	std::unique_ptr<std::uint16_t[]> last_store_at;
+#endif
 
 	MemorySection<0xC000> fixed_ram;
 	MemorySection<0xD000> switchable_ram;

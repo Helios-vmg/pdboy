@@ -52,4 +52,6 @@ public:
 	}
 	void save_ram(Cartridge &, const std::vector<byte_t> &ram);
 	std::unique_ptr<std::vector<byte_t>> load_ram(Cartridge &, size_t expected_size);
+	void toggle_fastforward(bool) NOEXCEPT;
+	void toggle_pause(int);
 };
