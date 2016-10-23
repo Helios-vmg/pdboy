@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <exception>
 #include <algorithm>
+#include <iostream>
+#include <fstream>
 
 //#define USE_CPP_UNDEFINED_BEHAVIOR
 #define LITTLE_ENDIAN
@@ -47,6 +49,18 @@ MemoryController::MemoryController(Gameboy &system, GameboyCpu &cpu):
 #ifdef DEBUG_MEMORY_STORES
 	this->last_store_at.reset(new std::uint16_t[0x10000]);
 	std::fill(this->last_store_at.get(), this->last_store_at.get() + 0x10000, 0xFFFF);
+#endif
+}
+
+MemoryController::~MemoryController(){
+#ifdef IO_REGISTERS_RECORDING
+	if (this->operation_mode == MemoryOperationMode::Recording){
+		std::ofstream file(this->recording_file_path, std::ios::binary);
+		if (file){
+			for (auto item : *this->recording)
+				file.write((const char *)&item, sizeof(item));
+		}
+	}
 #endif
 }
 
@@ -302,9 +316,42 @@ void MemoryController::write_ram_mirror2(main_integer_t address, byte_t value){
 	this->write_switchable_ram(address - 0x2000, value);
 }
 
+#ifdef IO_REGISTERS_RECORDING
+bool recording_exhausted = false;
+#endif
+
 byte_t MemoryController::read_io_registers_and_high_ram(main_integer_t address) const{
-	auto fp = this->io_registers_load[address & 0xFF];
-	return (this->*fp)(address);
+	std::uint8_t truncated_address = address & 0xFF;
+	auto fp = this->io_registers_load[truncated_address];
+	auto ret = (this->*fp)(address);
+#ifdef IO_REGISTERS_RECORDING
+	if (!(truncated_address & 0x80)){
+		std::uint64_t clock_value = this->system->get_system_clock().get_clock_value();
+		RecordingInstant front;
+		switch (this->operation_mode){
+			case MemoryOperationMode::Default:
+				break;
+			case MemoryOperationMode::Recording:
+				this->recording->push_back(RecordingInstant{ clock_value & 0xFFFFFFFF, (clock_value >> 32) & 0xFFFF, truncated_address, ret });
+				break;
+			case MemoryOperationMode::Playback:
+				if (!this->recording->size()){
+					if (!recording_exhausted){
+						std::cout << "IO recording has run out!.\n";
+						recording_exhausted = true;
+					}
+					break;
+				}
+				front = this->recording->front();
+				if (front.get_clock_value() == clock_value && truncated_address == front.io_register){
+					ret = front.read_value;
+					this->recording->pop_front();
+				}
+				break;
+		}
+	}
+#endif
+	return ret;
 }
 
 void MemoryController::write_io_registers_and_high_ram(main_integer_t address, byte_t value){
@@ -648,3 +695,31 @@ void MemoryController::toggle_vram_access(bool enable){
 void MemoryController::toggle_palette_access(bool enable){
 	throw NotImplementedException();
 }
+
+#ifdef IO_REGISTERS_RECORDING
+void MemoryController::use_recording(const char *path, bool record){
+	if (record){
+		this->operation_mode = MemoryOperationMode::Recording;
+		this->recording_file_path = path;
+		this->recording.reset(new decltype(this->recording)::element_type);
+		std::cout << "Memory controller is running in recording mode.\n";
+	}else{
+		std::ifstream file(path, std::ios::binary);
+		if (!file){
+			std::cerr << "MemoryController::use_recording(): ERROR. File not found.\n"
+				"Memory controller is running in default mode.\n";
+			return;
+		}
+		this->recording.reset(new decltype(this->recording)::element_type);
+		char buffer[sizeof(RecordingInstant)];
+		while (true){
+			file.read(buffer, sizeof(buffer));
+			if (file.gcount() != sizeof(buffer))
+				break;
+			this->recording->push_back(*(RecordingInstant *)buffer);
+		}
+		this->operation_mode = MemoryOperationMode::Playback;
+		std::cout << "Memory controller is running in playback mode.\n";
+	}
+}
+#endif

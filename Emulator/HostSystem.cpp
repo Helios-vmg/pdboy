@@ -4,6 +4,7 @@
 #include "StorageController.h"
 #include <iostream>
 #include <iomanip>
+#include <SDL.h>
 
 HostSystem::HostSystem(StorageProvider *storage_provider, TimingProvider *timing_provider, GraphicsOutputProvider *graphics_provider, EventProvider *event_provider):
 		storage_provider(storage_provider),

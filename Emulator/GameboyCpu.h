@@ -88,6 +88,9 @@ public:
 	main_integer_t get_current_pc() const{
 		return this->current_pc;
 	}
+	MemoryController &get_memory_controller(){
+		return this->memory_controller;
+	}
 };
 
 template <typename T>

@@ -3,6 +3,7 @@
 #include "CommonTypes.h"
 #include "MemorySection.h"
 #include <memory>
+#include <queue>
 
 class GameboyCpu;
 class DisplayController;
@@ -15,7 +16,27 @@ class Gameboy;
 class UserInputController;
 class StorageController;
 
+struct RecordingInstant{
+	std::uint32_t clock_value_lo;
+	std::uint16_t clock_value_hi;
+	std::uint8_t io_register;
+	std::uint8_t read_value;
+	std::uint64_t get_clock_value() const{
+		std::uint64_t ret = this->clock_value_hi;
+		ret <<= 32;
+		ret |= this->clock_value_lo;
+		return ret;
+	}
+};
+
 #define DEBUG_MEMORY_STORES
+#define IO_REGISTERS_RECORDING
+
+enum class MemoryOperationMode{
+	Default,
+	Recording,
+	Playback,
+};
 
 class MemoryController{
 	typedef void (MemoryController::*store_func_t)(main_integer_t, byte_t);
@@ -41,6 +62,12 @@ class MemoryController{
 
 	unsigned selected_ram_bank = 0;
 	bool vram_enabled = true;
+
+#ifdef IO_REGISTERS_RECORDING
+	std::unique_ptr<std::deque<RecordingInstant>> recording;
+	MemoryOperationMode operation_mode = MemoryOperationMode::Default;
+	std::string recording_file_path;
+#endif
 
 	void initialize_functions();
 	void initialize_memory_map_functions();
@@ -103,6 +130,7 @@ class MemoryController{
 	DECLARE_IO_REGISTER(TAC);
 public:
 	MemoryController(Gameboy &, GameboyCpu &);
+	~MemoryController();
 	void initialize();
 	main_integer_t load8(main_integer_t address) const;
 	void store8(main_integer_t address, main_integer_t value);
@@ -118,4 +146,7 @@ public:
 	void toggle_oam_access(bool);
 	void toggle_vram_access(bool);
 	void toggle_palette_access(bool);
+#ifdef IO_REGISTERS_RECORDING
+	void use_recording(const char *path, bool record);
+#endif
 };
