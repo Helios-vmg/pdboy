@@ -86,7 +86,6 @@ byte_t GameboyCpu::load_pc(){
 }
 
 #define BREAKPOINT(x) if (this->current_pc == x) __debugbreak()
-int hit = -1;
 
 void GameboyCpu::run_one_instruction(){
 	if (this->attempt_to_handle_interrupts())
@@ -101,18 +100,6 @@ void GameboyCpu::run_one_instruction(){
 		this->take_time(4);
 	}else{
 		this->current_pc = this->registers.pc();
-
-		//if (this->current_pc == 0x3E8C && this->registers.hl() == 0x79DC){
-		//	std::cout << "C was last set at 0x" << std::hex << std::setw(4) << std::setfill('0') << this->registers.last_set_c << std::endl;
-		//	hit = this->registers.last_set_c;
-		//}
-		//if (hit >= 0){
-		//	BREAKPOINT(hit);
-		//}
-		//BREAKPOINT(0x6211);
-		//BREAKPOINT(0x6219);
-		//BREAKPOINT(0x7E1E);
-		//BREAKPOINT(0x7DD9);
 
 		byte_t opcode;
 		if (!this->dmg_halt_bug)

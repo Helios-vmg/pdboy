@@ -104,13 +104,6 @@ T sign_extend8(T n){
 #endif
 }
 
-inline int uint8_to_int(main_integer_t n){
-	n &= 0xFF;
-	if (n >= 0x80)
-		return (int)n - 0x100;
-	return (int)n;
-}
-
 inline main_integer_t int_to_uint8(int n){
 	if (n < 0)
 		return n + 0x100;

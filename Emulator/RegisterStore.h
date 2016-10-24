@@ -31,7 +31,7 @@ enum class Flags{
 };
 
 class GameboyCpu;
-#define DEBUG_REGISTERS
+//#define DEBUG_REGISTERS
 
 #ifdef DEBUG_REGISTERS
 #define DECLARE_LAST_SET(name) std::uint16_t last_set_##name = 0

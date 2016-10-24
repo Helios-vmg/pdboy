@@ -29,7 +29,7 @@ struct RecordingInstant{
 	}
 };
 
-#define DEBUG_MEMORY_STORES
+//#define DEBUG_MEMORY_STORES
 #define IO_REGISTERS_RECORDING
 
 enum class MemoryOperationMode{
@@ -47,9 +47,6 @@ class MemoryController{
 	DisplayController *display;
 	UserInputController *joypad;
 	StorageController *storage;
-#ifdef DEBUG_MEMORY_STORES
-	std::unique_ptr<std::uint16_t[]> last_store_at;
-#endif
 
 	MemorySection<0xC000> fixed_ram;
 	MemorySection<0xD000> switchable_ram;
@@ -148,5 +145,9 @@ public:
 	void toggle_palette_access(bool);
 #ifdef IO_REGISTERS_RECORDING
 	void use_recording(const char *path, bool record);
+#endif
+#ifdef DEBUG_MEMORY_STORES
+	std::unique_ptr<std::uint16_t[]> last_store_at;
+	std::unique_ptr<std::uint64_t[]> last_store_at_clock;
 #endif
 };

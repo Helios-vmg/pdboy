@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
+#include <iomanip>
 
 //#define USE_CPP_UNDEFINED_BEHAVIOR
 #define LITTLE_ENDIAN
@@ -48,7 +49,9 @@ MemoryController::MemoryController(Gameboy &system, GameboyCpu &cpu):
 		memory_map_load(new load_func_t[0x100]){
 #ifdef DEBUG_MEMORY_STORES
 	this->last_store_at.reset(new std::uint16_t[0x10000]);
+	this->last_store_at_clock.reset(new std::uint64_t[0x10000]);
 	std::fill(this->last_store_at.get(), this->last_store_at.get() + 0x10000, 0xFFFF);
+	std::fill(this->last_store_at_clock.get(), this->last_store_at_clock.get() + 0x10000, std::numeric_limits<std::uint64_t>::max());
 #endif
 }
 
@@ -606,9 +609,6 @@ void MemoryController::store_TAC(main_integer_t, byte_t b){
 
 main_integer_t MemoryController::load8(main_integer_t address) const{
 	address &= 0xFFFF;
-	//if (address == 0xD0D8 || address == 0xD0D7){
-	//	__debugbreak();
-	//}
 	auto fp = this->memory_map_load[address >> 8];
 	return (this->*fp)(address);
 }
@@ -617,9 +617,8 @@ void MemoryController::store8(main_integer_t address, main_integer_t value){
 	address &= 0xFFFF;
 #ifdef DEBUG_MEMORY_STORES
 	this->last_store_at[address] = (std::uint16_t)this->cpu->get_current_pc();
+	this->last_store_at_clock[address] = this->system->get_system_clock().get_clock_value();
 #endif
-	//if (address == 0xD0D8 || address == 0xD0D7)
-	//	__debugbreak();
 	auto fp = this->memory_map_store[address >> 8];
 	(this->*fp)(address, (byte_t)value);
 }
