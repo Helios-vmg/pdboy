@@ -120,3 +120,7 @@ void HostSystem::toggle_fastforward(bool fastforward) NOEXCEPT{
 void HostSystem::toggle_pause(int pause){
 	this->gameboy->toggle_pause(pause);
 }
+
+void HostSystem::write_frame_to_disk(std::string &path, const RenderedFrame &frame){
+	this->graphics_provider->write_frame_to_disk(path, frame);
+}

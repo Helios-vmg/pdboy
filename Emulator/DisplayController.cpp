@@ -1,10 +1,12 @@
 #include "DisplayController.h"
 #include "Gameboy.h"
 #include "MemoryController.h"
+#include "HostSystem.h"
 #include "exceptions.h"
 #include <memory>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <iomanip>
 #include <algorithm>
 #include <cassert>
@@ -343,6 +345,13 @@ void DisplayController::enable_memories(){
 
 void DisplayController::switch_to_row_state_3(unsigned row){
 	if (!this->swallow_frames){
+#ifdef DUMP_FRAMES
+		{
+			std::stringstream path;
+			path << "graphics_output/" << std::setw(5) << std::setfill('0') << frames_drawn << ".bmp";
+			this->system->get_host()->write_frame_to_disk(path.str(), *this->frame_being_drawn);
+		}
+#endif
 		this->publish_rendered_frame();
 		frames_drawn++;
 	}else
@@ -390,9 +399,9 @@ void DisplayController::render_current_scanline(unsigned y){
 	auto src_y = (y + this->scroll_y) & 0xFF;
 	auto src_y_prime = src_y / 8 * 32;
 
-	auto y_prime = (int)y - wy;
-	bool window_enabled = check_flag(this->lcd_control, lcdc_window_enable_mask) && y_prime >= 0 && y_prime < lcd_height;
-	y_prime = y_prime / 8 * 32;
+	auto wy_prime = (int)y - wy;
+	bool window_enabled = check_flag(this->lcd_control, lcdc_window_enable_mask) && wy_prime >= 0 && wy_prime < lcd_height;
+	auto y_prime = wy_prime / 8 * 32;
 
 	RGB *obj_palettes[] = {
 		this->obj0_palette,
@@ -428,6 +437,7 @@ void DisplayController::render_current_scanline(unsigned y){
 	for (unsigned x = 0; x != lcd_width; x++){
 		unsigned color_index = 0;
 		RGB *palette = nullptr;
+		int source = -1;
 
 		if (window_enabled){
 			auto wx = (int)this->window_x - 7;
@@ -437,11 +447,16 @@ void DisplayController::render_current_scanline(unsigned y){
 				byte_t tile_no = window_vram[src_window_tile] + tile_no_offset;
 				auto tile = bg_tile_vram + tile_no * 16;
 				auto tile_offset_x = src_x & 7;
-				auto tile_offset_y = y & 7;
+				auto tile_offset_y = wy_prime & 7;
 				auto src_pixelA = tile[tile_offset_y * 2 + 0];
 				auto src_pixelB = tile[tile_offset_y * 2 + 1];
 				color_index = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
 				palette = this->bg_palette;
+				source = 0;
+#ifdef DEBUG_FRAMES
+				if (x < this->window_y)
+					source = 3;
+#endif
 			}
 		}
 
@@ -458,7 +473,7 @@ void DisplayController::render_current_scanline(unsigned y){
 			auto second_part = ((src_pixelB >> tile_offset_x) & 1) << 1;
 			color_index = first_part | second_part;
 			palette = this->bg_palette;
-
+			source = 1;
 		}
 
 		for (unsigned i = 0; i != sprites_for_scanline_size; i++){
@@ -492,14 +507,27 @@ void DisplayController::render_current_scanline(unsigned y){
 
 			color_index = index;
 			palette = obj_palettes[sprite.palette_number()];
+			source = 2;
 
 			break;
 		}
-		if (palette)
-			row[x] = palette[color_index];
-		else
+		if (palette){
+			auto &pixel = row[x];
+			pixel = palette[color_index];
+#ifdef DEBUG_FRAMES
+			if (source == 3)
+				pixel = { 0xFF, 0x00, 0xFF, 0xFF };
+			else{
+				if (source != 0)
+					pixel.r = 0;
+				if (source != 1)
+					pixel.g = 0;
+				if (source != 2)
+					pixel.b = 0;
+			}
+#endif
+		}else
 			row[x] = { 0xFF, 0xFF, 0xFF, 0xFF };
-
 	}
 }
 

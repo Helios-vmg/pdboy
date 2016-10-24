@@ -53,6 +53,7 @@ class GraphicsOutputProvider{
 public:
 	virtual ~GraphicsOutputProvider(){}
 	virtual void render(const RenderedFrame *) = 0;
+	virtual void write_frame_to_disk(std::string &path, const RenderedFrame &){}
 };
 
 class NetworkProtocol{

@@ -22,4 +22,5 @@ public:
 	void unregister_periodic_notification() override;
 	void render(const RenderedFrame *) override;
 	bool handle_events(HandleEventsResult &) override;
+	void write_frame_to_disk(std::string &path, const RenderedFrame &) override;
 };

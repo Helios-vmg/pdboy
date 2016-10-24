@@ -215,3 +215,12 @@ bool SdlProvider::handle_events(HandleEventsResult &result){
 	}
 	return true;
 }
+
+void SdlProvider::write_frame_to_disk(std::string &path, const RenderedFrame &frame){
+	auto surface = SDL_CreateRGBSurface(0, lcd_width, lcd_height, 32, 0xFF, 0xFF00, 0xFF0000, 0xFF000000);
+	SDL_LockSurface(surface);
+	memcpy(surface->pixels, frame.pixels, sizeof(frame.pixels));
+	SDL_UnlockSurface(surface);
+	SDL_SaveBMP(surface, path.c_str());
+	SDL_FreeSurface(surface);
+}

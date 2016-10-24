@@ -25,6 +25,8 @@ class MemoryController;
 	void set_##x(byte_t b){ \
 		this->x = (decltype(this->x))b; \
 	}
+//#define DEBUG_FRAMES
+//#define DUMP_FRAMES
 
 const unsigned lcd_refresh_period = 70224;
 //LCD refresh rate: ~59.7275 Hz (exactly gb_cpu_frequency/lcd_refresh_period Hz)

@@ -81,4 +81,7 @@ public:
 	void set_speed_multiplier(double speed) NOEXCEPT{
 		this->speed_multiplier = speed;
 	}
+	HostSystem *get_host() const{
+		return this->host;
+	}
 };
