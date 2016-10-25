@@ -414,7 +414,7 @@ main_integer_t Mbc1Cartridge::compute_rom_offset(main_integer_t address){
 
 main_integer_t Mbc1Cartridge::compute_ram_offset(main_integer_t address){
 	address -= 0xA000;
-	return (address & 0x3FFF) | (this->current_ram_bank << 14);
+	return (address & 0x1FFF) | (this->current_ram_bank << 13);
 }
 
 void Mbc1Cartridge::toggle_ram(bool enable){
@@ -458,7 +458,7 @@ void Mbc3Cartridge::init_functions_derived(){
 	for (unsigned i = 0x40; i < 0x60; i++)
 		this->write_callbacks[i] = write8_switch_ram_bank;
 	for (unsigned i = 0x60; i < 0x80; i++)
-		this->write_callbacks[i] = write8_switch_ram_bank;
+		this->write_callbacks[i] = write8_latch_rtc_registers;
 }
 
 void Mbc3Cartridge::set_ram_functions(){
