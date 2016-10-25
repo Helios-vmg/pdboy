@@ -453,10 +453,6 @@ void DisplayController::render_current_scanline(unsigned y){
 				color_index = (src_pixelA >> (7 - tile_offset_x) & 1) | (((src_pixelB >> (7 - tile_offset_x)) & 1) << 1);
 				palette = this->bg_palette;
 				source = 0;
-#ifdef DEBUG_FRAMES
-				if (x < this->window_y)
-					source = 3;
-#endif
 			}
 		}
 
@@ -515,16 +511,12 @@ void DisplayController::render_current_scanline(unsigned y){
 			auto &pixel = row[x];
 			pixel = palette[color_index];
 #ifdef DEBUG_FRAMES
-			if (source == 3)
-				pixel = { 0xFF, 0x00, 0xFF, 0xFF };
-			else{
-				if (source != 0)
-					pixel.r = 0;
-				if (source != 1)
-					pixel.g = 0;
-				if (source != 2)
-					pixel.b = 0;
-			}
+			if (source != 0)
+				pixel.r = 0;
+			if (source != 1)
+				pixel.g = 0;
+			if (source != 2)
+				pixel.b = 0;
 #endif
 		}else
 			row[x] = { 0xFF, 0xFF, 0xFF, 0xFF };

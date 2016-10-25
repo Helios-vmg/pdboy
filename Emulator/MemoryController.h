@@ -30,7 +30,7 @@ struct RecordingInstant{
 };
 
 //#define DEBUG_MEMORY_STORES
-#define IO_REGISTERS_RECORDING
+//#define IO_REGISTERS_RECORDING
 
 enum class MemoryOperationMode{
 	Default,

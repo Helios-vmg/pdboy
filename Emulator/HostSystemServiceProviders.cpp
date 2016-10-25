@@ -47,8 +47,12 @@ path_t StorageProvider::get_save_location(){
 	return path_t(new StdBasicString<char>("."));
 }
 
-void EventProvider::toggle_fastforward(bool fastforward){
-	this->host->toggle_fastforward(fastforward);
+void EventProvider::toggle_fastforward(bool on){
+	this->host->toggle_fastforward(on);
+}
+
+void EventProvider::toggle_slowdown(bool on){
+	this->host->toggle_slowdown(on);
 }
 
 void EventProvider::toggle_pause(int pause){

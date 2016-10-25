@@ -204,6 +204,14 @@ class Mbc3Cartridge : public Mbc1Cartridge{
 protected:
 	int current_rtc_register = -1;
 	int rtc_latch = -1;
+	struct RTC{
+		byte_t seconds,
+			minutes,
+			hours,
+			day_counter_low,
+			day_counter_high;
+	};
+	RTC rtc_registers;
 
 	virtual void init_functions_derived() override;
 	virtual void set_ram_functions() override;

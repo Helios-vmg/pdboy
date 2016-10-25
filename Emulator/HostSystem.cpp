@@ -109,10 +109,18 @@ std::unique_ptr<std::vector<byte_t>> HostSystem::load_ram(Cartridge &cart, size_
 	return ret;
 }
 
-void HostSystem::toggle_fastforward(bool fastforward) NOEXCEPT{
+void HostSystem::toggle_fastforward(bool on) NOEXCEPT{
 	if (!this->gameboy->toggle_pause(true))
 		return;
-	double speed = fastforward ? 5.0 : 1.0;
+	double speed = on ? 5.0 : 1.0;
+	this->gameboy->set_speed_multiplier(speed);
+	this->gameboy->toggle_pause(false);
+}
+
+void HostSystem::toggle_slowdown(bool on) NOEXCEPT{
+	if (!this->gameboy->toggle_pause(true))
+		return;
+	double speed = on ? 0.1 : 1.0;
 	this->gameboy->set_speed_multiplier(speed);
 	this->gameboy->toggle_pause(false);
 }

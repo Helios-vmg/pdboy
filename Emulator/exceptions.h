@@ -1,5 +1,6 @@
 #pragma once
 #include <exception>
+#include <stdexcept>
 
 #if defined _MSC_VER
 #if _MSC_VER >= 1900
@@ -11,22 +12,19 @@
 #define NOEXCEPT noexcept
 #endif
 
-class GameBoyException : public std::exception{
+class GameBoyException : public std::runtime_error{
 public:
+	GameBoyException(const std::string &s): std::runtime_error(s){}
 	virtual ~GameBoyException(){}
 	virtual GameBoyException *clone() = 0;
 };
 
 class GenericException : public GameBoyException{
-	const char *cmessage;
 public:
-	GenericException(const char *message): cmessage(message){}
+	GenericException(const std::string &s): GameBoyException(s){}
 	virtual ~GenericException(){}
 	virtual GameBoyException *clone() override{
-		return new GenericException(this->cmessage);
-	}
-	virtual const char *what() const NOEXCEPT{
-		return this->cmessage;
+		return new GenericException(this->what());
 	}
 };
 

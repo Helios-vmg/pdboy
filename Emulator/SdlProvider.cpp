@@ -191,6 +191,9 @@ bool SdlProvider::handle_events(HandleEventsResult &result){
 						case SDLK_SPACE:
 							this->toggle_fastforward(true);
 							break;
+						case SDLK_LCTRL:
+							this->toggle_slowdown(true);
+							break;
 					}
 				}
 				break;
@@ -200,6 +203,9 @@ bool SdlProvider::handle_events(HandleEventsResult &result){
 					switch (event.key.keysym.sym){
 						case SDLK_SPACE:
 							this->toggle_fastforward(false);
+							break;
+						case SDLK_LCTRL:
+							this->toggle_slowdown(false);
 							break;
 					}
 				}

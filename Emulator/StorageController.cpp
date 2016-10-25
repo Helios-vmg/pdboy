@@ -1,6 +1,7 @@
 #include "StorageController.h"
 #include "HostSystem.h"
 #include <cassert>
+#include <ctime>
 
 bool StorageController::load_cartridge(const path_t &path){
 	auto buffer = this->host->get_storage_provider()->load_file(path, 16 << 20);
@@ -482,7 +483,14 @@ void Mbc3Cartridge::set_ram_functions(){
 }
 
 void Mbc3Cartridge::set_rtc_registers(){
-	throw NotImplementedException();
+	//TODO: This must be properly implemented.
+	auto now = time(nullptr);
+	auto ti = *localtime(&now);
+	this->rtc_registers.seconds = ti.tm_sec;
+	this->rtc_registers.minutes = ti.tm_min;
+	this->rtc_registers.hours = ti.tm_hour;
+	this->rtc_registers.day_counter_low = 0;
+	this->rtc_registers.day_counter_high = 0;
 }
 
 void Mbc3Cartridge::write8_switch_rom_bank(StandardCartridge *sc, main_integer_t address, byte_t value){
@@ -511,12 +519,23 @@ void Mbc3Cartridge::write8_latch_rtc_registers(StandardCartridge *sc, main_integ
 
 byte_t Mbc3Cartridge::read8_rtc_register(StandardCartridge *sc, main_integer_t address){
 	auto This = static_cast<Mbc3Cartridge *>(sc);
-	throw NotImplementedException();
+	switch (This->current_rtc_register){
+		case 0x08:
+			return This->rtc_registers.seconds;
+		case 0x09:
+			return This->rtc_registers.minutes;
+		case 0x0A:
+			return This->rtc_registers.hours;
+		case 0x0B:
+			return This->rtc_registers.day_counter_low;
+		case 0x0C:
+			return This->rtc_registers.day_counter_high;
+	}
 }
 
 void Mbc3Cartridge::write8_rtc_register(StandardCartridge *sc, main_integer_t address, byte_t value){
 	auto This = static_cast<Mbc3Cartridge *>(sc);
-	throw NotImplementedException();
+	//TODO: This must be properly implemented.
 }
 
 Mbc5Cartridge::Mbc5Cartridge(HostSystem &host, std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc) :
