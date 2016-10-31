@@ -482,15 +482,40 @@ void Mbc3Cartridge::set_ram_functions(){
 	}
 }
 
+posix_delta_t Mbc3Cartridge::get_rtc_counter_value(){
+	posix_time_t start_time;
+	auto &gb = this->host->get_guest();
+	if (this->overriding_start_time >= 0)
+		start_time = this->overriding_start_time;
+	else
+		start_time = gb.get_start_time();
+	auto running_time = gb.get_system_clock().get_realtime_clock_value_seconds();
+	auto current_time = start_time + (posix_time_t)running_time;
+
+	if (this->rtc_start_time >= 0)
+		return current_time - this->rtc_start_time;
+
+	return current_time - start_time;
+}
+
 void Mbc3Cartridge::set_rtc_registers(){
-	//TODO: This must be properly implemented.
-	auto now = time(nullptr);
-	auto ti = *localtime(&now);
-	this->rtc_registers.seconds = ti.tm_sec;
-	this->rtc_registers.minutes = ti.tm_min;
-	this->rtc_registers.hours = ti.tm_hour;
-	this->rtc_registers.day_counter_low = 0;
-	this->rtc_registers.day_counter_high = 0;
+	auto rtc = this->get_rtc_counter_value();
+	auto days = rtc / 86400;
+	rtc %= 86400;
+	auto hours = rtc / 3600;
+	rtc /= 3600;
+	auto minutes = rtc / 60;
+	rtc %= 60;
+	auto seconds = rtc;
+
+	this->rtc_registers.seconds = (byte_t)seconds;
+	this->rtc_registers.minutes = (byte_t)minutes;
+	this->rtc_registers.hours = (byte_t)hours;
+	this->rtc_registers.day_counter_low = days % 256;
+	this->rtc_registers.day_counter_high =
+		(check_flag(days, 256) * rtc_8th_day_bit_mask) |
+		((rtc_pause_time >= 0) * rtc_8th_day_bit_mask) |
+		((days >= 512) * rtc_8th_day_bit_mask);
 }
 
 void Mbc3Cartridge::write8_switch_rom_bank(StandardCartridge *sc, main_integer_t address, byte_t value){
@@ -535,7 +560,28 @@ byte_t Mbc3Cartridge::read8_rtc_register(StandardCartridge *sc, main_integer_t a
 
 void Mbc3Cartridge::write8_rtc_register(StandardCartridge *sc, main_integer_t address, byte_t value){
 	auto This = static_cast<Mbc3Cartridge *>(sc);
-	//TODO: This must be properly implemented.
+	switch (This->current_rtc_register){
+		case 0x08:
+			This->rtc_registers.seconds = value;
+		case 0x09:
+			This->rtc_registers.minutes = value;
+		case 0x0A:
+			This->rtc_registers.hours = value;
+		case 0x0B:
+			This->rtc_registers.day_counter_low = value;
+		case 0x0C:
+			break;
+		default:
+			return;
+	}
+	auto delta = This->rtc_registers.day_counter_high ^ value;
+	This->rtc_registers.day_counter_high = value;
+	if (delta & rtc_stop_mask){
+		if (value & rtc_stop_mask)
+			This->stop_rtc();
+		else
+			This->resume_rtc();
+	}
 }
 
 Mbc5Cartridge::Mbc5Cartridge(HostSystem &host, std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc) :

@@ -6,11 +6,17 @@
 #include <iomanip>
 #include <SDL.h>
 
-HostSystem::HostSystem(StorageProvider *storage_provider, TimingProvider *timing_provider, GraphicsOutputProvider *graphics_provider, EventProvider *event_provider):
+HostSystem::HostSystem(
+			StorageProvider *storage_provider,
+			TimingProvider *timing_provider,
+			GraphicsOutputProvider *graphics_provider,
+			EventProvider *event_provider,
+			DateTimeProvider *datetime_provider):
 		storage_provider(storage_provider),
 		timing_provider(timing_provider),
 		graphics_provider(graphics_provider),
-		event_provider(event_provider){
+		event_provider(event_provider),
+		datetime_provider(datetime_provider){
 
 	if (!this->storage_provider){
 		this->storage_provider = new StdStorageProvider;

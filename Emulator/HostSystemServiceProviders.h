@@ -23,6 +23,33 @@ class StdStorageProvider : public StorageProvider{
 public:
 };
 
+struct DateTime{
+	std::uint16_t year;
+	std::uint8_t month;
+	std::uint8_t day;
+	std::uint8_t hour;
+	std::uint8_t minute;
+	std::uint8_t second;
+
+	static DateTime from_posix(posix_time_t);
+	posix_time_t to_posix() const;
+};
+
+class DateTimeProvider{
+public:
+	virtual DateTime local_now() = 0;
+	double get_double_timestamp(){
+		return this->date_to_double_timestamp(this->local_now());
+	}
+	static DateTime double_timestamp_to_date(double);
+	static double date_to_double_timestamp(DateTime);
+};
+
+class StdDateTimeProvider : public DateTimeProvider{
+public:
+	DateTime local_now() override;
+};
+
 class TimingProvider{
 protected:
 	Event *periodic_event = nullptr;

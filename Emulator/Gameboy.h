@@ -5,6 +5,7 @@
 #include "SystemClock.h"
 #include "StorageController.h"
 #include "threads.h"
+#include "HostSystemServiceProviders.h"
 
 class HostSystem;
 
@@ -36,6 +37,8 @@ class Gameboy{
 	bool registered = false;
 	Event pause_requested;
 	Event pause_accepted;
+	//Stores a timestamp of the first time interpreter_thread_function() was called.
+	Maybe<posix_time_t> start_time;
 
 	void interpreter_thread_function();
 	void sync_with_real_time();
@@ -83,5 +86,8 @@ public:
 	}
 	HostSystem *get_host() const{
 		return this->host;
+	}
+	posix_time_t get_start_time() const{
+		return *this->start_time;
 	}
 };

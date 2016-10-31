@@ -22,6 +22,7 @@ protected:
 	TimingProvider *timing_provider;
 	GraphicsOutputProvider *graphics_provider;
 	EventProvider *event_provider;
+	DateTimeProvider *datetime_provider;
 	std::shared_ptr<std::exception> thrown_exception;
 	std::mutex thrown_exception_mutex;
 
@@ -29,7 +30,7 @@ protected:
 	void render();
 	bool handle_events();
 public:
-	HostSystem(StorageProvider *, TimingProvider *, GraphicsOutputProvider *, EventProvider *);
+	HostSystem(StorageProvider *, TimingProvider *, GraphicsOutputProvider *, EventProvider *, DateTimeProvider *);
 	~HostSystem();
 	void reinit();
 	Gameboy &get_guest(){
@@ -49,6 +50,9 @@ public:
 	}
 	EventProvider *get_event_provider() const{
 		return this->event_provider;
+	}
+	DateTimeProvider *get_datetime_provider() const{
+		return this->datetime_provider;
 	}
 	void save_ram(Cartridge &, const std::vector<byte_t> &ram);
 	std::unique_ptr<std::vector<byte_t>> load_ram(Cartridge &, size_t expected_size);

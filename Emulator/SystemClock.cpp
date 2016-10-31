@@ -1,5 +1,6 @@
 #include "SystemClock.h"
 #include "Gameboy.h"
+#include "GameboyCpu.h"
 #include <cassert>
 #include <limits>
 
@@ -10,11 +11,16 @@ const std::uint32_t SystemClock::tac_selector[][2] = {
 	{ 1 << 7, 7 },
 };
 
+double SystemClock::get_realtime_clock_value_seconds() const{
+	return (double)this->get_realtime_clock_value() * (1.0 / (double)gb_cpu_frequency);
+}
+
 void SystemClock::advance_clock(std::uint32_t clocks){
 	assert(!(clocks % 4));
 	clocks >>= 2;
 	while (clocks--){
-		this->clock += 4;
+		this->realtime_clock += 4;
+		this->cpu_clock += 4;
 		this->DIV_register += 4;
 		if (this->tima_overflow)
 			this->handle_tima_overflow_part2();

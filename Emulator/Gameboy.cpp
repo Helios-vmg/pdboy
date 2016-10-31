@@ -63,6 +63,8 @@ void Gameboy::run(){
 void Gameboy::interpreter_thread_function(){
 	if (this->accumulated_time < 0)
 		this->accumulated_time = 0;
+	if (!this->start_time.is_initialized())
+		this->start_time = this->host->get_datetime_provider()->local_now().to_posix();
 
 	std::shared_ptr<std::exception> thrown;
 
