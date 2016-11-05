@@ -1,5 +1,6 @@
 #include "CartMbc3.h"
 #include "HostSystem.h"
+#include <cassert>
 
 Mbc3Cartridge::Mbc3Cartridge(HostSystem &host, std::unique_ptr<std::vector<byte_t>> &&buffer, const CartridgeCapabilities &cc):
 	Mbc1Cartridge(host, std::move(buffer), cc){
@@ -35,20 +36,14 @@ void Mbc3Cartridge::set_ram_functions(){
 	}
 }
 
+posix_delta_t Mbc3Cartridge::get_rtc_counter_value_ignoring_pause(){
+	return this->host->get_datetime_provider()->local_now().to_posix() - this->rtc_start_time;
+}
+
 posix_delta_t Mbc3Cartridge::get_rtc_counter_value(){
-	posix_time_t start_time;
-	auto &gb = this->host->get_guest();
-	if (this->overriding_start_time >= 0)
-		start_time = this->overriding_start_time;
-	else
-		start_time = gb.get_start_time();
-	auto running_time = gb.get_system_clock().get_realtime_clock_value_seconds();
-	auto current_time = start_time + (posix_time_t)running_time;
-
-	if (this->rtc_start_time >= 0)
-		return current_time - this->rtc_start_time;
-
-	return current_time - start_time;
+	if (this->rtc_pause_time >= 0)
+		return this->host->get_datetime_provider()->local_now().to_posix() - this->rtc_pause_time;
+	return this->get_rtc_counter_value_ignoring_pause();
 }
 
 void Mbc3Cartridge::set_rtc_registers(){
@@ -84,7 +79,7 @@ void Mbc3Cartridge::write8_switch_ram_bank(StandardCartridge *sc, main_integer_t
 	if (value < 4){
 		This->current_ram_bank = value;
 		This->current_rtc_register = -1;
-	} else if (value >= 8 && value < 12)
+	}else if (value >= 8 && value < 12)
 		This->current_rtc_register = value - 8;
 }
 
@@ -109,25 +104,36 @@ byte_t Mbc3Cartridge::read8_rtc_register(StandardCartridge *sc, main_integer_t a
 		case 0x0C:
 			return This->rtc_registers.day_counter_high;
 	}
+	assert(false);
+	return 0;
 }
 
 void Mbc3Cartridge::write8_rtc_register(StandardCartridge *sc, main_integer_t address, byte_t value){
 	auto This = static_cast<Mbc3Cartridge *>(sc);
 	switch (This->current_rtc_register){
 		case 0x08:
+			This->rtc_registers.time_changed |= This->rtc_registers.seconds != value;
 			This->rtc_registers.seconds = value;
+			return;
 		case 0x09:
+			This->rtc_registers.time_changed |= This->rtc_registers.minutes != value;
 			This->rtc_registers.minutes = value;
+			return;
 		case 0x0A:
+			This->rtc_registers.time_changed |= This->rtc_registers.hours != value;
 			This->rtc_registers.hours = value;
+			return;
 		case 0x0B:
+			This->rtc_registers.time_changed |= This->rtc_registers.day_counter_low != value;
 			This->rtc_registers.day_counter_low = value;
+			return;
 		case 0x0C:
 			break;
 		default:
 			return;
 	}
 	auto delta = This->rtc_registers.day_counter_high ^ value;
+	This->rtc_registers.time_changed |= delta & rtc_8th_day_bit_mask;
 	This->rtc_registers.day_counter_high = value;
 	if (delta & rtc_stop_mask){
 		if (value & rtc_stop_mask)
@@ -135,4 +141,32 @@ void Mbc3Cartridge::write8_rtc_register(StandardCartridge *sc, main_integer_t ad
 		else
 			This->resume_rtc();
 	}
+}
+
+void Mbc3Cartridge::stop_rtc(){
+	this->rtc_pause_time = this->get_rtc_counter_value_ignoring_pause();
+	this->rtc_registers.time_changed = false;
+}
+
+void Mbc3Cartridge::resume_rtc(){
+	auto now = this->host->get_datetime_provider()->local_now().to_posix();
+	auto pause_time = this->rtc_pause_time;
+	this->rtc_pause_time = -1;
+	if (!this->rtc_registers.time_changed){
+		this->rtc_start_time += now - pause_time;
+		return;
+	}
+	auto days = check_flag(this->rtc_registers.day_counter_high, rtc_8th_day_bit_mask) * 256 + this->rtc_registers.day_counter_low;
+	auto h = this->rtc_registers.hours;
+	auto m = this->rtc_registers.minutes;
+	auto s = this->rtc_registers.seconds;
+	this->rtc_start_time = now - (days * 86400 + h * 3600 + m * 60 + s);
+	this->host->save_rtc(*this, this->rtc_start_time);
+}
+
+void Mbc3Cartridge::post_initialization(){
+	Mbc1Cartridge::post_initialization();
+	this->rtc_start_time = this->host->load_rtc(*this);
+	if (this->rtc_start_time < 0)
+		this->rtc_start_time = 0;
 }

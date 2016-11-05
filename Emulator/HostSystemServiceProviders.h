@@ -7,16 +7,25 @@
 #include <vector>
 #include <atomic>
 
+class Cartridge;
 struct RenderedFrame;
 struct InputState;
 class HostSystem;
+
+enum class SaveFileType{
+	Ram,
+	Rtc,
+};
 
 class StorageProvider{
 public:
 	virtual ~StorageProvider() = 0;
 	virtual std::unique_ptr<std::vector<byte_t>> load_file(const path_t &path, size_t maximum_size);;
-	virtual bool save_file(const path_t &path, const std::vector<byte_t> &);
-	virtual path_t get_save_location();
+	bool save_file(const path_t &path, const std::vector<byte_t> &buffer){
+		return this->save_file(path, &buffer[0], buffer.size());
+	}
+	virtual bool save_file(const path_t &path, const void *, size_t);
+	virtual path_t get_save_location(Cartridge &, SaveFileType);
 };
 
 class StdStorageProvider : public StorageProvider{
@@ -42,6 +51,7 @@ public:
 		return this->date_to_double_timestamp(this->local_now());
 	}
 	static DateTime double_timestamp_to_date(double);
+	static posix_time_t double_timestamp_to_posix(double);
 	static double date_to_double_timestamp(DateTime);
 };
 

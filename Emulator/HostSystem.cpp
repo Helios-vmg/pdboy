@@ -90,11 +90,11 @@ bool HostSystem::handle_events(){
 }
 
 path_t get_ram_location(Cartridge &cart, StorageProvider &storage_provider){
-	auto path = storage_provider.get_save_location();
-	auto name = cart.get_path()->get_filename()->remove_extension();
-	*name += ".ram";
-	path = path->append_path_part(name);
-	return path;
+	return storage_provider.get_save_location(cart, SaveFileType::Ram);
+}
+
+path_t get_rtc_location(Cartridge &cart, StorageProvider &storage_provider){
+	return storage_provider.get_save_location(cart, SaveFileType::Rtc);
 }
 
 void HostSystem::save_ram(Cartridge &cart, const std::vector<byte_t> &ram){
@@ -113,6 +113,33 @@ std::unique_ptr<std::vector<byte_t>> HostSystem::load_ram(Cartridge &cart, size_
 	if (!ret)
 		std::cout << "RAM load failed.\n";
 	return ret;
+}
+
+void HostSystem::save_rtc(Cartridge &cart, posix_time_t time){
+	static_assert(std::numeric_limits<double>::is_iec559, "Only iec559 float/doubles supported!");
+
+	std::cout << "Requested RTC save.\n";
+	auto path = get_rtc_location(cart, *this->storage_provider);
+	double timestamp = this->datetime_provider->date_to_double_timestamp(DateTime::from_posix(time));
+	byte_t buffer[sizeof(double) + 4];
+	memset(buffer, 0, sizeof(buffer));
+	memcpy(buffer, &timestamp, sizeof(double));
+	if (!this->storage_provider->save_file(path, buffer, sizeof(buffer)))
+		std::cout << "RTC save failed.\n";
+}
+
+posix_time_t HostSystem::load_rtc(Cartridge &cart){
+	static_assert(std::numeric_limits<double>::is_iec559, "Only iec559 float/doubles supported!");
+	std::cout << "Requested RTC load.\n";
+	auto path = get_rtc_location(cart, *this->storage_provider);
+	auto ret = this->storage_provider->load_file(path, sizeof(double) + 4);
+	if (!ret){
+		std::cout << "RTC load failed.\n";
+		return -1;
+	}
+	double timestamp;
+	memcpy(&timestamp, &(*ret)[0], sizeof(double));
+	return this->datetime_provider->double_timestamp_to_posix(timestamp);
 }
 
 void HostSystem::toggle_fastforward(bool on) NOEXCEPT{

@@ -55,7 +55,9 @@ public:
 		return this->datetime_provider;
 	}
 	void save_ram(Cartridge &, const std::vector<byte_t> &ram);
+	void save_rtc(Cartridge &, posix_time_t);
 	std::unique_ptr<std::vector<byte_t>> load_ram(Cartridge &, size_t expected_size);
+	posix_time_t load_rtc(Cartridge &);
 	void toggle_fastforward(bool) NOEXCEPT;
 	void toggle_slowdown(bool) NOEXCEPT;
 	void toggle_pause(int);

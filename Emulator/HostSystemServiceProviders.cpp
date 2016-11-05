@@ -2,6 +2,7 @@
 #include "HostSystem.h"
 #include <fstream>
 #include <iostream>
+#include <cassert>
 
 StorageProvider::~StorageProvider(){
 }
@@ -28,23 +29,39 @@ std::unique_ptr<std::vector<byte_t>> StorageProvider::load_file(const path_t &pa
 	return ret;
 }
 
-bool StorageProvider::save_file(const path_t &path, const std::vector<byte_t> &buffer){
+bool StorageProvider::save_file(const path_t &path, const void *buffer, size_t size){
+	if (!buffer)
+		return false;
+
 	auto casted_path = std::dynamic_pointer_cast<StdBasicString<char>>(path);
 	if (!casted_path)
 		return false;
 
 	auto string = casted_path->get_std_basic_string();
-	std::cout << "Requested file save: \"" << string << "\", size: " << buffer.size() << " bytes.\n";
+	std::cout << "Requested file save: \"" << string << "\", size: " << size << " bytes.\n";
 
 	std::ofstream file(string.c_str(), std::ios::binary);
 	if (!file)
 		return false;
-	file.write((const char *)&buffer[0], buffer.size());
+	file.write((const char *)buffer, size);
 	return true;
 }
 
-path_t StorageProvider::get_save_location(){
-	return path_t(new StdBasicString<char>("."));
+path_t StorageProvider::get_save_location(Cartridge &cart, SaveFileType type){
+	auto ret = cart.get_path()->get_directory();
+	auto name = cart.get_path()->get_filename()->remove_extension();
+	const char *extension = nullptr;
+	switch (type){
+		case SaveFileType::Ram:
+			extension = ".sav";
+			break;
+		case SaveFileType::Rtc:
+			extension = ".rtc";
+			break;
+	}
+	assert(extension);
+	*name += extension;
+	return ret->append_path_part(name);
 }
 
 void EventProvider::toggle_fastforward(bool on){
@@ -123,7 +140,11 @@ posix_time_t DateTime::to_posix() const{
 }
 
 DateTime DateTimeProvider::double_timestamp_to_date(double t){
-	return DateTime::from_posix((posix_time_t)((t - 25569) * 86400));
+	return DateTime::from_posix(DateTimeProvider::double_timestamp_to_posix(t));
+}
+
+posix_time_t DateTimeProvider::double_timestamp_to_posix(double t){
+	return (posix_time_t)((t - 25569) * 86400);
 }
 
 double DateTimeProvider::date_to_double_timestamp(DateTime date){
