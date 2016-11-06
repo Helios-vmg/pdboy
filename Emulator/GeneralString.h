@@ -80,7 +80,7 @@ public:
 	ptr_t get_directory() const override{
 		auto slash = find_last_of(this->str, DIRECTORY_SEPARATORS);
 		if (slash == this->str.npos)
-			return ptr_t(new StdBasicString(this->str));
+			return ptr_t(new StdBasicString());
 		auto not_slash = find_last_not_of(this->str, DIRECTORY_SEPARATORS, slash);
 		auto begin = this->str.begin();
 		auto end = begin + slash + 1;
@@ -91,12 +91,16 @@ public:
 	ptr_t append_path_part(const ptr_t &p) const override{
 		std::shared_ptr<StdBasicString<T>> ret(new StdBasicString<T>(*this));
 		auto &s = ret->str;
-		while (s.size() && (s.back() == '/' || s.back() == '\\'))
-			s.pop_back();
 		auto sbs = std::dynamic_pointer_cast<StdBasicString<T>>(p);
-		if (sbs){
-			s += '/';
-			s += sbs->str;
+		if (!s.size())
+			s = sbs->str;
+		else{
+			while (s.size() && (s.back() == '/' || s.back() == '\\'))
+				s.pop_back();
+			if (sbs){
+				s += '/';
+				s += sbs->str;
+			}
 		}
 		return ret;
 	}
