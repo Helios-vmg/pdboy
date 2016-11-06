@@ -46,7 +46,7 @@ void Mbc1Cartridge::set_ram_functions(){
 			this->write_callbacks[i] = write8_invalid_ram;
 			this->read_callbacks[i] = read8_invalid_ram;
 		}
-	} else{
+	}else{
 		for (unsigned i = 0xA0; i < 0xC0; i++){
 			this->write_callbacks[i] = write8_switchable_ram_bank;
 			this->read_callbacks[i] = read8_switchable_ram_bank;

@@ -153,7 +153,7 @@ bool Cartridge::determine_capabilities(CartridgeCapabilities &capabilities, cons
 	else if (type == 0x20){
 		capabilities = { type, CartridgeMemoryType::MBC6, false, false, false, false, false, false };
 		return true;
-	} else if (type == 0x22){
+	}else if (type == 0x22){
 		capabilities.memory_type = CartridgeMemoryType::MBC7;
 		capabilities.has_sensor = true;
 		capabilities.has_ram = true;
@@ -162,7 +162,7 @@ bool Cartridge::determine_capabilities(CartridgeCapabilities &capabilities, cons
 		capabilities.has_timer = false;
 		capabilities.has_special_features = false;
 		return true;
-	} else if (any_match(type, mmm01_types))
+	}else if (any_match(type, mmm01_types))
 		capabilities.memory_type = CartridgeMemoryType::MMM01;
 	else
 		return false;
@@ -233,7 +233,7 @@ void StandardCartridge::initialize_cartridge_properties(){
 	if (this->supports_cgb){
 		this->title = byte_array_to_string(cgb->title_region.game_title);
 		this->requires_cgb = cgb->title_region.cbg_flag[0] == 0xC0;
-	} else
+	}else
 		this->title = byte_array_to_string(dmg->title_region.game_title);
 }
 
