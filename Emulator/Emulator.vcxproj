@@ -168,6 +168,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\generated_files\cpu.generated.cpp" />
+    <ClCompile Include="BgbProtocol.cpp" />
     <ClCompile Include="Cart.cpp" />
     <ClCompile Include="CartMbc1.cpp" />
     <ClCompile Include="CartMbc2.cpp" />
@@ -190,6 +191,7 @@
     <ClCompile Include="UserInputController.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BgbProtocol.h" />
     <ClInclude Include="Cart.h" />
     <ClInclude Include="CartMbc1.h" />
     <ClInclude Include="CartMbc2.h" />

@@ -18,3 +18,11 @@ public:
 	bool wait_for(unsigned ms);
 	void reset();
 };
+
+inline bool join_thread(std::unique_ptr<std::thread> &t){
+	if (!t)
+		return false;
+	t->join();
+	t.reset();
+	return true;
+}
