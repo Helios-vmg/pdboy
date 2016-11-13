@@ -189,6 +189,7 @@
     <ClCompile Include="threads.cpp" />
     <ClCompile Include="timer.cpp" />
     <ClCompile Include="UserInputController.cpp" />
+    <ClCompile Include="WinSockNetworking.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BgbProtocol.h" />
@@ -217,6 +218,9 @@
     <ClInclude Include="timer.h" />
     <ClInclude Include="UserInputController.h" />
     <ClInclude Include="utility.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="WinSockNetworking.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

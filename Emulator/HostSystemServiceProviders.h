@@ -104,6 +104,7 @@ enum class DisconnectionCause{
 class NetworkProviderConnection;
 
 class NetworkProvider{
+protected:
 	std::vector<std::unique_ptr<NetworkProviderConnection>> connections;
 public:
 	virtual ~NetworkProvider(){}
@@ -118,8 +119,9 @@ class NetworkProviderConnection{
 	std::function<void(DisconnectionCause)> on_disconnection;
 	std::function<size_t(const std::vector<byte_t> &)> on_data_receive;
 public:
+	NetworkProviderConnection(NetworkProvider &provider): provider(&provider){}
 	virtual ~NetworkProviderConnection(){}
-	virtual void open() = 0;
+	virtual bool open() = 0;
 	virtual void abort() = 0;
 	virtual void send_data(const std::vector<byte_t> &) = 0;
 	virtual void send_data(const void *, size_t) = 0;
@@ -145,6 +147,9 @@ public:
 
 	NetworkProtocol(NetworkProviderConnection *connection): connection(connection){}
 	virtual ~NetworkProtocol(){}
+	virtual int get_default_port() const{
+		return -1;
+	}
 	virtual void send_data(transfer_data) = 0;
 	//Warning: This callback may be called from a different thread!
 	virtual void set_on_connected(const std::function<void()> &) = 0;
