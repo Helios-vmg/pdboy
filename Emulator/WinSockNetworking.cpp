@@ -1,4 +1,4 @@
-#if (defined _WIN32 || defined _WIN64)
+#if (defined _WIN32 || defined _WIN64) && 0
 #include "WinSockNetworking.h"
 #include "exceptions.h"
 #include <sstream>
