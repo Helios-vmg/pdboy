@@ -101,7 +101,7 @@ DateTime DateTime::from_posix(posix_time_t posix){
 		posix -= seconds_in_year;
 		ret.year++;
 	}
-	ret.month = 1;
+	ret.month = 0;
 	while (1){
 		bool leap = !(ret.year % 4) & !!(ret.year % 100) | !(ret.year % 400);
 		bool leap_february = leap & (ret.month == 2);
@@ -111,6 +111,7 @@ DateTime DateTime::from_posix(posix_time_t posix){
 		posix -= seconds_in_month;
 		ret.month++;
 	}
+	ret.month++;
 	ret.day = (std::uint8_t)(posix / 86400 + 1);
 	posix %= 86400;
 	ret.hour = (std::uint8_t)(posix / 3600);
