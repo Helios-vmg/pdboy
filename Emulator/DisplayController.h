@@ -98,12 +98,7 @@ class DisplayController{
 	unsigned swallow_frames = 0;
 	bool clock_start_scheduled = false;
 
-	std::vector<std::unique_ptr<RenderedFrame>> allocated_frames;
-	std::vector<RenderedFrame *> ready_frames;
-	std::mutex ready_frames_mutex;
-	//Invariant: frame_being_drawn is valid at all times.
-	RenderedFrame *frame_being_drawn;
-	std::atomic<RenderedFrame *> current_frame;
+	PublishingResource<RenderedFrame> publishing_frames;
 
 	static const byte_t stat_coincidence_interrupt_mask = bit(6);
 	static const byte_t stat_oam_interrupt_mask = bit(5);
@@ -142,10 +137,6 @@ class DisplayController{
 	unsigned get_window_vram_offset() const{
 		return 0x400 * check_flag(this->lcd_control, lcdc_window_map_select_mask);
 	}
-	RenderedFrame *allocate_frame();
-	RenderedFrame *reuse_or_allocate_frame();
-	void publish_rendered_frame();
-	void clear_rendered_frame();
 	void toggle_lcd();
 
 	void switch_to_row_state_0(unsigned);
