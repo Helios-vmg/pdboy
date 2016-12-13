@@ -43,57 +43,17 @@ DisplayController::DisplayController(Gameboy &system):
 	this->set_background_palette(0);
 	this->set_obj0_palette(0);
 	this->set_obj1_palette(0);
-	this->frame_being_drawn = this->allocate_frame();
-	this->current_frame = nullptr;
-}
-
-RenderedFrame *DisplayController::allocate_frame(){
-	this->allocated_frames.push_back(std::make_unique<RenderedFrame>());
-	return this->allocated_frames.back().get();
-}
-
-RenderedFrame *DisplayController::reuse_or_allocate_frame(){
-	{
-		std::lock_guard<std::mutex> lg(this->ready_frames_mutex);
-		if (this->ready_frames.size()){
-			auto ret = this->ready_frames.back();
-			this->ready_frames.pop_back();
-			return ret;
-		}
-	}
-	return this->allocate_frame();
-}
-
-void DisplayController::publish_rendered_frame(){
-	this->frame_being_drawn = (RenderedFrame *)std::atomic_exchange(&this->current_frame, this->frame_being_drawn);
-	if (!this->frame_being_drawn)
-		this->frame_being_drawn = this->reuse_or_allocate_frame();
-}
-
-void DisplayController::clear_rendered_frame(){
-	auto frame = (RenderedFrame *)std::atomic_exchange(&this->current_frame, nullptr);
-	if (frame){
-		std::lock_guard<std::mutex> lg(this->ready_frames_mutex);
-		this->ready_frames.push_back(frame);
-	}
 }
 
 RenderedFrame *DisplayController::get_current_frame(){
-	return (RenderedFrame *)std::atomic_exchange(&this->current_frame, nullptr);
+	return this->publishing_frames.get_public_resource();
 }
 
 void DisplayController::return_used_frame(RenderedFrame *frame){
-	if (!this->display_enabled){
-		std::lock_guard<std::mutex> lg(this->ready_frames_mutex);
-		this->ready_frames.push_back(frame);
-		return;
-	}
-
-	RenderedFrame *null_RenderedFrame = nullptr;
-	if (std::atomic_compare_exchange_strong(&this->current_frame, &null_RenderedFrame, frame))
-		return;
-	std::lock_guard<std::mutex> lg(this->ready_frames_mutex);
-	this->ready_frames.push_back(frame);
+	if (!this->display_enabled)
+		this->publishing_frames.return_resource_as_ready(frame);
+	else
+		this->publishing_frames.return_resource_as_private(frame);
 }
 
 int DisplayController::get_row_status(){
@@ -252,7 +212,7 @@ void DisplayController::toggle_lcd(){
 		this->swallow_frames = 1;
 	}else{
 		this->display_enabled = false;
-		this->clear_rendered_frame();
+		this->publishing_frames.clear_public_resource();
 		this->last_row_state = -1;
 		this->display_clock_start = this->invalid_clock;
 		this->enable_memories();
@@ -352,7 +312,7 @@ void DisplayController::switch_to_row_state_3(unsigned row){
 			this->system->get_host()->write_frame_to_disk(path.str(), *this->frame_being_drawn);
 		}
 #endif
-		this->publish_rendered_frame();
+		this->publishing_frames.publish();
 		frames_drawn++;
 	}else
 		this->swallow_frames--;
@@ -379,7 +339,7 @@ struct FullSprite{
 };
 
 void DisplayController::render_current_scanline(unsigned y){
-	auto *pixels = this->frame_being_drawn->pixels;
+	auto *pixels = this->publishing_frames.get_private_resource()->pixels;
 	const unsigned pitch = lcd_width;
 
 	auto wy = (int)this->window_y;
