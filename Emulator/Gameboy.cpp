@@ -12,6 +12,7 @@ Gameboy::Gameboy(HostSystem &host):
 		host(&host),
 		cpu(*this),
 		display_controller(*this),
+		sound_controller(*this),
 		input_controller(*this),
 		storage_controller(*this, host),
 		clock(*this),
@@ -111,6 +112,7 @@ void Gameboy::run_until_next_frame(bool force){
 		this->cpu.run_one_instruction();
 		if (this->input_controller.get_button_down())
 			this->cpu.joystick_irq();
+		this->sound_controller.update();
 	}while (!this->display_controller.update() && (this->continue_running || force));
 }
 

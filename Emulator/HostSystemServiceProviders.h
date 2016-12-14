@@ -11,6 +11,7 @@ class Cartridge;
 struct RenderedFrame;
 struct InputState;
 class HostSystem;
+struct AudioFrame;
 
 enum class SaveFileType{
 	Ram,
@@ -92,6 +93,19 @@ public:
 	virtual ~GraphicsOutputProvider(){}
 	virtual void render(const RenderedFrame *) = 0;
 	virtual void write_frame_to_disk(std::string &path, const RenderedFrame &){}
+};
+
+class AudioOutputProvider{
+public:
+	typedef std::function<AudioFrame *()> get_data_callback_t;
+	typedef std::function<void(AudioFrame *)> return_data_callback_t;
+protected:
+	get_data_callback_t get_data_callback;
+	return_data_callback_t return_data_callback;
+public:
+	virtual ~AudioOutputProvider(){}
+	void set_callbacks(get_data_callback_t gdc, return_data_callback_t rdc);
+	virtual void stop_audio() = 0;
 };
 
 enum class DisconnectionCause{

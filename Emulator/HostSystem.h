@@ -21,6 +21,7 @@ protected:
 	std::unique_ptr<StorageProvider> owned_storage_provider;
 	TimingProvider *timing_provider;
 	GraphicsOutputProvider *graphics_provider;
+	AudioOutputProvider *audio_provider;
 	EventProvider *event_provider;
 	DateTimeProvider *datetime_provider;
 	std::shared_ptr<std::exception> thrown_exception;
@@ -30,7 +31,13 @@ protected:
 	void render();
 	bool handle_events();
 public:
-	HostSystem(StorageProvider *, TimingProvider *, GraphicsOutputProvider *, EventProvider *, DateTimeProvider *);
+	HostSystem(
+		StorageProvider *,
+		TimingProvider *,
+		GraphicsOutputProvider *,
+		AudioOutputProvider *,
+		EventProvider *,
+		DateTimeProvider *);
 	~HostSystem();
 	void reinit();
 	Gameboy &get_guest(){

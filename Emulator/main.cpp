@@ -7,7 +7,7 @@ int main(int argc, char **argv){
 		return 0;
 	auto sdl = std::make_unique<SdlProvider>();
 	auto dtp = std::make_unique<StdDateTimeProvider>();
-	HostSystem system(nullptr, sdl.get(), sdl.get(), sdl.get(), dtp.get());
+	HostSystem system(nullptr, sdl.get(), sdl.get(), sdl.get(), sdl.get(), dtp.get());
 	auto &storage_controller = system.get_guest().get_storage_controller();
 	try{
 		storage_controller.load_cartridge(path_t(new StdBasicString<char>(argv[1])));

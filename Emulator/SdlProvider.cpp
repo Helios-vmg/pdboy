@@ -1,15 +1,31 @@
 #include "SdlProvider.h"
 #include "exceptions.h"
 #include "timer.h"
-#include <cassert>
 #include "DisplayController.h"
+#include "SoundController.h"
+#include <algorithm>
+#include <cassert>
+#include <iostream>
 
 #define X old = (old * 11 + current) / 12
 const int lcd_fade_period = 0;
 const int lcd_fade = 0xFF / lcd_fade_period;
 
 SdlProvider::SdlProvider(){
-	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER);
+	this->initialize_graphics();
+	this->initialize_audio();
+}
+
+SdlProvider::~SdlProvider(){
+	SdlProvider::unregister_periodic_notification();
+	SDL_DestroyTexture(this->main_texture);
+	SDL_DestroyRenderer(this->renderer);
+	SDL_DestroyWindow(this->window);
+	SDL_Quit();
+}
+
+void SdlProvider::initialize_graphics(){
 	this->window = SDL_CreateWindow("Gameboy", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, lcd_width * 4, lcd_height * 4, 0);
 	if (!this->window)
 		throw GenericException("Failed to initialize SDL window.");
@@ -32,12 +48,30 @@ SdlProvider::SdlProvider(){
 	}
 }
 
-SdlProvider::~SdlProvider(){
-	SdlProvider::unregister_periodic_notification();
-	SDL_DestroyTexture(this->main_texture);
-	SDL_DestroyRenderer(this->renderer);
-	SDL_DestroyWindow(this->window);
-	SDL_Quit();
+bool operator==(const SDL_AudioSpec &a, const SDL_AudioSpec &b){
+	return
+		a.freq == b.freq &&
+		a.format == b.format &&
+		a.channels == b.channels &&
+		a.samples == b.samples;
+}
+
+void SdlProvider::initialize_audio(){
+	SDL_AudioSpec desired, actual;
+	memset(&desired, 0, sizeof(desired));
+	desired.freq = 44100;
+	desired.format = AUDIO_S16SYS;
+	desired.channels = 2;
+	desired.samples = 1024;
+	desired.callback = SdlProvider::audio_callback;
+	desired.userdata = this;
+	this->audio_device = SDL_OpenAudioDevice(nullptr, false, &desired, &actual, 0);
+	if (!(actual == desired)){
+		SDL_CloseAudioDevice(this->audio_device);
+		this->audio_device = 0;
+		return;
+	}
+	SDL_PauseAudioDevice(this->audio_device, 0);
 }
 
 Uint32 SDLCALL SdlProvider::timer_callback(Uint32 interval, void *param){
@@ -48,6 +82,30 @@ Uint32 SDLCALL SdlProvider::timer_callback(Uint32 interval, void *param){
 			This->periodic_event->signal();
 	}
 	return interval;
+}
+
+void SDLCALL SdlProvider::audio_callback(void *userdata, Uint8 *stream, int len){
+	auto This = (SdlProvider *)userdata;
+	if (This->get_data_callback){
+		auto frame = This->get_data_callback();
+		if (frame){
+			if (frame->frame_no < This->next_frame){
+				std::cout << "Repeated frame!\n";
+				if (This->return_data_callback)
+					This->return_data_callback(frame);
+			}else{
+				This->next_frame = frame->frame_no + 1;
+				auto n = std::min<size_t>(len, sizeof(frame->buffer));
+				memcpy(stream, frame->buffer, n);
+				if (len - n)
+					memset(stream + n, 0, len - n);
+				if (This->return_data_callback)
+					This->return_data_callback(frame);
+				return;
+			}
+		}
+	}
+	memset(stream, 0, len);
 }
 
 void SdlProvider::register_periodic_notification(Event &event){
@@ -229,4 +287,10 @@ void SdlProvider::write_frame_to_disk(std::string &path, const RenderedFrame &fr
 	SDL_UnlockSurface(surface);
 	SDL_SaveBMP(surface, path.c_str());
 	SDL_FreeSurface(surface);
+}
+
+void SdlProvider::stop_audio(){
+	if (!this->audio_device)
+		return;
+	SDL_PauseAudioDevice(this->audio_device, 1);
 }

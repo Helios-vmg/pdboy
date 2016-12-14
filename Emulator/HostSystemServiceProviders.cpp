@@ -187,3 +187,8 @@ std::uint32_t NetworkProvider::little_endian_to_native_endian(std::uint32_t n){
 std::uint32_t NetworkProvider::native_endian_to_little_endian(std::uint32_t n){
 	return NetworkProvider::little_endian_to_native_endian(n);
 }
+
+void AudioOutputProvider::set_callbacks(get_data_callback_t gdc, return_data_callback_t rdc){
+	this->get_data_callback = gdc;
+	this->return_data_callback = rdc;
+}

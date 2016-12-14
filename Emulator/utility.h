@@ -86,7 +86,7 @@ public:
 	}
 	~PublishingResource(){}
 	void publish(){
-		this->private_resource = (RenderedFrame *)std::atomic_exchange(&this->public_resource, this->private_resource);
+		this->private_resource = (T *)std::atomic_exchange(&this->public_resource, this->private_resource);
 		if (!this->private_resource)
 			this->private_resource = this->reuse_or_allocate();
 	}
