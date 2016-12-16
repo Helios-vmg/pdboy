@@ -62,7 +62,7 @@ void SdlProvider::initialize_audio(){
 	desired.freq = 44100;
 	desired.format = AUDIO_S16SYS;
 	desired.channels = 2;
-	desired.samples = 1024;
+	desired.samples = AudioFrame::length;
 	desired.callback = SdlProvider::audio_callback;
 	desired.userdata = this;
 	this->audio_device = SDL_OpenAudioDevice(nullptr, false, &desired, &actual, 0);

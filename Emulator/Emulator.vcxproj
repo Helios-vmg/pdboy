@@ -204,6 +204,7 @@
     <ClInclude Include="MemorySection.h" />
     <ClInclude Include="GeneralString.h" />
     <ClInclude Include="point.h" />
+    <ClInclude Include="PublishingResource.h" />
     <ClInclude Include="SdlProvider.h" />
     <ClInclude Include="SoundController.h" />
     <ClInclude Include="StorageController.h" />

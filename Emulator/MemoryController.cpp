@@ -38,6 +38,7 @@ MemoryController::MemoryController(Gameboy &system, GameboyCpu &cpu):
 		system(&system),
 		cpu(&cpu),
 		display(&system.get_display_controller()),
+		sound(&system.get_sound_controller()),
 		joypad(&system.get_input_controller()),
 		storage(&system.get_storage_controller()),
 		fixed_ram(0x1000),
@@ -161,16 +162,16 @@ void MemoryController::initialize_io_register_functions(){
 	this->io_registers_load[0x0f] = &MemoryController::load_IF;
 
 	//Audio:
-	//this->io_registers_stor[0x10] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x10] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x11] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x11] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x12] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x12] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x13] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x13] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x14] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x14] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x10] = &MemoryController::store_NR10;
+	this->io_registers_load[0x10] = &MemoryController::load_NR10;
+	this->io_registers_stor[0x11] = &MemoryController::store_NR11;
+	this->io_registers_load[0x11] = &MemoryController::load_NR11;
+	this->io_registers_stor[0x12] = &MemoryController::store_NR12;
+	this->io_registers_load[0x12] = &MemoryController::load_NR12;
+	this->io_registers_stor[0x13] = &MemoryController::store_NR13;
+	this->io_registers_load[0x13] = &MemoryController::load_NR13;
+	this->io_registers_stor[0x14] = &MemoryController::store_NR14;
+	this->io_registers_load[0x14] = &MemoryController::load_NR14;
 
 	//Unused:
 	//this->io_registers_stor[0x15] = &MemoryController::stor_not_implemented;
@@ -605,6 +606,46 @@ byte_t MemoryController::load_TAC(main_integer_t) const{
 
 void MemoryController::store_TAC(main_integer_t, byte_t b){
 	this->system->get_system_clock().set_TAC_register(b);
+}
+
+byte_t MemoryController::load_NR10(main_integer_t) const{
+	return this->sound->square1.get_register0();
+}
+
+void MemoryController::store_NR10(main_integer_t, byte_t b){
+	this->sound->square1.set_register0(b);
+}
+
+byte_t MemoryController::load_NR11(main_integer_t) const{
+	return this->sound->square1.get_register1();
+}
+
+void MemoryController::store_NR11(main_integer_t, byte_t b){
+	this->sound->square1.set_register1(b);
+}
+
+byte_t MemoryController::load_NR12(main_integer_t) const{
+	return this->sound->square1.get_register2();
+}
+
+void MemoryController::store_NR12(main_integer_t, byte_t b){
+	this->sound->square1.set_register2(b);
+}
+
+byte_t MemoryController::load_NR13(main_integer_t) const{
+	return this->sound->square1.get_register3();
+}
+
+void MemoryController::store_NR13(main_integer_t, byte_t b){
+	this->sound->square1.set_register3(b);
+}
+
+byte_t MemoryController::load_NR14(main_integer_t) const{
+	return this->sound->square1.get_register4();
+}
+
+void MemoryController::store_NR14(main_integer_t, byte_t b){
+	this->sound->square1.set_register4(b);
 }
 
 main_integer_t MemoryController::load8(main_integer_t address) const{
