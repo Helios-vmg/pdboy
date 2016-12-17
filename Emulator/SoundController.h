@@ -81,6 +81,7 @@ protected:
 
 	virtual void trigger_event();
 public:
+	Oscillator();
 	virtual ~Oscillator(){}
 	virtual intermediate_audio_type render(std::uint64_t time) = 0;
 	virtual void set_register0(byte_t){}
@@ -103,6 +104,7 @@ public:
 	virtual byte_t get_register4() const{
 		return 0xFF;
 	}
+	virtual void length_counter_event(){}
 };
 
 class Square2Generator : public Oscillator{
@@ -113,11 +115,21 @@ protected:
 	std::uint64_t reference_time = 0;
 	unsigned duty_position = 0;
 	unsigned reference_duty_position = 0;
+	const decltype(reference_time) undefined_reference_time = std::numeric_limits<decltype(reference_time)>::max();
+	const decltype(reference_duty_position) undefined_reference_duty_position = std::numeric_limits<decltype(reference_duty_position)>::max();
+
+	//Envelope
+	int envelope_sign = 0;
+	unsigned envelope_period = 0;
+	unsigned envelope_time = 0;
+	int volume = 0,
+		shadow_volume = 0;
 
 	static const byte_t duties[4];
 
 	unsigned get_period();
 	void advance_duty(std::uint64_t time);
+	void frequency_change();
 public:
 	virtual ~Square2Generator(){}
 	intermediate_audio_type render(std::uint64_t time);
@@ -130,29 +142,56 @@ public:
 	virtual byte_t get_register2() const override;
 	virtual byte_t get_register3() const override;
 	virtual byte_t get_register4() const override;
+	void volume_event();
 };
 
 class Square1Generator : public Square2Generator{
+	unsigned sweep_period = 0;
+	unsigned sweep_time = 0;
+	int sweep_sign = 0;
+	unsigned sweep_shift = 0;
+	int shadow_frequency = 0;
 public:
 	void set_register0(byte_t value) override;
 	byte_t get_register0() const override;
+	void sweep_event();
+};
+
+class ClockDivider{
+public:
+	typedef std::function<void(std::uint64_t)> callback_t;
+private:
+	callback_t callback;
+	std::uint64_t src_frequency,
+		dst_frequency;
+	std::uint64_t modulo;
+	std::uint64_t last_update = std::numeric_limits<std::uint64_t>::max();
+public:
+	ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback);
+	void update(std::uint64_t);
 };
 
 class SoundController{
 	Gameboy *system;
 	unsigned current_frame_position = 0;
 	QueuedPublishingResource<AudioFrame> publishing_frames;
-	std::uint64_t last_update = std::numeric_limits<std::uint64_t>::max();
-	std::uint64_t modulo;
 	std::uint64_t frame_no = 0;
+	ClockDivider frame_sequencer_clock,
+		audio_sample_clock;
 
 	StereoSampleIntermediate render_square1(std::uint64_t time);
 	StereoSampleIntermediate render_square2(std::uint64_t time);
 	StereoSampleIntermediate render_voluntary(std::uint64_t time);
 	StereoSampleIntermediate render_noise(std::uint64_t time);
 	void initialize_new_frame();
+	void sample_callback(std::uint64_t);
+	void frame_sequencer_callback(std::uint64_t);
+	void length_counter_event();
+	void volume_event();
+	void sweep_event();
 public:
 	Square1Generator square1;
+
 	SoundController(Gameboy &);
 	void update(bool required = false);
 	AudioFrame *get_current_frame();

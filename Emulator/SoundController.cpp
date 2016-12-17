@@ -29,6 +29,35 @@ basic_StereoSample<std::int16_t> convert(const basic_StereoSample<float> &src){
 	return ret;
 }
 
+template <typename T>
+T gcd(T a, T b){
+	while (b){
+		auto t = b;
+		b = a % b;
+		a = t;
+	}
+	return a;
+}
+
+ClockDivider::ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback):
+		callback(callback),
+		src_frequency(src_frequency),
+		dst_frequency(dst_frequency){
+	this->modulo = this->dst_frequency * this->src_frequency;
+	this->modulo /= ::gcd(this->dst_frequency, this->src_frequency);
+}
+
+void ClockDivider::update(std::uint64_t source_clock){
+	source_clock %= this->modulo;
+	auto time = source_clock * sampling_frequency / gb_cpu_frequency;
+	if (time == this->last_update)
+		return;
+	auto dst_clock = this->last_update + 1;
+	for (; dst_clock <= time; dst_clock++)
+		this->callback(dst_clock);
+	this->last_update = time;
+}
+
 intermediate_audio_type SoundController::base_wave_generator_duty_50(std::uint64_t time, unsigned frequency){
 	time %= sampling_frequency;
 	typedef intermediate_audio_type T;
@@ -89,50 +118,58 @@ intermediate_audio_type SoundController::base_wave_generator_duty_75(std::uint64
 	}
 }
 
-template <typename T>
-T gcd(T a, T b){
-	while (b){
-		auto t = b;
-		b = a % b;
-		a = t;
-	}
-	return a;
-}
-
-SoundController::SoundController(Gameboy &system): system(&system){
-	this->modulo = (std::uint64_t)sampling_frequency * (std::uint64_t)gb_cpu_frequency;
-	this->modulo /= ::gcd(sampling_frequency, gb_cpu_frequency);
+SoundController::SoundController(Gameboy &system):
+		system(&system),
+		frame_sequencer_clock(gb_cpu_frequency, sampling_frequency, [this](std::uint64_t n){ this->sample_callback(n); }),
+		audio_sample_clock(gb_cpu_frequency, 512, [this](std::uint64_t n){ this->frame_sequencer_callback(n); }){
 	this->initialize_new_frame();
 }
 
 void SoundController::update(bool required){
 	auto c = this->system->get_system_clock().get_clock_value();
-	c %= this->modulo;
-	auto time = (c * sampling_frequency) >> 22;
-	if (time == this->last_update && !required)
-		return;
-	auto t = this->last_update + 1;
-	for (; t <= time; t++){
-		typedef StereoSampleIntermediate::type T1;
-		typedef StereoSampleFinal::type T2;
-		StereoSampleIntermediate sample;
-		sample.left = sample.right = 0;
-		sample += this->render_square1(t) / 4;
-		sample += this->render_square2(t) / 4;
-		sample += this->render_voluntary(t) / 4;
-		sample += this->render_noise(t) / 4;
+	this->frame_sequencer_clock.update(c);
+	this->audio_sample_clock.update(c);
+}
 
-		auto &dst = this->publishing_frames.get_private_resource()->buffer[this->current_frame_position];
-		dst = convert(sample);
+void SoundController::frame_sequencer_callback(std::uint64_t clock){
+	if (!(clock % 2))
+		this->length_counter_event();
+	auto by_eight = clock % 8;
+	if (clock % 8 == 7)
+		this->volume_event();
+	if (clock % 4 == 2)
+		this->sweep_event();
+}
 
-		this->current_frame_position++;
-		if (this->current_frame_position >= AudioFrame::length){
-			this->current_frame_position = 0;
-			this->publishing_frames.publish();
-			this->initialize_new_frame();
-		}
+void SoundController::sample_callback(std::uint64_t sample_no){
+	StereoSampleIntermediate sample;
+	sample.left = sample.right = 0;
+	sample += this->render_square1(sample_no) / 4;
+	sample += this->render_square2(sample_no) / 4;
+	sample += this->render_voluntary(sample_no) / 4;
+	sample += this->render_noise(sample_no) / 4;
+
+	auto &dst = this->publishing_frames.get_private_resource()->buffer[this->current_frame_position];
+	dst = convert(sample);
+
+	this->current_frame_position++;
+	if (this->current_frame_position >= AudioFrame::length){
+		this->current_frame_position = 0;
+		this->publishing_frames.publish();
+		this->initialize_new_frame();
 	}
-	this->last_update = time;
+}
+
+void SoundController::length_counter_event(){
+	this->square1.length_counter_event();
+}
+
+void SoundController::volume_event(){
+	this->square1.volume_event();
+}
+
+void SoundController::sweep_event(){
+	this->square1.sweep_event();
 }
 
 void SoundController::initialize_new_frame(){
@@ -174,6 +211,14 @@ StereoSampleIntermediate SoundController::render_noise(std::uint64_t time){
 	return ret;
 }
 
+Oscillator::Oscillator(){
+	std::fill(this->registers, this->registers + array_size(this->registers), 0);
+}
+
+void Oscillator::trigger_event(){
+	throw NotImplementedException();
+}
+
 unsigned Square2Generator::get_period(){
 	if (!this->period)
 		this->period = (2048 - this->frequency) * 4;
@@ -181,25 +226,24 @@ unsigned Square2Generator::get_period(){
 }
 
 void Square2Generator::advance_duty(std::uint64_t time){
-	if (this->reference_time == std::numeric_limits<decltype(this->reference_time)>::max() & this->reference_duty_position == std::numeric_limits<decltype(this->duty_position)>::max()){
+	bool und1 = this->reference_time == this->undefined_reference_time;
+	bool und2 = this->reference_duty_position == this->undefined_reference_duty_position;
+	if (und1 & und2){
 		this->reference_time = time;
 		this->reference_duty_position = this->duty_position;
 	}else{
 		auto delta = time - this->reference_time;
 		this->duty_position = this->reference_duty_position;
-		this->duty_position += (delta << 13) * gb_cpu_frequency / (sampling_frequency * this->get_period());
+		this->duty_position += (unsigned)((delta << 13) * gb_cpu_frequency / (sampling_frequency * this->get_period()));
 		this->duty_position &= 0xFFFF;
 	}
 }
 
 intermediate_audio_type Square2Generator::render(std::uint64_t time){
 	this->advance_duty(time);
-	return !(this->duties[this->selected_duty] & bit(this->duty_position >> 13)) * 2 - 1;
-	//return SoundController::base_wave_generator_duty_50(time, this->get_period()) * 0.5f;
-}
-
-void Oscillator::trigger_event(){
-	throw NotImplementedException();
+	int y = !(this->duties[this->selected_duty] & bit(this->duty_position >> 13));
+	y = (y * 2 - 1) * this->volume;
+	return (intermediate_audio_type)y * (1.f / 15.f);
 }
 
 void Square2Generator::set_register1(byte_t value){
@@ -208,15 +252,17 @@ void Square2Generator::set_register1(byte_t value){
 
 void Square2Generator::set_register2(byte_t value){
 	this->registers[2] = value;
+
+	this->volume = this->shadow_volume = value >> 4;
+	this->envelope_sign = value & bit(3) ? 1 : -1;
+	this->envelope_period = value & 0x07;
 }
 
 void Square2Generator::set_register3(byte_t value){
 	this->registers[3] = value;
 	this->frequency &= ~(decltype(this->frequency))0xFF;
 	this->frequency |= value;
-	this->period = 0;
-	this->reference_time = std::numeric_limits<decltype(this->reference_time)>::max();
-	this->reference_duty_position = std::numeric_limits<decltype(this->duty_position)>::max();
+	this->frequency_change();
 }
 
 void Square2Generator::set_register4(byte_t value){
@@ -232,9 +278,7 @@ void Square2Generator::set_register4(byte_t value){
 	freq <<= 8;
 	this->frequency &= ~(decltype(this->frequency))0x0700;
 	this->frequency |= freq;
-	this->period = 0;
-	this->reference_time = std::numeric_limits<decltype(this->reference_time)>::max();
-	this->reference_duty_position = std::numeric_limits<decltype(this->duty_position)>::max();
+	this->frequency_change();
 }
 
 byte_t Square2Generator::get_register1() const{
@@ -255,8 +299,51 @@ byte_t Square2Generator::get_register4() const{
 
 void Square1Generator::set_register0(byte_t value){
 	this->registers[0] = value;
+
+	this->sweep_period = (value & 0x70) >> 4;
+	this->sweep_sign = value & bit(3) ? -1 : 1;
+	this->sweep_shift = value & 0x07;
 }
 
 byte_t Square1Generator::get_register0() const{
 	return this->registers[0];
+}
+
+void Square2Generator::frequency_change(){
+	this->period = 0;
+	this->reference_time = this->undefined_reference_time;
+	this->reference_duty_position = this->undefined_reference_duty_position;
+}
+
+void Square1Generator::sweep_event(){
+	if (!this->sweep_period | !this->sweep_time)
+		return;
+	this->sweep_time--;
+	if (this->sweep_time)
+		return;
+
+	this->sweep_time = this->sweep_period;
+	this->frequency = this->shadow_frequency;
+	this->frequency_change();
+	this->shadow_frequency += this->sweep_sign * (this->shadow_frequency >> this->sweep_shift);
+
+	if (this->shadow_frequency < 0)
+		this->shadow_frequency = 0;
+	else if (this->shadow_frequency >= 2048){
+		this->sweep_time = 0;
+		this->shadow_frequency = 2048;
+	}
+}
+
+void Square2Generator::volume_event(){
+	if (!this->envelope_period | !this->envelope_time)
+		return;
+	this->envelope_time--;
+	if (this->envelope_time)
+		return;
+
+	this->envelope_time = this->envelope_period;
+	this->volume += this->envelope_sign;
+	//Saturate value into range [0; 15]. Note: this only works if this->envelope_sign == +/-1.
+	this->volume -= this->volume >> 4;
 }

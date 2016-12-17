@@ -54,3 +54,8 @@ public:
 constexpr unsigned bit(unsigned i){
 	return 1U << i;
 }
+
+template <typename T, size_t N>
+size_t array_size(T (&)[N]){
+	return N;
+}
