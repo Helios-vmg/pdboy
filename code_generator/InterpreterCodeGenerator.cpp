@@ -622,7 +622,7 @@ void InterpreterCodeGenerator::set_flags(const FlagSettings &fs){
 	for (auto &setting : settings){
 		auto p = to_string(setting.first);
 
-		bool zero_a = setting.first.op != FlagSetting::Operation::Keep && setting.first.op != FlagSetting::Operation::Keep;
+		bool zero_a = setting.first.op != FlagSetting::Operation::Keep && setting.first.op != FlagSetting::Operation::Flip;
 		if (!zero_a){
 			if (!first_a)
 				A += " | ";
