@@ -198,7 +198,7 @@ class SoundController{
 	//Control registers.
 	byte_t NR50 = 0;
 	byte_t NR51 = 0;
-	bool master_toggle = true;
+	bool master_toggle = false;
 
 	struct Panning{
 		bool left = true,

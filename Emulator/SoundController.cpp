@@ -132,6 +132,9 @@ void SoundController::update(bool required){
 }
 
 void SoundController::frame_sequencer_callback(std::uint64_t clock){
+	if (!this->master_toggle)
+		return;
+
 	if (!(clock % 2))
 		this->length_counter_event();
 	if (clock % 8 == 7)

@@ -210,12 +210,12 @@ void MemoryController::initialize_io_register_functions(){
 	//this->io_registers_load[0x22] = &MemoryController::load_not_implemented;
 	//this->io_registers_stor[0x23] = &MemoryController::stor_not_implemented;
 	//this->io_registers_load[0x23] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x24] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x24] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x25] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x25] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x26] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x26] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x24] = &MemoryController::store_NR50;
+	this->io_registers_load[0x24] = &MemoryController::load_NR50;
+	this->io_registers_stor[0x25] = &MemoryController::store_NR51;
+	this->io_registers_load[0x25] = &MemoryController::load_NR51;
+	this->io_registers_stor[0x26] = &MemoryController::store_NR52;
+	this->io_registers_load[0x26] = &MemoryController::load_NR52;
 
 	for (unsigned i = 0x27; i < 0x30; i++){
 		this->io_registers_stor[i] = &MemoryController::store_nothing;
@@ -678,6 +678,30 @@ byte_t MemoryController::load_NR19(main_integer_t) const{
 
 void MemoryController::store_NR19(main_integer_t, byte_t b){
 	this->sound->square2.set_register4(b);
+}
+
+byte_t MemoryController::load_NR50(main_integer_t) const{
+	return this->sound->get_NR50();
+}
+
+void MemoryController::store_NR50(main_integer_t, byte_t b){
+	this->sound->set_NR50(b);
+}
+
+byte_t MemoryController::load_NR51(main_integer_t) const{
+	return this->sound->get_NR51();
+}
+
+void MemoryController::store_NR51(main_integer_t, byte_t b){
+	this->sound->set_NR51(b);
+}
+
+byte_t MemoryController::load_NR52(main_integer_t) const{
+	return this->sound->get_NR52();
+}
+
+void MemoryController::store_NR52(main_integer_t, byte_t b){
+	this->sound->set_NR52(b);
 }
 
 main_integer_t MemoryController::load8(main_integer_t address) const{

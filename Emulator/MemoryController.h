@@ -136,6 +136,9 @@ class MemoryController{
 	DECLARE_IO_REGISTER(NR17);
 	DECLARE_IO_REGISTER(NR18);
 	DECLARE_IO_REGISTER(NR19);
+	DECLARE_IO_REGISTER(NR50);
+	DECLARE_IO_REGISTER(NR51);
+	DECLARE_IO_REGISTER(NR52);
 public:
 	MemoryController(Gameboy &, GameboyCpu &);
 	~MemoryController();
