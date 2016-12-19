@@ -113,6 +113,7 @@ public:
 		return 0xFF;
 	}
 	void length_counter_event();
+	bool length_counter_has_not_finished() const;
 };
 
 class EnvelopedGenerator : public WaveformGenerator{

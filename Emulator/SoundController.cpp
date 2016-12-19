@@ -305,6 +305,10 @@ intermediate_audio_type Square2Generator::render(std::uint64_t time) const{
 }
 
 bool WaveformGenerator::enabled() const{
+	return this->length_counter_has_not_finished();
+}
+
+bool WaveformGenerator::length_counter_has_not_finished() const{
 	return !this->length_enable | !!this->sound_length;
 }
 
@@ -378,7 +382,7 @@ byte_t Square2Generator::get_register3() const{
 }
 
 byte_t Square2Generator::get_register4() const{
-	return this->registers[4] | 0x07;
+	return this->registers[4] | 0xBF;
 }
 
 void Square1Generator::set_register0(byte_t value){
@@ -390,7 +394,7 @@ void Square1Generator::set_register0(byte_t value){
 }
 
 byte_t Square1Generator::get_register0() const{
-	return this->registers[0];
+	return this->registers[0] | 0x80;
 }
 
 void Square2Generator::frequency_change(unsigned old_frequency){
@@ -468,6 +472,11 @@ void SoundController::set_NR52(byte_t value){
 }
 
 byte_t SoundController::get_NR52() const{
-	//TODO: implement notification of length expirations.
-	return ((byte_t)this->master_toggle << 7) & 0x7F;
+	auto ret = (byte_t)this->master_toggle << 7;
+	ret |= 0x70;
+	ret |= (byte_t)this->square1.length_counter_has_not_finished() << 0;
+	ret |= (byte_t)this->square2.length_counter_has_not_finished() << 1;
+	ret |= bit(2);
+	ret |= bit(3);
+	return ret;
 }
