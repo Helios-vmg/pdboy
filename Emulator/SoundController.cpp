@@ -430,6 +430,7 @@ void SoundController::set_NR51(byte_t value){
 		auto &pan = this->stereo_panning[channel];
 		pan.right = !!(value & bit(channel));
 		pan.left = !!(value & bit(channel + 4));
+		pan.either = pan.right | pan.left;
 	}
 }
 
