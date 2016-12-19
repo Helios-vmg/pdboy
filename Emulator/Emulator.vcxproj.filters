@@ -25,12 +25,6 @@
     <Filter Include="Source Files\Network">
       <UniqueIdentifier>{17ec8432-c01c-47b1-ade2-38de61698d42}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\Sound">
-      <UniqueIdentifier>{eff4fb24-e8ad-425a-98db-159a8174372b}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\Sound">
-      <UniqueIdentifier>{951046bf-0b26-4177-8834-4b3a8b53d666}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -103,7 +97,7 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="SoundController.cpp">
-      <Filter>Source Files\Sound</Filter>
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -185,10 +179,10 @@
     <ClInclude Include="BgbProtocol.h">
       <Filter>Header Files\Network</Filter>
     </ClInclude>
-    <ClInclude Include="SoundController.h">
-      <Filter>Header Files\Sound</Filter>
-    </ClInclude>
     <ClInclude Include="PublishingResource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SoundController.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
