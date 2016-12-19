@@ -210,15 +210,15 @@ StereoSampleIntermediate SoundController::render_noise(std::uint64_t time){
 	return ret;
 }
 
-Oscillator::Oscillator(){
+WaveformGenerator::WaveformGenerator(){
 	std::fill(this->registers, this->registers + array_size(this->registers), 0);
 }
 
-void Oscillator::trigger_event(){
+void WaveformGenerator::trigger_event(){
 }
 
-void EnvelopedOscillator::trigger_event(){
-	Oscillator::trigger_event();
+void EnvelopedGenerator::trigger_event(){
+	WaveformGenerator::trigger_event();
 	this->envelope_time = this->envelope_period;
 	this->volume = this->shadow_volume;
 }
@@ -261,17 +261,17 @@ intermediate_audio_type Square2Generator::render(std::uint64_t time){
 	return (intermediate_audio_type)y * (1.f / 15.f);
 }
 
-bool Oscillator::enabled(){
+bool WaveformGenerator::enabled(){
 	return !this->length_enable | !!this->sound_length;
 }
 
-bool EnvelopedOscillator::enabled(){
-	return Oscillator::enabled() & !!this->volume;
+bool EnvelopedGenerator::enabled(){
+	return WaveformGenerator::enabled() & !!this->volume;
 }
 
 bool Square2Generator::enabled(){
 	//Note: if frequency value > 2041, sound frequency > 20 kHz
-	return EnvelopedOscillator::enabled() & (this->frequency > 0) & (this->frequency <= 2041);
+	return EnvelopedGenerator::enabled() & (this->frequency > 0) & (this->frequency <= 2041);
 }
 
 bool Square1Generator::enabled(){
@@ -381,7 +381,7 @@ void Square1Generator::sweep_event(bool force){
 	}
 }
 
-void EnvelopedOscillator::volume_event(){
+void EnvelopedGenerator::volume_event(){
 	if (!this->envelope_period | !this->envelope_time)
 		return;
 	this->envelope_time--;
@@ -394,7 +394,7 @@ void EnvelopedOscillator::volume_event(){
 	this->volume -= this->volume >> 4;
 }
 
-void Oscillator::length_counter_event(){
+void WaveformGenerator::length_counter_event(){
 	if (this->sound_length)
 		this->sound_length--;
 }

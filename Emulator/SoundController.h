@@ -74,7 +74,7 @@ struct AudioFrame{
 	StereoSampleFinal buffer[length];
 };
 
-class Oscillator{
+class WaveformGenerator{
 protected:
 	byte_t registers[5];
 
@@ -86,8 +86,8 @@ protected:
 	virtual void trigger_event();
 	virtual bool enabled();
 public:
-	Oscillator();
-	virtual ~Oscillator(){}
+	WaveformGenerator();
+	virtual ~WaveformGenerator(){}
 	virtual intermediate_audio_type render(std::uint64_t time) = 0;
 	virtual void set_register0(byte_t){}
 	virtual void set_register1(byte_t){}
@@ -112,7 +112,7 @@ public:
 	void length_counter_event();
 };
 
-class EnvelopedOscillator : public Oscillator{
+class EnvelopedGenerator : public WaveformGenerator{
 protected:
 	//Envelope
 	int envelope_sign = 0;
@@ -124,11 +124,11 @@ protected:
 	virtual bool enabled() override;
 	virtual void trigger_event() override;
 public:
-	virtual ~EnvelopedOscillator(){}
+	virtual ~EnvelopedGenerator(){}
 	void volume_event();
 };
 
-class Square2Generator : public EnvelopedOscillator{
+class Square2Generator : public EnvelopedGenerator{
 protected:
 	unsigned frequency = 0;
 	unsigned period = 0;
