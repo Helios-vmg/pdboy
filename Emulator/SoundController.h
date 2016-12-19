@@ -2,8 +2,12 @@
 
 #include "CommonTypes.h"
 #include "PublishingResource.h"
+#include <fstream>
+
+//#define OUTPUT_AUDIO_TO_FILE
 
 class Gameboy;
+class SoundController;
 
 template <typename T>
 struct basic_StereoSample{
@@ -76,6 +80,8 @@ struct AudioFrame{
 
 class WaveformGenerator{
 protected:
+	SoundController *parent;
+
 	byte_t registers[5];
 
 	//Sound length
@@ -86,7 +92,7 @@ protected:
 	virtual void trigger_event();
 	virtual bool enabled() const;
 public:
-	WaveformGenerator();
+	WaveformGenerator(SoundController &parent);
 	virtual ~WaveformGenerator(){}
 	virtual void update_state_before_render(std::uint64_t time){}
 	virtual intermediate_audio_type render(std::uint64_t time) const = 0;
@@ -121,6 +127,8 @@ protected:
 	virtual bool enabled() const override;
 	virtual void trigger_event() override;
 public:
+	EnvelopedGenerator(SoundController &parent):
+		WaveformGenerator(parent){}
 	virtual ~EnvelopedGenerator(){}
 	void volume_event();
 };
@@ -143,6 +151,8 @@ protected:
 	void frequency_change(unsigned old_frequency);
 	virtual bool enabled() const override;
 public:
+	Square2Generator(SoundController &parent) :
+		EnvelopedGenerator(parent){}
 	virtual ~Square2Generator(){}
 	void update_state_before_render(std::uint64_t time) override;
 	intermediate_audio_type render(std::uint64_t time) const override;
@@ -164,10 +174,13 @@ class Square1Generator : public Square2Generator{
 	unsigned sweep_shift = 0;
 	int shadow_frequency = 0;
 	static const unsigned audio_disabled_by_sweep = 2048;
+	std::uint64_t last_sweep = 0;
 
 	bool enabled() const override;
 	void trigger_event() override;
 public:
+	Square1Generator(SoundController &parent) :
+		Square2Generator(parent){}
 	void set_register0(byte_t value);
 	byte_t get_register0() const;
 	void sweep_event(bool force = false);
@@ -181,10 +194,11 @@ private:
 	std::uint64_t src_frequency,
 		dst_frequency;
 	std::uint64_t modulo;
-	std::uint64_t last_update = std::numeric_limits<std::uint64_t>::max();
+	std::uint64_t last_update;
 public:
 	ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback);
 	void update(std::uint64_t);
+	void reset();
 };
 
 class SoundController{
@@ -192,6 +206,8 @@ class SoundController{
 	unsigned current_frame_position = 0;
 	QueuedPublishingResource<AudioFrame> publishing_frames;
 	std::uint64_t frame_no = 0;
+	std::uint64_t audio_turned_on_at = 0;
+	std::uint64_t current_clock;
 	ClockDivider frame_sequencer_clock,
 		audio_sample_clock;
 
@@ -207,6 +223,10 @@ class SoundController{
 	};
 
 	Panning stereo_panning[4];
+
+#ifdef OUTPUT_AUDIO_TO_FILE
+	std::unique_ptr<std::ofstream> output_file;
+#endif
 
 	StereoSampleIntermediate render_square1(std::uint64_t time);
 	StereoSampleIntermediate render_square2(std::uint64_t time);
@@ -226,6 +246,9 @@ public:
 	void update(bool required = false);
 	AudioFrame *get_current_frame();
 	void return_used_frame(AudioFrame *);
+	std::uint64_t get_current_clock() const{
+		return this->current_clock;
+	}
 
 	void set_NR50(byte_t);
 	void set_NR51(byte_t);

@@ -43,6 +43,7 @@ ClockDivider::ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_freque
 		callback(callback),
 		src_frequency(src_frequency),
 		dst_frequency(dst_frequency){
+	this->reset();
 	this->modulo = this->dst_frequency * this->src_frequency;
 	this->modulo /= ::gcd(this->dst_frequency, this->src_frequency);
 }
@@ -56,6 +57,10 @@ void ClockDivider::update(std::uint64_t source_clock){
 	for (; dst_clock <= time; dst_clock++)
 		this->callback(dst_clock);
 	this->last_update = time;
+}
+
+void ClockDivider::reset(){
+	this->last_update = std::numeric_limits<std::uint64_t>::max();
 }
 
 intermediate_audio_type SoundController::base_wave_generator_duty_50(std::uint64_t time, unsigned frequency){
@@ -121,14 +126,23 @@ intermediate_audio_type SoundController::base_wave_generator_duty_75(std::uint64
 SoundController::SoundController(Gameboy &system):
 		system(&system),
 		audio_sample_clock(gb_cpu_frequency, sampling_frequency, [this](std::uint64_t n){ this->sample_callback(n); }),
-		frame_sequencer_clock(gb_cpu_frequency, 512, [this](std::uint64_t n){ this->frame_sequencer_callback(n); }){
+		frame_sequencer_clock(gb_cpu_frequency, 512, [this](std::uint64_t n){ this->frame_sequencer_callback(n); }),
+		square1(*this),
+		square2(*this){
+
 	this->initialize_new_frame();
+#ifdef OUTPUT_AUDIO_TO_FILE
+	this->output_file.reset(new std::ofstream("output.raw", std::ios::binary));
+	if (!*this->output_file)
+		this->output_file.reset();
+#endif
 }
 
 void SoundController::update(bool required){
-	auto c = this->system->get_system_clock().get_clock_value();
-	this->frame_sequencer_clock.update(c);
-	this->audio_sample_clock.update(c);
+	this->current_clock = this->system->get_system_clock().get_clock_value();
+	auto t = this->current_clock - this->audio_turned_on_at;
+	this->frame_sequencer_clock.update(t);
+	this->audio_sample_clock.update(t);
 }
 
 void SoundController::frame_sequencer_callback(std::uint64_t clock){
@@ -146,7 +160,8 @@ void SoundController::frame_sequencer_callback(std::uint64_t clock){
 void SoundController::sample_callback(std::uint64_t sample_no){
 	StereoSampleIntermediate sample;
 	sample.left = sample.right = 0;
-	auto &dst = this->publishing_frames.get_private_resource()->buffer[this->current_frame_position];
+	auto &buffer = this->publishing_frames.get_private_resource()->buffer;
+	auto &dst = buffer[this->current_frame_position];
 	if (this->master_toggle){
 		sample += this->render_square1(sample_no) / 4;
 		sample += this->render_square2(sample_no) / 4;
@@ -158,6 +173,12 @@ void SoundController::sample_callback(std::uint64_t sample_no){
 
 	this->current_frame_position++;
 	if (this->current_frame_position >= AudioFrame::length){
+#ifdef OUTPUT_AUDIO_TO_FILE
+		if (this->output_file){
+			this->output_file->write((const char *)buffer, sizeof(buffer));
+			this->output_file_length += sizeof(buffer);
+		}
+#endif
 		this->current_frame_position = 0;
 		this->publishing_frames.publish();
 		this->initialize_new_frame();
@@ -229,7 +250,7 @@ StereoSampleIntermediate SoundController::render_noise(std::uint64_t time){
 	return ret;
 }
 
-WaveformGenerator::WaveformGenerator(){
+WaveformGenerator::WaveformGenerator(SoundController &parent): parent(&parent){
 	std::fill(this->registers, this->registers + array_size(this->registers), 0);
 }
 
@@ -437,7 +458,13 @@ void SoundController::set_NR51(byte_t value){
 }
 
 void SoundController::set_NR52(byte_t value){
+	auto mt = this->master_toggle;
 	this->master_toggle = !!(value & bit(7));
+	if (this->master_toggle & !mt){
+		this->audio_turned_on_at = this->system->get_system_clock().get_clock_value();
+		this->frame_sequencer_clock.reset();
+		this->audio_sample_clock.reset();
+	}
 }
 
 byte_t SoundController::get_NR52() const{
