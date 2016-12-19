@@ -84,19 +84,16 @@ protected:
 	bool length_enable = false;
 
 	virtual void trigger_event();
-	virtual bool enabled();
+	virtual bool enabled() const;
 public:
 	WaveformGenerator();
 	virtual ~WaveformGenerator(){}
-	virtual intermediate_audio_type render(std::uint64_t time) = 0;
-	virtual void set_register0(byte_t){}
+	virtual void update_state_before_render(std::uint64_t time){}
+	virtual intermediate_audio_type render(std::uint64_t time) const = 0;
 	virtual void set_register1(byte_t){}
 	virtual void set_register2(byte_t){}
 	virtual void set_register3(byte_t){}
 	virtual void set_register4(byte_t){}
-	virtual byte_t get_register0() const{
-		return 0xFF;
-	}
 	virtual byte_t get_register1() const{
 		return 0xFF;
 	}
@@ -121,7 +118,7 @@ protected:
 	int volume = 0,
 		shadow_volume = 0;
 
-	virtual bool enabled() override;
+	virtual bool enabled() const override;
 	virtual void trigger_event() override;
 public:
 	virtual ~EnvelopedGenerator(){}
@@ -144,10 +141,11 @@ protected:
 	unsigned get_period();
 	void advance_duty(std::uint64_t time);
 	void frequency_change(unsigned old_frequency);
-	virtual bool enabled() override;
+	virtual bool enabled() const override;
 public:
 	virtual ~Square2Generator(){}
-	intermediate_audio_type render(std::uint64_t time);
+	void update_state_before_render(std::uint64_t time) override;
+	intermediate_audio_type render(std::uint64_t time) const override;
 
 	virtual void set_register1(byte_t value) override;
 	virtual void set_register2(byte_t value) override;
@@ -167,11 +165,11 @@ class Square1Generator : public Square2Generator{
 	int shadow_frequency = 0;
 	static const unsigned audio_disabled_by_sweep = 2048;
 
-	bool enabled() override;
+	bool enabled() const override;
 	void trigger_event() override;
 public:
-	void set_register0(byte_t value) override;
-	byte_t get_register0() const override;
+	void set_register0(byte_t value);
+	byte_t get_register0() const;
 	void sweep_event(bool force = false);
 };
 
@@ -197,6 +195,19 @@ class SoundController{
 	ClockDivider frame_sequencer_clock,
 		audio_sample_clock;
 
+	//Control registers.
+	byte_t NR50 = 0;
+	byte_t NR51 = 0;
+	bool master_toggle = true;
+
+	struct Panning{
+		bool left = true,
+			right = true,
+			either = true;
+	};
+
+	Panning stereo_panning[4];
+
 	StereoSampleIntermediate render_square1(std::uint64_t time);
 	StereoSampleIntermediate render_square2(std::uint64_t time);
 	StereoSampleIntermediate render_voluntary(std::uint64_t time);
@@ -209,11 +220,23 @@ class SoundController{
 	void sweep_event();
 public:
 	Square1Generator square1;
+	Square2Generator square2;
 
 	SoundController(Gameboy &);
 	void update(bool required = false);
 	AudioFrame *get_current_frame();
 	void return_used_frame(AudioFrame *);
+
+	void set_NR50(byte_t);
+	void set_NR51(byte_t);
+	void set_NR52(byte_t);
+	byte_t get_NR50() const{
+		return this->NR50;
+	}
+	byte_t get_NR51() const{
+		return this->NR51;
+	}
+	byte_t get_NR52() const;
 
 	static intermediate_audio_type base_wave_generator_duty_50(std::uint64_t time, unsigned frequency);
 	static intermediate_audio_type base_wave_generator_duty_12(std::uint64_t time, unsigned frequency);

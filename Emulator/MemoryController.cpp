@@ -178,14 +178,14 @@ void MemoryController::initialize_io_register_functions(){
 	//this->io_registers_load[0x15] = &MemoryController::load_not_implemented;
 
 	//Audio:
-	//this->io_registers_stor[0x16] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x16] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x17] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x17] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x18] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x18] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x19] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x19] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x16] = &MemoryController::store_NR16;
+	this->io_registers_load[0x16] = &MemoryController::load_NR16;
+	this->io_registers_stor[0x17] = &MemoryController::store_NR17;
+	this->io_registers_load[0x17] = &MemoryController::load_NR17;
+	this->io_registers_stor[0x18] = &MemoryController::store_NR18;
+	this->io_registers_load[0x18] = &MemoryController::load_NR18;
+	this->io_registers_stor[0x19] = &MemoryController::store_NR19;
+	this->io_registers_load[0x19] = &MemoryController::load_NR19;
 	//this->io_registers_stor[0x1a] = &MemoryController::stor_not_implemented;
 	//this->io_registers_load[0x1a] = &MemoryController::load_not_implemented;
 	//this->io_registers_stor[0x1b] = &MemoryController::stor_not_implemented;
@@ -646,6 +646,38 @@ byte_t MemoryController::load_NR14(main_integer_t) const{
 
 void MemoryController::store_NR14(main_integer_t, byte_t b){
 	this->sound->square1.set_register4(b);
+}
+
+byte_t MemoryController::load_NR16(main_integer_t) const{
+	return this->sound->square2.get_register1();
+}
+
+void MemoryController::store_NR16(main_integer_t, byte_t b){
+	this->sound->square2.set_register1(b);
+}
+
+byte_t MemoryController::load_NR17(main_integer_t) const{
+	return this->sound->square2.get_register2();
+}
+
+void MemoryController::store_NR17(main_integer_t, byte_t b){
+	this->sound->square2.set_register2(b);
+}
+
+byte_t MemoryController::load_NR18(main_integer_t) const{
+	return this->sound->square2.get_register3();
+}
+
+void MemoryController::store_NR18(main_integer_t, byte_t b){
+	this->sound->square2.set_register3(b);
+}
+
+byte_t MemoryController::load_NR19(main_integer_t) const{
+	return this->sound->square2.get_register4();
+}
+
+void MemoryController::store_NR19(main_integer_t, byte_t b){
+	this->sound->square2.set_register4(b);
 }
 
 main_integer_t MemoryController::load8(main_integer_t address) const{

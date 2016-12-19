@@ -143,13 +143,15 @@ void SoundController::frame_sequencer_callback(std::uint64_t clock){
 void SoundController::sample_callback(std::uint64_t sample_no){
 	StereoSampleIntermediate sample;
 	sample.left = sample.right = 0;
-	sample += this->render_square1(sample_no) / 4;
-	sample += this->render_square2(sample_no) / 4;
-	sample += this->render_voluntary(sample_no) / 4;
-	sample += this->render_noise(sample_no) / 4;
-
 	auto &dst = this->publishing_frames.get_private_resource()->buffer[this->current_frame_position];
-	dst = convert(sample);
+	if (this->master_toggle){
+		sample += this->render_square1(sample_no) / 4;
+		sample += this->render_square2(sample_no) / 4;
+		sample += this->render_voluntary(sample_no) / 4;
+		sample += this->render_noise(sample_no) / 4;
+		dst = convert(sample);
+	}else
+		dst.left = dst.right = 0;
 
 	this->current_frame_position++;
 	if (this->current_frame_position >= AudioFrame::length){
@@ -186,16 +188,28 @@ void SoundController::return_used_frame(AudioFrame *frame){
 	this->publishing_frames.return_resource(frame);
 }
 
-StereoSampleIntermediate SoundController::render_square1(std::uint64_t time){
+template <typename T1, typename T2>
+StereoSampleIntermediate compute_channel_panning_and_silence(const T1 &generator, std::uint64_t time, const T2 &pan){
 	StereoSampleIntermediate ret;
-	ret.left = ret.right = this->square1.render(time);
+	if (!!pan.either){
+		auto value = generator.render(time);
+
+		ret.left = value * !!pan.left;
+		ret.right = value * !!pan.right;
+	}else
+		ret.left = ret.right = 0;
+
 	return ret;
 }
 
+StereoSampleIntermediate SoundController::render_square1(std::uint64_t time){
+	this->square1.update_state_before_render(time);
+	return compute_channel_panning_and_silence(this->square1, time, this->stereo_panning[0]);
+}
+
 StereoSampleIntermediate SoundController::render_square2(std::uint64_t time){
-	StereoSampleIntermediate ret;
-	ret.left = ret.right = 0;
-	return ret;
+	this->square2.update_state_before_render(time);
+	return compute_channel_panning_and_silence(this->square2, time, this->stereo_panning[1]);
 }
 
 StereoSampleIntermediate SoundController::render_voluntary(std::uint64_t time){
@@ -251,30 +265,33 @@ void Square2Generator::advance_duty(std::uint64_t time){
 	}
 }
 
-intermediate_audio_type Square2Generator::render(std::uint64_t time){
+void Square2Generator::update_state_before_render(std::uint64_t time){
+	this->advance_duty(time);
+}
+
+intermediate_audio_type Square2Generator::render(std::uint64_t time) const{
 	if (!this->enabled())
 		return 0;
 
-	this->advance_duty(time);
-	int y = !(this->duties[this->selected_duty] & bit(this->duty_position >> 13));
+	int y = !!(this->duties[this->selected_duty] & bit(this->duty_position >> 13));
 	y = (y * 2 - 1) * this->volume;
 	return (intermediate_audio_type)y * (1.f / 15.f);
 }
 
-bool WaveformGenerator::enabled(){
+bool WaveformGenerator::enabled() const{
 	return !this->length_enable | !!this->sound_length;
 }
 
-bool EnvelopedGenerator::enabled(){
+bool EnvelopedGenerator::enabled() const{
 	return WaveformGenerator::enabled() & !!this->volume;
 }
 
-bool Square2Generator::enabled(){
+bool Square2Generator::enabled() const{
 	//Note: if frequency value > 2041, sound frequency > 20 kHz
 	return EnvelopedGenerator::enabled() & (this->frequency > 0) & (this->frequency <= 2041);
 }
 
-bool Square1Generator::enabled(){
+bool Square1Generator::enabled() const{
 	return Square2Generator::enabled() & (this->shadow_frequency != this->audio_disabled_by_sweep);
 }
 
@@ -397,4 +414,27 @@ void EnvelopedGenerator::volume_event(){
 void WaveformGenerator::length_counter_event(){
 	if (this->sound_length)
 		this->sound_length--;
+}
+
+void SoundController::set_NR50(byte_t value){
+	this->NR50 = value;
+}
+
+void SoundController::set_NR51(byte_t value){
+	this->NR51 = value;
+
+	for (int channel = 0; channel < 4; channel++){
+		auto &pan = this->stereo_panning[channel];
+		pan.right = !!(value & bit(channel));
+		pan.left = !!(value & bit(channel + 4));
+	}
+}
+
+void SoundController::set_NR52(byte_t value){
+	this->master_toggle = !!(value & bit(7));
+}
+
+byte_t SoundController::get_NR52() const{
+	//TODO: implement notification of length expirations.
+	return ((byte_t)this->master_toggle << 7) & 0x7F;
 }
