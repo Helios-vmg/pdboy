@@ -21,4 +21,5 @@ public:
 	byte_t read8(main_integer_t address){
 		return this->cartridge->read8(address);
 	}
+	int get_current_rom_bank();
 };

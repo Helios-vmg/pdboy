@@ -83,6 +83,9 @@ public:
 	path_t get_path() const{
 		return this->path;
 	}
+	virtual int get_current_rom_bank(){
+		return -1;
+	}
 };
 
 #define DECLARE_UNSUPPORTED_CARTRIDGE_CLASS(x, base) \
@@ -155,6 +158,9 @@ public:
 	virtual byte_t read8(main_integer_t) override;
 	void commit_ram();
 	void load_ram();
+	int get_current_rom_bank() override{
+		return this->current_rom_bank;
+	}
 };
 
 DECLARE_UNSUPPORTED_STANDARD_CARTRIDGE_CLASS(Mbc4Cartridge);

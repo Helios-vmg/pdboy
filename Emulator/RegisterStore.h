@@ -34,8 +34,10 @@ class GameboyCpu;
 //#define DEBUG_REGISTERS
 
 #ifdef DEBUG_REGISTERS
-#define DECLARE_LAST_SET(name) std::uint16_t last_set_##name = 0
-#define SET_LAST_SET(name) this->set_last_set(this->last_set_##name);
+#define DECLARE_LAST_SET(name) \
+	std::uint32_t last_set_##name = 0; \
+	std::uint64_t last_set_time_##name = 0;
+#define SET_LAST_SET(name) this->set_last_set(this->last_set_##name, this->last_set_time_##name)
 #else
 #define DECLARE_LAST_SET(name)
 #define SET_LAST_SET(name)
@@ -77,7 +79,7 @@ class RegisterStore{
 	} data;
 
 #ifdef DEBUG_REGISTERS
-	void set_last_set(std::uint16_t &);
+	void set_last_set(std::uint32_t &, std::uint64_t &);
 #endif
 public:
 	RegisterStore(GameboyCpu &cpu);

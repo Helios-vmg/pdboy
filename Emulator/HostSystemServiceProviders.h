@@ -102,6 +102,7 @@ public:
 protected:
 	get_data_callback_t get_data_callback;
 	return_data_callback_t return_data_callback;
+	std::mutex mutex;
 public:
 	virtual ~AudioOutputProvider(){}
 	void set_callbacks(get_data_callback_t gdc, return_data_callback_t rdc);

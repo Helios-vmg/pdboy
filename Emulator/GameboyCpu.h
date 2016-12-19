@@ -22,6 +22,7 @@ class GameboyCpu{
 	MemoryController memory_controller;
 	std::uint64_t total_instructions = 0;
 	main_integer_t current_pc = 0;
+	std::uint32_t full_pc = 0;
 	bool interrupts_enabled = false;
 	byte_t interrupt_flag = 0;
 	byte_t interrupt_enable_flag = 0;
@@ -91,6 +92,10 @@ public:
 	MemoryController &get_memory_controller(){
 		return this->memory_controller;
 	}
+	std::uint32_t get_full_pc() const{
+		return this->full_pc;
+	}
+	std::uint64_t get_clock() const;
 };
 
 template <typename T>

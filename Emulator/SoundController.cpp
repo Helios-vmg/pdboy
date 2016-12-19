@@ -49,7 +49,7 @@ ClockDivider::ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_freque
 
 void ClockDivider::update(std::uint64_t source_clock){
 	source_clock %= this->modulo;
-	auto time = source_clock * sampling_frequency / gb_cpu_frequency;
+	auto time = source_clock * this->dst_frequency / this->src_frequency;
 	if (time == this->last_update)
 		return;
 	auto dst_clock = this->last_update + 1;
@@ -120,8 +120,8 @@ intermediate_audio_type SoundController::base_wave_generator_duty_75(std::uint64
 
 SoundController::SoundController(Gameboy &system):
 		system(&system),
-		frame_sequencer_clock(gb_cpu_frequency, sampling_frequency, [this](std::uint64_t n){ this->sample_callback(n); }),
-		audio_sample_clock(gb_cpu_frequency, 512, [this](std::uint64_t n){ this->frame_sequencer_callback(n); }){
+		audio_sample_clock(gb_cpu_frequency, sampling_frequency, [this](std::uint64_t n){ this->sample_callback(n); }),
+		frame_sequencer_clock(gb_cpu_frequency, 512, [this](std::uint64_t n){ this->frame_sequencer_callback(n); }){
 	this->initialize_new_frame();
 }
 
@@ -134,7 +134,6 @@ void SoundController::update(bool required){
 void SoundController::frame_sequencer_callback(std::uint64_t clock){
 	if (!(clock % 2))
 		this->length_counter_event();
-	auto by_eight = clock % 8;
 	if (clock % 8 == 7)
 		this->volume_event();
 	if (clock % 4 == 2)
@@ -216,7 +215,20 @@ Oscillator::Oscillator(){
 }
 
 void Oscillator::trigger_event(){
-	throw NotImplementedException();
+}
+
+void EnvelopedOscillator::trigger_event(){
+	Oscillator::trigger_event();
+	this->envelope_time = this->envelope_period;
+	this->volume = this->shadow_volume;
+}
+
+void Square1Generator::trigger_event(){
+	Square2Generator::trigger_event();
+	this->shadow_frequency = this->frequency;
+	if (!!this->sweep_period & !!this->sweep_shift){
+		this->sweep_event(true);
+	}
 }
 
 unsigned Square2Generator::get_period(){
@@ -240,14 +252,37 @@ void Square2Generator::advance_duty(std::uint64_t time){
 }
 
 intermediate_audio_type Square2Generator::render(std::uint64_t time){
+	if (!this->enabled())
+		return 0;
+
 	this->advance_duty(time);
 	int y = !(this->duties[this->selected_duty] & bit(this->duty_position >> 13));
 	y = (y * 2 - 1) * this->volume;
 	return (intermediate_audio_type)y * (1.f / 15.f);
 }
 
+bool Oscillator::enabled(){
+	return !this->length_enable | !!this->sound_length;
+}
+
+bool EnvelopedOscillator::enabled(){
+	return Oscillator::enabled() & !!this->volume;
+}
+
+bool Square2Generator::enabled(){
+	//Note: if frequency value > 2041, sound frequency > 20 kHz
+	return EnvelopedOscillator::enabled() & (this->frequency > 0) & (this->frequency <= 2041);
+}
+
+bool Square1Generator::enabled(){
+	return Square2Generator::enabled() & (this->shadow_frequency != this->audio_disabled_by_sweep);
+}
+
 void Square2Generator::set_register1(byte_t value){
 	this->registers[1] = value;
+
+	this->selected_duty = value >> 6;
+	this->sound_length = this->shadow_sound_length = 64 - (value & 0x3F);
 }
 
 void Square2Generator::set_register2(byte_t value){
@@ -260,29 +295,35 @@ void Square2Generator::set_register2(byte_t value){
 
 void Square2Generator::set_register3(byte_t value){
 	this->registers[3] = value;
+
+	auto old = this->frequency;
 	this->frequency &= ~(decltype(this->frequency))0xFF;
 	this->frequency |= value;
-	this->frequency_change();
+	this->frequency_change(old);
+	this->sound_length = this->shadow_sound_length;
 }
 
 void Square2Generator::set_register4(byte_t value){
 	this->registers[4] = value;
 
 	bool trigger = !!(value & bit(7));
-	bool length_enable = !!(value & bit(6));
-
-	//if (trigger)
-	//	this->trigger_event();
+	this->length_enable = !!(value & bit(6));
 
 	unsigned freq = value & 0x07;
 	freq <<= 8;
+	auto old = this->frequency;
 	this->frequency &= ~(decltype(this->frequency))0x0700;
 	this->frequency |= freq;
-	this->frequency_change();
+	this->frequency_change(old);
+
+	this->sound_length = this->shadow_sound_length;
+
+	if (trigger)
+		this->trigger_event();
 }
 
 byte_t Square2Generator::get_register1() const{
-	return this->registers[1];
+	return this->registers[1] & 0x3F;
 }
 
 byte_t Square2Generator::get_register2() const{
@@ -309,33 +350,38 @@ byte_t Square1Generator::get_register0() const{
 	return this->registers[0];
 }
 
-void Square2Generator::frequency_change(){
+void Square2Generator::frequency_change(unsigned old_frequency){
+	if (this->frequency == old_frequency)
+		return;
 	this->period = 0;
 	this->reference_time = this->undefined_reference_time;
 	this->reference_duty_position = this->undefined_reference_duty_position;
 }
 
-void Square1Generator::sweep_event(){
-	if (!this->sweep_period | !this->sweep_time)
-		return;
-	this->sweep_time--;
-	if (this->sweep_time)
-		return;
+void Square1Generator::sweep_event(bool force){
+	if (!force){
+		if (!this->sweep_period | !this->sweep_shift | !this->sweep_time)
+			return;
+		this->sweep_time--;
+		if (this->sweep_time)
+			return;
+	}
 
 	this->sweep_time = this->sweep_period;
+	auto old = this->frequency;
 	this->frequency = this->shadow_frequency;
-	this->frequency_change();
+	this->frequency_change(old);
 	this->shadow_frequency += this->sweep_sign * (this->shadow_frequency >> this->sweep_shift);
 
 	if (this->shadow_frequency < 0)
 		this->shadow_frequency = 0;
 	else if (this->shadow_frequency >= 2048){
 		this->sweep_time = 0;
-		this->shadow_frequency = 2048;
+		this->shadow_frequency = this->audio_disabled_by_sweep;
 	}
 }
 
-void Square2Generator::volume_event(){
+void EnvelopedOscillator::volume_event(){
 	if (!this->envelope_period | !this->envelope_time)
 		return;
 	this->envelope_time--;
@@ -346,4 +392,9 @@ void Square2Generator::volume_event(){
 	this->volume += this->envelope_sign;
 	//Saturate value into range [0; 15]. Note: this only works if this->envelope_sign == +/-1.
 	this->volume -= this->volume >> 4;
+}
+
+void Oscillator::length_counter_event(){
+	if (this->sound_length)
+		this->sound_length--;
 }

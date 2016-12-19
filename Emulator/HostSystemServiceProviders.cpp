@@ -189,6 +189,7 @@ std::uint32_t NetworkProvider::native_endian_to_little_endian(std::uint32_t n){
 }
 
 void AudioOutputProvider::set_callbacks(get_data_callback_t gdc, return_data_callback_t rdc){
+	std::lock_guard<std::mutex> lg(this->mutex);
 	this->get_data_callback = gdc;
 	this->return_data_callback = rdc;
 }

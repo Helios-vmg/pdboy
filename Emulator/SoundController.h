@@ -76,10 +76,15 @@ struct AudioFrame{
 
 class Oscillator{
 protected:
-	bool enabled = false;
 	byte_t registers[5];
 
+	//Sound length
+	unsigned sound_length = 0,
+		shadow_sound_length = 0;
+	bool length_enable = false;
+
 	virtual void trigger_event();
+	virtual bool enabled();
 public:
 	Oscillator();
 	virtual ~Oscillator(){}
@@ -104,10 +109,26 @@ public:
 	virtual byte_t get_register4() const{
 		return 0xFF;
 	}
-	virtual void length_counter_event(){}
+	void length_counter_event();
 };
 
-class Square2Generator : public Oscillator{
+class EnvelopedOscillator : public Oscillator{
+protected:
+	//Envelope
+	int envelope_sign = 0;
+	unsigned envelope_period = 0;
+	unsigned envelope_time = 0;
+	int volume = 0,
+		shadow_volume = 0;
+
+	virtual bool enabled() override;
+	virtual void trigger_event() override;
+public:
+	virtual ~EnvelopedOscillator(){}
+	void volume_event();
+};
+
+class Square2Generator : public EnvelopedOscillator{
 protected:
 	unsigned frequency = 0;
 	unsigned period = 0;
@@ -118,18 +139,12 @@ protected:
 	const decltype(reference_time) undefined_reference_time = std::numeric_limits<decltype(reference_time)>::max();
 	const decltype(reference_duty_position) undefined_reference_duty_position = std::numeric_limits<decltype(reference_duty_position)>::max();
 
-	//Envelope
-	int envelope_sign = 0;
-	unsigned envelope_period = 0;
-	unsigned envelope_time = 0;
-	int volume = 0,
-		shadow_volume = 0;
-
 	static const byte_t duties[4];
 
 	unsigned get_period();
 	void advance_duty(std::uint64_t time);
-	void frequency_change();
+	void frequency_change(unsigned old_frequency);
+	virtual bool enabled() override;
 public:
 	virtual ~Square2Generator(){}
 	intermediate_audio_type render(std::uint64_t time);
@@ -142,7 +157,6 @@ public:
 	virtual byte_t get_register2() const override;
 	virtual byte_t get_register3() const override;
 	virtual byte_t get_register4() const override;
-	void volume_event();
 };
 
 class Square1Generator : public Square2Generator{
@@ -151,10 +165,14 @@ class Square1Generator : public Square2Generator{
 	int sweep_sign = 0;
 	unsigned sweep_shift = 0;
 	int shadow_frequency = 0;
+	static const unsigned audio_disabled_by_sweep = 2048;
+
+	bool enabled() override;
+	void trigger_event() override;
 public:
 	void set_register0(byte_t value) override;
 	byte_t get_register0() const override;
-	void sweep_event();
+	void sweep_event(bool force = false);
 };
 
 class ClockDivider{

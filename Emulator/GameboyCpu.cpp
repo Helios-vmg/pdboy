@@ -100,6 +100,8 @@ void GameboyCpu::run_one_instruction(){
 		this->take_time(4);
 	}else{
 		this->current_pc = this->registers.pc();
+		auto rom_bank = this->system->get_storage_controller().get_current_rom_bank();
+		this->full_pc = (std::uint32_t)this->current_pc | (rom_bank < 0 ? 0 : (rom_bank << 16));
 
 		byte_t opcode;
 		if (!this->dmg_halt_bug)
@@ -214,6 +216,10 @@ void GameboyCpu::perform_dmg_dma(){
 void GameboyCpu::check_timer(){
 	if (this->system->get_system_clock().get_trigger_interrupt())
 		this->interrupt_flag |= this->timer_mask;
+}
+
+std::uint64_t GameboyCpu::get_clock() const{
+	return this->system->get_system_clock().get_clock_value();
 }
 
 void GameboyCpu::opcode_cb(){
