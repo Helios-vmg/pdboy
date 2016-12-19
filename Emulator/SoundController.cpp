@@ -166,10 +166,12 @@ void SoundController::sample_callback(std::uint64_t sample_no){
 
 void SoundController::length_counter_event(){
 	this->square1.length_counter_event();
+	this->square2.length_counter_event();
 }
 
 void SoundController::volume_event(){
 	this->square1.volume_event();
+	this->square2.volume_event();
 }
 
 void SoundController::sweep_event(){
