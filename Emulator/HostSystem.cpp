@@ -26,12 +26,12 @@ HostSystem::HostSystem(
 	}
 	if (this->event_provider)
 		this->event_provider->set_host(*this);
+	this->reinit();
 	if (this->audio_provider)
 		this->audio_provider->set_callbacks(
 			[this](){ return this->gameboy->get_sound_controller().get_current_frame(); },
 			[this](AudioFrame *frame){ this->gameboy->get_sound_controller().return_used_frame(frame); }
 		);
-	this->reinit();
 }
 
 HostSystem::~HostSystem(){
