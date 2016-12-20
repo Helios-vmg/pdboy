@@ -40,10 +40,24 @@ struct basic_StereoSample{
 		ret.right = -ret.right;
 		return ret;
 	}
+	const basic_StereoSample<T> &operator/=(T n){
+		this->left /= n;
+		this->right /= n;
+		return *this;
+	}
 	basic_StereoSample<T> operator/(T n) const{
 		auto ret = *this;
-		ret.left /= n;
-		ret.right /= n;
+		ret /= n;
+		return ret;
+	}
+	const basic_StereoSample<T> &operator*=(T n){
+		this->left *= n;
+		this->right *= n;
+		return *this;
+	}
+	basic_StereoSample<T> operator*(T n) const{
+		auto ret = *this;
+		ret *= n;
 		return ret;
 	}
 };
@@ -242,6 +256,9 @@ class SoundController{
 	};
 
 	Panning stereo_panning[4];
+
+	unsigned left_volume = 0,
+		right_volume = 0;
 
 #ifdef OUTPUT_AUDIO_TO_FILE
 	std::unique_ptr<std::ofstream> output_file;

@@ -184,6 +184,8 @@ void SoundController::sample_callback(std::uint64_t sample_no){
 		sample += this->render_square2(sample_no) / 4;
 		sample += this->render_voluntary(sample_no) / 4;
 		sample += this->render_noise(sample_no) / 4;
+		sample.left = sample.left * this->left_volume / 15;
+		sample.right = sample.right * this->right_volume / 15;
 		dst = convert(sample);
 	}else
 		dst.left = dst.right = 0;
@@ -471,6 +473,9 @@ void WaveformGenerator::length_counter_event(){
 
 void SoundController::set_NR50(byte_t value){
 	this->NR50 = value;
+
+	this->left_volume = (value >> 4) & 0x07;
+	this->right_volume = value & 0x07;
 }
 
 void SoundController::set_NR51(byte_t value){
