@@ -202,14 +202,15 @@ void MemoryController::initialize_io_register_functions(){
 	//this->io_registers_load[0x1f] = &MemoryController::load_not_implemented;
 
 	//Audio:
-	//this->io_registers_stor[0x20] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x20] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x21] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x21] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x22] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x22] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x23] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x23] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x20] = &MemoryController::store_NR41;
+	this->io_registers_load[0x20] = &MemoryController::load_NR41;
+	this->io_registers_stor[0x21] = &MemoryController::store_NR42;
+	this->io_registers_load[0x21] = &MemoryController::load_NR42;
+	this->io_registers_stor[0x22] = &MemoryController::store_NR43;
+	this->io_registers_load[0x22] = &MemoryController::load_NR43;
+	this->io_registers_stor[0x23] = &MemoryController::store_NR44;
+	this->io_registers_load[0x23] = &MemoryController::load_NR44;
+
 	this->io_registers_stor[0x24] = &MemoryController::store_NR50;
 	this->io_registers_load[0x24] = &MemoryController::load_NR50;
 	this->io_registers_stor[0x25] = &MemoryController::store_NR51;
@@ -678,6 +679,38 @@ byte_t MemoryController::load_NR19(main_integer_t) const{
 
 void MemoryController::store_NR19(main_integer_t, byte_t b){
 	this->sound->square2.set_register4(b);
+}
+
+byte_t MemoryController::load_NR41(main_integer_t) const{
+	return this->sound->noise.get_register1();
+}
+
+void MemoryController::store_NR41(main_integer_t, byte_t b){
+	this->sound->noise.set_register1(b);
+}
+
+byte_t MemoryController::load_NR42(main_integer_t) const{
+	return this->sound->noise.get_register2();
+}
+
+void MemoryController::store_NR42(main_integer_t, byte_t b){
+	this->sound->noise.set_register2(b);
+}
+
+byte_t MemoryController::load_NR43(main_integer_t) const{
+	return this->sound->noise.get_register3();
+}
+
+void MemoryController::store_NR43(main_integer_t, byte_t b){
+	this->sound->noise.set_register3(b);
+}
+
+byte_t MemoryController::load_NR44(main_integer_t) const{
+	return this->sound->noise.get_register4();
+}
+
+void MemoryController::store_NR44(main_integer_t, byte_t b){
+	this->sound->noise.set_register4(b);
 }
 
 byte_t MemoryController::load_NR50(main_integer_t) const{

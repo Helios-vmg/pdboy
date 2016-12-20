@@ -39,16 +39,30 @@ T gcd(T a, T b){
 	return a;
 }
 
-ClockDivider::ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback):
-		callback(callback),
-		src_frequency(src_frequency),
-		dst_frequency(dst_frequency){
-	this->reset();
+ClockDivider::ClockDivider(){
+	this->src_frequency = 0;
+	this->dst_frequency = 0;
+	this->modulo = 0;
+	this->last_update = 0;
+}
+
+ClockDivider::ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback){
+	this->configure(src_frequency, dst_frequency, std::move(callback));
+}
+
+void ClockDivider::configure(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback){
+	this->src_frequency = src_frequency;
+	this->dst_frequency = dst_frequency;
+	this->callback = std::move(callback);
 	this->modulo = this->dst_frequency * this->src_frequency;
 	this->modulo /= ::gcd(this->dst_frequency, this->src_frequency);
+	this->reset();
 }
 
 void ClockDivider::update(std::uint64_t source_clock){
+	if (!this->src_frequency)
+		return;
+
 	source_clock %= this->modulo;
 	auto time = source_clock * this->dst_frequency / this->src_frequency;
 	if (time == this->last_update)
@@ -128,7 +142,8 @@ SoundController::SoundController(Gameboy &system):
 		audio_sample_clock(gb_cpu_frequency, sampling_frequency, [this](std::uint64_t n){ this->sample_callback(n); }),
 		frame_sequencer_clock(gb_cpu_frequency, 512, [this](std::uint64_t n){ this->frame_sequencer_callback(n); }),
 		square1(*this),
-		square2(*this){
+		square2(*this),
+		noise(*this){
 
 	this->initialize_new_frame();
 #ifdef OUTPUT_AUDIO_TO_FILE
@@ -141,6 +156,8 @@ SoundController::SoundController(Gameboy &system):
 void SoundController::update(bool required){
 	this->current_clock = this->system->get_system_clock().get_clock_value();
 	auto t = this->current_clock - this->audio_turned_on_at;
+
+	this->noise.update_state_before_render(t);
 	this->frame_sequencer_clock.update(t);
 	this->audio_sample_clock.update(t);
 }
@@ -174,10 +191,8 @@ void SoundController::sample_callback(std::uint64_t sample_no){
 	this->current_frame_position++;
 	if (this->current_frame_position >= AudioFrame::length){
 #ifdef OUTPUT_AUDIO_TO_FILE
-		if (this->output_file){
+		if (this->output_file)
 			this->output_file->write((const char *)buffer, sizeof(buffer));
-			this->output_file_length += sizeof(buffer);
-		}
 #endif
 		this->current_frame_position = 0;
 		this->publishing_frames.publish();
@@ -188,11 +203,13 @@ void SoundController::sample_callback(std::uint64_t sample_no){
 void SoundController::length_counter_event(){
 	this->square1.length_counter_event();
 	this->square2.length_counter_event();
+	this->noise.length_counter_event();
 }
 
 void SoundController::volume_event(){
 	this->square1.volume_event();
 	this->square2.volume_event();
+	this->noise.volume_event();
 }
 
 void SoundController::sweep_event(){
@@ -245,9 +262,7 @@ StereoSampleIntermediate SoundController::render_voluntary(std::uint64_t time){
 }
 
 StereoSampleIntermediate SoundController::render_noise(std::uint64_t time){
-	StereoSampleIntermediate ret;
-	ret.left = ret.right = 0;
-	return ret;
+	return compute_channel_panning_and_silence(this->noise, time, this->stereo_panning[3]);
 }
 
 WaveformGenerator::WaveformGenerator(SoundController &parent): parent(&parent){
@@ -299,8 +314,12 @@ intermediate_audio_type Square2Generator::render(std::uint64_t time) const{
 	if (!this->enabled())
 		return 0;
 
-	int y = !!(this->duties[this->selected_duty] & bit(this->duty_position >> 13));
-	y = (y * 2 - 1) * this->volume;
+	bool bit = !!(this->duties[this->selected_duty] & ::bit(this->duty_position >> 13));
+	return this->render_from_bit(bit);
+}
+
+intermediate_audio_type EnvelopedGenerator::render_from_bit(bool signal) const{
+	auto y = (signal * 2 - 1) * this->volume;
 	return (intermediate_audio_type)y * (1.f / 15.f);
 }
 
@@ -332,7 +351,7 @@ void Square2Generator::set_register1(byte_t value){
 	this->sound_length = this->shadow_sound_length = 64 - (value & 0x3F);
 }
 
-void Square2Generator::set_register2(byte_t value){
+void EnvelopedGenerator::set_register2(byte_t value){
 	this->registers[2] = value;
 
 	this->volume = this->shadow_volume = value >> 4;
@@ -350,18 +369,11 @@ void Square2Generator::set_register3(byte_t value){
 	this->sound_length = this->shadow_sound_length;
 }
 
-void Square2Generator::set_register4(byte_t value){
+void WaveformGenerator::set_register4(byte_t value){
 	this->registers[4] = value;
 
 	bool trigger = !!(value & bit(7));
 	this->length_enable = !!(value & bit(6));
-
-	unsigned freq = value & 0x07;
-	freq <<= 8;
-	auto old = this->frequency;
-	this->frequency &= ~(decltype(this->frequency))0x0700;
-	this->frequency |= freq;
-	this->frequency_change(old);
 
 	this->sound_length = this->shadow_sound_length;
 
@@ -369,11 +381,22 @@ void Square2Generator::set_register4(byte_t value){
 		this->trigger_event();
 }
 
+void Square2Generator::set_register4(byte_t value){
+	unsigned freq = value & 0x07;
+	freq <<= 8;
+	auto old = this->frequency;
+	this->frequency &= ~(decltype(this->frequency))0x0700;
+	this->frequency |= freq;
+	this->frequency_change(old);
+
+	WaveformGenerator::set_register4(value);
+}
+
 byte_t Square2Generator::get_register1() const{
 	return this->registers[1] & 0x3F;
 }
 
-byte_t Square2Generator::get_register2() const{
+byte_t EnvelopedGenerator::get_register2() const{
 	return this->registers[2];
 }
 
@@ -381,7 +404,7 @@ byte_t Square2Generator::get_register3() const{
 	return 0xFF;
 }
 
-byte_t Square2Generator::get_register4() const{
+byte_t WaveformGenerator::get_register4() const{
 	return this->registers[4] | 0xBF;
 }
 
@@ -477,6 +500,55 @@ byte_t SoundController::get_NR52() const{
 	ret |= (byte_t)this->square1.length_counter_has_not_finished() << 0;
 	ret |= (byte_t)this->square2.length_counter_has_not_finished() << 1;
 	ret |= bit(2);
-	ret |= bit(3);
+	ret |= (byte_t)this->noise.length_counter_has_not_finished() << 3;
 	return ret;
+}
+
+void NoiseGenerator::set_register3(byte_t value){
+	EnvelopedGenerator::set_register3(value);
+	this->width_mode = 14 - (value & bit(3));
+
+	unsigned clock_shift = value >> 4;
+	unsigned divisor_code = value & 0x07;
+	unsigned frequency;
+	if (!divisor_code)
+		frequency = 1 << 20;
+	else
+		frequency = (1 << 19) / divisor_code;
+	frequency >>= clock_shift + 1;
+
+	this->noise_scheduler.configure(
+		gb_cpu_frequency,
+		frequency,
+		[this](std::uint64_t t)
+		{
+			this->noise_update_event(t);
+		}
+	);
+}
+
+intermediate_audio_type NoiseGenerator::render(std::uint64_t time) const{
+	if (!this->enabled())
+		return 0;
+
+	return this->render_from_bit(this->output);
+}
+
+void NoiseGenerator::update_state_before_render(std::uint64_t time){
+	this->noise_scheduler.update(time);
+}
+
+void NoiseGenerator::noise_update_event(std::uint64_t){
+	auto output = this->noise_register;
+	this->noise_register >>= 1;
+	output ^= this->noise_register;
+	output &= 1;
+	this->noise_register &= ~bit(this->width_mode);
+	this->noise_register |= output << this->width_mode;
+	this->noise_register &= 0x7FFF;
+	this->output ^= !!output;
+}
+
+void NoiseGenerator::trigger_event(){
+	EnvelopedGenerator::trigger_event();
 }

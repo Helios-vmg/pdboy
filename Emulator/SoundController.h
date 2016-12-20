@@ -99,7 +99,7 @@ public:
 	virtual void set_register1(byte_t){}
 	virtual void set_register2(byte_t){}
 	virtual void set_register3(byte_t){}
-	virtual void set_register4(byte_t){}
+	virtual void set_register4(byte_t);
 	virtual byte_t get_register1() const{
 		return 0xFF;
 	}
@@ -109,9 +109,7 @@ public:
 	virtual byte_t get_register3() const{
 		return 0xFF;
 	}
-	virtual byte_t get_register4() const{
-		return 0xFF;
-	}
+	virtual byte_t get_register4() const;
 	void length_counter_event();
 	bool length_counter_has_not_finished() const;
 };
@@ -127,11 +125,14 @@ protected:
 
 	virtual bool enabled() const override;
 	virtual void trigger_event() override;
+	intermediate_audio_type render_from_bit(bool signal) const;
 public:
 	EnvelopedGenerator(SoundController &parent):
 		WaveformGenerator(parent){}
 	virtual ~EnvelopedGenerator(){}
 	void volume_event();
+	virtual void set_register2(byte_t value) override;
+	virtual byte_t get_register2() const override;
 };
 
 class Square2Generator : public EnvelopedGenerator{
@@ -159,13 +160,10 @@ public:
 	intermediate_audio_type render(std::uint64_t time) const override;
 
 	virtual void set_register1(byte_t value) override;
-	virtual void set_register2(byte_t value) override;
 	virtual void set_register3(byte_t value) override;
 	virtual void set_register4(byte_t value) override;
 	virtual byte_t get_register1() const override;
-	virtual byte_t get_register2() const override;
 	virtual byte_t get_register3() const override;
-	virtual byte_t get_register4() const override;
 };
 
 class Square1Generator : public Square2Generator{
@@ -197,9 +195,29 @@ private:
 	std::uint64_t modulo;
 	std::uint64_t last_update;
 public:
+	ClockDivider();
 	ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback);
+	void configure(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback);
 	void update(std::uint64_t);
 	void reset();
+};
+
+class NoiseGenerator : public EnvelopedGenerator{
+	unsigned width_mode = 0;
+	unsigned noise_register = 1;
+	bool output = true;
+
+	ClockDivider noise_scheduler;
+
+	//bool enabled() const override;
+	void trigger_event() override;
+	void noise_update_event(std::uint64_t);
+public:
+	NoiseGenerator(SoundController &parent) :
+		EnvelopedGenerator(parent){}
+	void set_register3(byte_t value) override;
+	intermediate_audio_type render(std::uint64_t time) const override;
+	void update_state_before_render(std::uint64_t time) override;
 };
 
 class SoundController{
@@ -242,6 +260,7 @@ class SoundController{
 public:
 	Square1Generator square1;
 	Square2Generator square2;
+	NoiseGenerator noise;
 
 	SoundController(Gameboy &);
 	void update(bool required = false);
