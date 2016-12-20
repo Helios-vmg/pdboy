@@ -277,7 +277,7 @@ void WaveformGenerator::trigger_event(){
 void EnvelopedGenerator::trigger_event(){
 	WaveformGenerator::trigger_event();
 	this->envelope_time = this->envelope_period;
-	this->volume = this->shadow_volume;
+	this->load_volume_from_register();
 }
 
 void Square1Generator::trigger_event(){
@@ -353,10 +353,14 @@ void Square2Generator::set_register1(byte_t value){
 	this->sound_length = this->shadow_sound_length = 64 - (value & 0x3F);
 }
 
+void EnvelopedGenerator::load_volume_from_register(){
+	this->volume = this->registers[2] >> 4;
+}
+
 void EnvelopedGenerator::set_register2(byte_t value){
 	this->registers[2] = value;
 
-	this->volume = this->shadow_volume = value >> 4;
+	this->load_volume_from_register();
 	this->envelope_sign = value & bit(3) ? 1 : -1;
 	this->envelope_period = value & 0x07;
 }
@@ -552,8 +556,4 @@ void NoiseGenerator::noise_update_event(std::uint64_t){
 	this->noise_register |= output << this->width_mode;
 	this->noise_register &= 0x7FFF;
 	this->output ^= !!output;
-}
-
-void NoiseGenerator::trigger_event(){
-	EnvelopedGenerator::trigger_event();
 }

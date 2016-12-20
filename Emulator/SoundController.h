@@ -134,12 +134,12 @@ protected:
 	int envelope_sign = 0;
 	unsigned envelope_period = 0;
 	unsigned envelope_time = 0;
-	int volume = 0,
-		shadow_volume = 0;
+	int volume = 0;
 
 	virtual bool enabled() const override;
 	virtual void trigger_event() override;
 	intermediate_audio_type render_from_bit(bool signal) const;
+	void load_volume_from_register();
 public:
 	EnvelopedGenerator(SoundController &parent):
 		WaveformGenerator(parent){}
@@ -223,8 +223,6 @@ class NoiseGenerator : public EnvelopedGenerator{
 
 	ClockDivider noise_scheduler;
 
-	//bool enabled() const override;
-	void trigger_event() override;
 	void noise_update_event(std::uint64_t);
 public:
 	NoiseGenerator(SoundController &parent) :
