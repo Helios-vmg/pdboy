@@ -60,8 +60,8 @@ ClockDivider::ClockDivider(unsigned src_frequency_power, std::uint64_t dst_frequ
 	this->configure(src_frequency_power, dst_frequency, std::move(callback));
 }
 #else
-ClockDivider::ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t callback, void *user_data){
-	this->configure(src_frequency, dst_frequency, callback, user_data);
+ClockDivider::ClockDivider(unsigned src_frequency_power, std::uint64_t dst_frequency, callback_t callback, void *user_data){
+	this->configure(src_frequency_power, dst_frequency, callback, user_data);
 }
 #endif
 
@@ -69,7 +69,7 @@ ClockDivider::ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_freque
 void ClockDivider::configure(unsigned src_frequency_power, std::uint64_t dst_frequency, callback_t &&callback){
 	this->callback = callback;
 #else
-void ClockDivider::configure(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t callback, void *user_data){
+void ClockDivider::configure(unsigned src_frequency_power, std::uint64_t dst_frequency, callback_t callback, void *user_data){
 	this->callback = callback;
 	this->user_data = user_data;
 #endif
@@ -84,7 +84,9 @@ void ClockDivider::update(std::uint64_t source_clock){
 
 	auto time = source_clock * this->dst_frequency;
 	time >>= this->src_frequency_power;
-	if (time == this->last_update)
+	if (this->last_update == std::numeric_limits<std::uint64_t>::max())
+		this->last_update = time - 1;
+	else if (time == this->last_update)
 		return;
 	auto dst_clock = this->last_update + 1;
 	for (; dst_clock <= time; dst_clock++)
@@ -180,8 +182,6 @@ void SoundController::sample_callback(std::uint64_t sample_no){
 	if (this->master_toggle){
 		StereoSampleIntermediate channels[4];
 		channels[0] = this->render_square1(sample_no);
-		//if (channels[0].left)
-		//	__debugbreak();
 		channels[1] = this->render_square2(sample_no);
 		channels[2] = this->render_voluntary(sample_no);
 		channels[3] = this->render_noise(sample_no);
@@ -190,11 +190,7 @@ void SoundController::sample_callback(std::uint64_t sample_no){
 			if (this->output_buffers_by_channel[i])
 				this->output_buffers_by_channel[i]->buffer[this->current_frame_position] = convert(channels[i]);
 #endif
-#ifdef USE_FLOAT_AUDIO
-			sample += channels[i] / 4;
-#else
 			sample += channels[i];
-#endif
 		}
 #ifndef USE_FLOAT_AUDIO
 		sample /= 4;
@@ -612,10 +608,7 @@ void NoiseGenerator::set_register3(byte_t value){
 			this->noise_update_event();
 		}
 #else
-		[](void *This, std::uint64_t)
-		{
-			((NoiseGenerator *)This)->noise_update_event();
-		},
+		NoiseGenerator::noise_update_event,
 		this
 #endif
 	);
@@ -630,6 +623,10 @@ intermediate_audio_type NoiseGenerator::render(std::uint64_t time) const{
 
 void NoiseGenerator::update_state_before_render(std::uint64_t time){
 	this->noise_scheduler.update(time);
+}
+
+void NoiseGenerator::noise_update_event(void *This, std::uint64_t){
+	((NoiseGenerator *)This)->noise_update_event();
 }
 
 void NoiseGenerator::noise_update_event(){

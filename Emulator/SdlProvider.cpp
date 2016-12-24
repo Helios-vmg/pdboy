@@ -86,7 +86,6 @@ Uint32 SDLCALL SdlProvider::timer_callback(Uint32 interval, void *param){
 }
 
 void SDLCALL SdlProvider::audio_callback(void *userdata, Uint8 *stream, int len){
-#ifndef BENCHMARKING
 	auto This = (SdlProvider *)userdata;
 	{
 		std::lock_guard<std::mutex> lg(This->mutex);
@@ -94,15 +93,18 @@ void SDLCALL SdlProvider::audio_callback(void *userdata, Uint8 *stream, int len)
 			auto frame = This->get_data_callback();
 			if (frame){
 				if (frame->frame_no < This->next_frame){
-					//std::cout << "Repeated frame!\n";
 					if (This->return_data_callback)
 						This->return_data_callback(frame);
-				} else{
+				}else{
 					This->next_frame = frame->frame_no + 1;
+#ifndef BENCHMARKING
 					auto n = std::min<size_t>(len, sizeof(frame->buffer));
 					memcpy(stream, frame->buffer, n);
 					if (len - n)
 						memset(stream + n, 0, len - n);
+#else
+					memset(stream, 0, len);
+#endif
 					if (This->return_data_callback)
 						This->return_data_callback(frame);
 					return;
@@ -110,7 +112,6 @@ void SDLCALL SdlProvider::audio_callback(void *userdata, Uint8 *stream, int len)
 			}
 		}
 	}
-#endif
 	memset(stream, 0, len);
 }
 

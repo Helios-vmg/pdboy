@@ -100,8 +100,8 @@ public:
 	ClockDivider(unsigned src_frequency_power, std::uint64_t dst_frequency, callback_t &&callback);
 	void configure(unsigned src_frequency_power, std::uint64_t dst_frequency, callback_t &&callback);
 #else
-	ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t callback, void *user_data);
-	void configure(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t callback, void *user_data);
+	ClockDivider(unsigned src_frequency_power, std::uint64_t dst_frequency, callback_t callback, void *user_data);
+	void configure(unsigned src_frequency_power, std::uint64_t dst_frequency, callback_t callback, void *user_data);
 #endif
 	void update(std::uint64_t);
 	void reset();
