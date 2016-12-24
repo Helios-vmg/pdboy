@@ -92,6 +92,23 @@ struct AudioFrame{
 	StereoSampleFinal buffer[length];
 };
 
+class ClockDivider{
+public:
+	typedef std::function<void(std::uint64_t)> callback_t;
+private:
+	callback_t callback;
+	std::uint64_t src_frequency,
+		dst_frequency;
+	std::uint64_t modulo;
+	std::uint64_t last_update;
+public:
+	ClockDivider();
+	ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback);
+	void configure(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback);
+	void update(std::uint64_t);
+	void reset();
+};
+
 class WaveformGenerator{
 protected:
 	SoundController *parent;
@@ -110,7 +127,7 @@ public:
 	virtual ~WaveformGenerator(){}
 	virtual void update_state_before_render(std::uint64_t time){}
 	virtual intermediate_audio_type render(std::uint64_t time) const = 0;
-	virtual void set_register1(byte_t){}
+	virtual void set_register1(byte_t);
 	virtual void set_register2(byte_t){}
 	virtual void set_register3(byte_t){}
 	virtual void set_register4(byte_t);
@@ -123,7 +140,7 @@ public:
 	virtual byte_t get_register3() const{
 		return 0xFF;
 	}
-	virtual byte_t get_register4() const;
+	byte_t get_register4() const;
 	void length_counter_event();
 	bool length_counter_has_not_finished() const;
 };
@@ -149,22 +166,32 @@ public:
 	virtual byte_t get_register2() const override;
 };
 
-class Square2Generator : public EnvelopedGenerator{
+class FrequenciedGenerator{
 protected:
 	unsigned frequency = 0;
 	unsigned period = 0;
-	unsigned selected_duty = 2;
 	std::uint64_t reference_time = 0;
-	unsigned duty_position = 0;
-	unsigned reference_duty_position = 0;
+	unsigned cycle_position = 0;
+	unsigned reference_cycle_position = 0;
 	const decltype(reference_time) undefined_reference_time = std::numeric_limits<decltype(reference_time)>::max();
-	const decltype(reference_duty_position) undefined_reference_duty_position = std::numeric_limits<decltype(reference_duty_position)>::max();
+	const decltype(reference_cycle_position) undefined_reference_cycle_position = std::numeric_limits<decltype(reference_cycle_position)>::max();
 
+	template <unsigned Shift>
+	void advance_cycle(std::uint64_t time);
+	void frequency_change(unsigned old_frequency);
+	virtual unsigned get_period() = 0;
+	void write_register3_frequency(byte_t value);
+	void write_register4_frequency(byte_t value);
+public:
+	virtual ~FrequenciedGenerator(){}
+};
+
+class Square2Generator : public EnvelopedGenerator, public FrequenciedGenerator{
+protected:
+	unsigned selected_duty = 2;
 	static const byte_t duties[4];
 
-	unsigned get_period();
-	void advance_duty(std::uint64_t time);
-	void frequency_change(unsigned old_frequency);
+	unsigned get_period() override;
 	virtual bool enabled() const override;
 public:
 	Square2Generator(SoundController &parent) :
@@ -199,23 +226,6 @@ public:
 	void sweep_event(bool force = false);
 };
 
-class ClockDivider{
-public:
-	typedef std::function<void(std::uint64_t)> callback_t;
-private:
-	callback_t callback;
-	std::uint64_t src_frequency,
-		dst_frequency;
-	std::uint64_t modulo;
-	std::uint64_t last_update;
-public:
-	ClockDivider();
-	ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback);
-	void configure(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback);
-	void update(std::uint64_t);
-	void reset();
-};
-
 class NoiseGenerator : public EnvelopedGenerator{
 	unsigned width_mode = 0;
 	unsigned noise_register = 1;
@@ -224,12 +234,40 @@ class NoiseGenerator : public EnvelopedGenerator{
 	ClockDivider noise_scheduler;
 
 	void noise_update_event(std::uint64_t);
+	void trigger_event() override;
 public:
 	NoiseGenerator(SoundController &parent) :
 		EnvelopedGenerator(parent){}
 	void set_register3(byte_t value) override;
 	intermediate_audio_type render(std::uint64_t time) const override;
 	void update_state_before_render(std::uint64_t time) override;
+};
+
+class VoluntaryWaveGenerator : public WaveformGenerator, public FrequenciedGenerator{
+	bool dac_power = false;
+	unsigned volume_shift = 0;
+	byte_t wave_buffer[32];
+	byte_t sample_register = 0;
+
+	bool enabled() const override;
+	void trigger_event() override;
+public:
+	VoluntaryWaveGenerator(SoundController &parent);
+	void update_state_before_render(std::uint64_t time) override;
+	intermediate_audio_type render(std::uint64_t time) const override;
+	unsigned get_period() override;
+
+	void set_register0(byte_t);
+	void set_register1(byte_t) override;
+	void set_register2(byte_t) override;
+	void set_register3(byte_t) override;
+	void set_register4(byte_t) override;
+	void set_wave_table(unsigned position, byte_t value);
+
+	byte_t get_register0() const;
+	byte_t get_register1() const override;
+	byte_t get_register2() const override;
+	byte_t get_register3() const override;
 };
 
 class SoundController{
@@ -275,6 +313,7 @@ class SoundController{
 public:
 	Square1Generator square1;
 	Square2Generator square2;
+	VoluntaryWaveGenerator wave;
 	NoiseGenerator noise;
 
 	SoundController(Gameboy &);
@@ -295,9 +334,4 @@ public:
 		return this->NR51;
 	}
 	byte_t get_NR52() const;
-
-	static intermediate_audio_type base_wave_generator_duty_50(std::uint64_t time, unsigned frequency);
-	static intermediate_audio_type base_wave_generator_duty_12(std::uint64_t time, unsigned frequency);
-	static intermediate_audio_type base_wave_generator_duty_25(std::uint64_t time, unsigned frequency);
-	static intermediate_audio_type base_wave_generator_duty_75(std::uint64_t time, unsigned frequency);
 };

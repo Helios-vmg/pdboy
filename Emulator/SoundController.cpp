@@ -7,10 +7,6 @@
 
 const float tau = (float)(M_PI * 2);
 
-#define BASE_WAVE_SINE 1
-#define BASE_WAVE_SQUARE 2
-#define BASE_WAVE BASE_WAVE_SINE
-
 const unsigned sampling_frequency = 44100;
 const float AudioTypeProperties<float>::max = 1;
 const float AudioTypeProperties<float>::max_absolute = 1;
@@ -77,73 +73,14 @@ void ClockDivider::reset(){
 	this->last_update = std::numeric_limits<std::uint64_t>::max();
 }
 
-intermediate_audio_type SoundController::base_wave_generator_duty_50(std::uint64_t time, unsigned frequency){
-	time %= sampling_frequency;
-	typedef intermediate_audio_type T;
-	if (std::is_floating_point<T>::value){
-		T t = (T)time * ((T)1 / (T)sampling_frequency);
-#if BASE_WAVE == BASE_WAVE_SINE
-		return sinf(time * frequency * (tau / sampling_frequency));
-#elif BASE_WAVE == BASE_WAVE_SQUARE
-		return ((int)(time * frequency / (sampling_frequency / 2) % 2) * -2 + 1) * AudioTypeProperties<T>::max_absolute;
-#endif
-	}
-}
-
-float sine_variable_duty(std::uint64_t time, unsigned frequency, float duty){
-	auto y = SoundController::base_wave_generator_duty_50(time, frequency);
-	y = (y + 1) * 0.5f;
-	y = pow(y, duty);
-	y = y * 2 - 1;
-	return y;
-}
-
-intermediate_audio_type SoundController::base_wave_generator_duty_12(std::uint64_t time, unsigned frequency){
-	time %= sampling_frequency;
-	typedef intermediate_audio_type T;
-	if (std::is_floating_point<T>::value){
-		T t = (T)time * ((T)1 / (T)sampling_frequency);
-#if BASE_WAVE == BASE_WAVE_SINE
-		return sine_variable_duty(time, frequency, 17.8f);
-#elif BASE_WAVE == BASE_WAVE_SQUARE
-		return ((int)(time * frequency * 2 / (sampling_frequency / 4) % 8 == 0) * -2 + 1) * AudioTypeProperties<T>::max_absolute;
-#endif
-	}
-}
-
-intermediate_audio_type SoundController::base_wave_generator_duty_25(std::uint64_t time, unsigned frequency){
-	time %= sampling_frequency;
-	typedef intermediate_audio_type T;
-	if (std::is_floating_point<T>::value){
-		T t = (T)time * ((T)1 / (T)sampling_frequency);
-#if BASE_WAVE == BASE_WAVE_SINE
-		return sine_variable_duty(time, frequency, 4.38f);
-#elif BASE_WAVE == BASE_WAVE_SQUARE
-		return -((int)(time * frequency * 2 / (sampling_frequency / 4) % 8 != 0) * -2 + 1) * AudioTypeProperties<T>::max_absolute;
-#endif
-	}
-}
-
-intermediate_audio_type SoundController::base_wave_generator_duty_75(std::uint64_t time, unsigned frequency){
-	time %= sampling_frequency;
-	typedef intermediate_audio_type T;
-	if (std::is_floating_point<T>::value){
-		T t = (T)time * ((T)1 / (T)sampling_frequency);
-#if BASE_WAVE == BASE_WAVE_SINE
-		return -sine_variable_duty(time, frequency, 4.38f);
-#elif BASE_WAVE == BASE_WAVE_SQUARE
-		return ((int)(time * frequency * 2 / (sampling_frequency / 4) % 8 == 0) * -2 + 1) * AudioTypeProperties<T>::max_absolute;
-#endif
-	}
-}
-
 SoundController::SoundController(Gameboy &system):
 		system(&system),
 		audio_sample_clock(gb_cpu_frequency, sampling_frequency, [this](std::uint64_t n){ this->sample_callback(n); }),
 		frame_sequencer_clock(gb_cpu_frequency, 512, [this](std::uint64_t n){ this->frame_sequencer_callback(n); }),
 		square1(*this),
 		square2(*this),
-		noise(*this){
+		noise(*this),
+		wave(*this){
 
 	this->initialize_new_frame();
 #ifdef OUTPUT_AUDIO_TO_FILE
@@ -247,24 +184,53 @@ StereoSampleIntermediate compute_channel_panning_and_silence(const T1 &generator
 	return ret;
 }
 
+#define CHANNEL_SELECTION 0xF
+#define CHANNEL1 (1 << 0)
+#define CHANNEL2 (1 << 1)
+#define CHANNEL3 (1 << 2)
+#define CHANNEL4 (1 << 3)
+
 StereoSampleIntermediate SoundController::render_square1(std::uint64_t time){
 	this->square1.update_state_before_render(time);
+#if CHANNEL_SELECTION & CHANNEL1
 	return compute_channel_panning_and_silence(this->square1, time, this->stereo_panning[0]);
+#else
+	StereoSampleIntermediate ret;
+	ret.left = ret.right = 0;
+	return ret;
+#endif
 }
 
 StereoSampleIntermediate SoundController::render_square2(std::uint64_t time){
 	this->square2.update_state_before_render(time);
+#if CHANNEL_SELECTION & CHANNEL2
 	return compute_channel_panning_and_silence(this->square2, time, this->stereo_panning[1]);
-}
-
-StereoSampleIntermediate SoundController::render_voluntary(std::uint64_t time){
+#else
 	StereoSampleIntermediate ret;
 	ret.left = ret.right = 0;
 	return ret;
+#endif
+}
+
+StereoSampleIntermediate SoundController::render_voluntary(std::uint64_t time){
+	this->wave.update_state_before_render(time);
+#if CHANNEL_SELECTION & CHANNEL3
+	return compute_channel_panning_and_silence(this->wave, time, this->stereo_panning[2]);
+#else
+	StereoSampleIntermediate ret;
+	ret.left = ret.right = 0;
+	return ret;
+#endif
 }
 
 StereoSampleIntermediate SoundController::render_noise(std::uint64_t time){
+#if CHANNEL_SELECTION & CHANNEL4
 	return compute_channel_panning_and_silence(this->noise, time, this->stereo_panning[3]);
+#else
+	StereoSampleIntermediate ret;
+	ret.left = ret.right = 0;
+	return ret;
+#endif
 }
 
 WaveformGenerator::WaveformGenerator(SoundController &parent): parent(&parent){
@@ -278,6 +244,8 @@ void EnvelopedGenerator::trigger_event(){
 	WaveformGenerator::trigger_event();
 	this->envelope_time = this->envelope_period;
 	this->load_volume_from_register();
+	if (!this->sound_length)
+		this->sound_length = 64;
 }
 
 void Square1Generator::trigger_event(){
@@ -294,29 +262,32 @@ unsigned Square2Generator::get_period(){
 	return this->period;
 }
 
-void Square2Generator::advance_duty(std::uint64_t time){
+template <unsigned Shift>
+void FrequenciedGenerator::advance_cycle(std::uint64_t time){
 	bool und1 = this->reference_time == this->undefined_reference_time;
-	bool und2 = this->reference_duty_position == this->undefined_reference_duty_position;
+	bool und2 = this->reference_cycle_position == this->undefined_reference_cycle_position;
 	if (und1 & und2){
 		this->reference_time = time;
-		this->reference_duty_position = this->duty_position;
+		this->reference_cycle_position = this->cycle_position;
 	}else{
 		auto delta = time - this->reference_time;
-		this->duty_position = this->reference_duty_position;
-		this->duty_position += (unsigned)((delta << 13) * gb_cpu_frequency / (sampling_frequency * this->get_period()));
-		this->duty_position &= 0xFFFF;
+		this->cycle_position = this->reference_cycle_position;
+		const auto mult = (std::uint64_t)gb_cpu_frequency << Shift;
+		auto div = sampling_frequency * this->get_period();
+		this->cycle_position += (unsigned)(delta * mult / div) & 0xFFFF;
+		this->cycle_position &= 0xFFFF;
 	}
 }
 
 void Square2Generator::update_state_before_render(std::uint64_t time){
-	this->advance_duty(time);
+	this->advance_cycle<13>(time);
 }
 
 intermediate_audio_type Square2Generator::render(std::uint64_t time) const{
 	if (!this->enabled())
 		return 0;
 
-	bool bit = !!(this->duties[this->selected_duty] & ::bit(this->duty_position >> 13));
+	bool bit = !!(this->duties[this->selected_duty] & ::bit(this->cycle_position >> 13));
 	return this->render_from_bit(bit);
 }
 
@@ -346,11 +317,30 @@ bool Square1Generator::enabled() const{
 	return Square2Generator::enabled() & (this->shadow_frequency != this->audio_disabled_by_sweep);
 }
 
-void Square2Generator::set_register1(byte_t value){
-	this->registers[1] = value;
+void FrequenciedGenerator::write_register3_frequency(byte_t value){
+	auto old = this->frequency;
+	this->frequency &= ~(unsigned)0xFF;
+	this->frequency |= value;
+	this->frequency_change(old);
+}
 
-	this->selected_duty = value >> 6;
+void FrequenciedGenerator::write_register4_frequency(byte_t value){
+	unsigned freq = value & 0x07;
+	freq <<= 8;
+	auto old = this->frequency;
+	this->frequency &= ~(unsigned)0x0700;
+	this->frequency |= freq;
+	this->frequency_change(old);
+}
+
+void WaveformGenerator::set_register1(byte_t value){
+	this->registers[1] = value;
 	this->sound_length = this->shadow_sound_length = 64 - (value & 0x3F);
+}
+
+void Square2Generator::set_register1(byte_t value){
+	WaveformGenerator::set_register1(value);
+	this->selected_duty = value >> 6;
 }
 
 void EnvelopedGenerator::load_volume_from_register(){
@@ -368,10 +358,7 @@ void EnvelopedGenerator::set_register2(byte_t value){
 void Square2Generator::set_register3(byte_t value){
 	this->registers[3] = value;
 
-	auto old = this->frequency;
-	this->frequency &= ~(decltype(this->frequency))0xFF;
-	this->frequency |= value;
-	this->frequency_change(old);
+	this->write_register3_frequency(value);
 	this->sound_length = this->shadow_sound_length;
 }
 
@@ -388,13 +375,7 @@ void WaveformGenerator::set_register4(byte_t value){
 }
 
 void Square2Generator::set_register4(byte_t value){
-	unsigned freq = value & 0x07;
-	freq <<= 8;
-	auto old = this->frequency;
-	this->frequency &= ~(decltype(this->frequency))0x0700;
-	this->frequency |= freq;
-	this->frequency_change(old);
-
+	this->write_register4_frequency(value);
 	WaveformGenerator::set_register4(value);
 }
 
@@ -426,12 +407,12 @@ byte_t Square1Generator::get_register0() const{
 	return this->registers[0] | 0x80;
 }
 
-void Square2Generator::frequency_change(unsigned old_frequency){
+void FrequenciedGenerator::frequency_change(unsigned old_frequency){
 	if (this->frequency == old_frequency)
 		return;
 	this->period = 0;
 	this->reference_time = this->undefined_reference_time;
-	this->reference_duty_position = this->undefined_reference_duty_position;
+	this->reference_cycle_position = this->undefined_reference_cycle_position;
 }
 
 void Square1Generator::sweep_event(bool force){
@@ -556,4 +537,93 @@ void NoiseGenerator::noise_update_event(std::uint64_t){
 	this->noise_register |= output << this->width_mode;
 	this->noise_register &= 0x7FFF;
 	this->output ^= !!output;
+}
+
+VoluntaryWaveGenerator::VoluntaryWaveGenerator(SoundController &parent): WaveformGenerator(parent){
+	std::fill(this->wave_buffer, this->wave_buffer + array_size(this->wave_buffer), 0);
+}
+
+void VoluntaryWaveGenerator::set_register0(byte_t value){
+	this->registers[0] = value;
+	this->dac_power = !!(value & bit(7));
+}
+
+void VoluntaryWaveGenerator::set_register1(byte_t value){
+	WaveformGenerator::set_register1(value);
+	this->sound_length = this->shadow_sound_length = 256 - value;
+}
+
+void VoluntaryWaveGenerator::set_register2(byte_t value){
+	this->registers[2] = value;
+
+	unsigned volume_code = (value >> 5) & 3;
+	this->volume_shift = (volume_code + 4) % 5;
+}
+
+void VoluntaryWaveGenerator::set_register3(byte_t value){
+	this->registers[3] = value;
+	this->write_register3_frequency(value);
+}
+
+void VoluntaryWaveGenerator::set_register4(byte_t value){
+	this->write_register4_frequency(value);
+	WaveformGenerator::set_register4(value);
+}
+
+void VoluntaryWaveGenerator::set_wave_table(unsigned position, byte_t value){
+	position %= array_size(this->wave_buffer) / 2;
+	position *= 2;
+	this->wave_buffer[position + 0] = value >> 4;
+	this->wave_buffer[position + 1] = value & 0x0F;
+}
+
+byte_t VoluntaryWaveGenerator::get_register0() const{
+	return this->registers[0] | 0x7F;
+}
+
+byte_t VoluntaryWaveGenerator::get_register1() const{
+	return 0xFF;
+}
+
+byte_t VoluntaryWaveGenerator::get_register2() const{
+	return this->registers[2] | 0x9F;
+}
+
+byte_t VoluntaryWaveGenerator::get_register3() const{
+	return 0xFF;
+}
+
+void VoluntaryWaveGenerator::update_state_before_render(std::uint64_t time){
+	this->advance_cycle<11>(time);
+	this->sample_register = this->wave_buffer[this->cycle_position >> 11];
+}
+
+intermediate_audio_type VoluntaryWaveGenerator::render(std::uint64_t time) const{
+	if (!this->enabled())
+		return 0;
+
+	return (this->sample_register >> this->volume_shift) * (2.f / 15.f) - 1;
+}
+
+unsigned VoluntaryWaveGenerator::get_period(){
+	if (!this->period)
+		this->period = (2048 - this->frequency) * 2;
+	return this->period;
+}
+
+bool VoluntaryWaveGenerator::enabled() const{
+	return WaveformGenerator::enabled() & (this->volume_shift != 4) & !!this->frequency & this->dac_power;
+}
+
+void NoiseGenerator::trigger_event(){
+	EnvelopedGenerator::trigger_event();
+	this->noise_register |= ~this->noise_register;
+}
+
+void VoluntaryWaveGenerator::trigger_event(){
+	WaveformGenerator::trigger_event();
+	this->cycle_position = 0;
+	if (!this->sound_length)
+		this->sound_length = 256;
+	this->dac_power = true;
 }

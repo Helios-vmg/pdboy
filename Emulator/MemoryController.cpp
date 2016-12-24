@@ -178,24 +178,24 @@ void MemoryController::initialize_io_register_functions(){
 	//this->io_registers_load[0x15] = &MemoryController::load_not_implemented;
 
 	//Audio:
-	this->io_registers_stor[0x16] = &MemoryController::store_NR16;
-	this->io_registers_load[0x16] = &MemoryController::load_NR16;
-	this->io_registers_stor[0x17] = &MemoryController::store_NR17;
-	this->io_registers_load[0x17] = &MemoryController::load_NR17;
-	this->io_registers_stor[0x18] = &MemoryController::store_NR18;
-	this->io_registers_load[0x18] = &MemoryController::load_NR18;
-	this->io_registers_stor[0x19] = &MemoryController::store_NR19;
-	this->io_registers_load[0x19] = &MemoryController::load_NR19;
-	//this->io_registers_stor[0x1a] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x1a] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x1b] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x1b] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x1c] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x1c] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x1d] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x1d] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x1e] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x1e] = &MemoryController::load_not_implemented;
+	this->io_registers_stor[0x16] = &MemoryController::store_NR21;
+	this->io_registers_load[0x16] = &MemoryController::load_NR21;
+	this->io_registers_stor[0x17] = &MemoryController::store_NR22;
+	this->io_registers_load[0x17] = &MemoryController::load_NR22;
+	this->io_registers_stor[0x18] = &MemoryController::store_NR23;
+	this->io_registers_load[0x18] = &MemoryController::load_NR23;
+	this->io_registers_stor[0x19] = &MemoryController::store_NR24;
+	this->io_registers_load[0x19] = &MemoryController::load_NR24;
+	this->io_registers_stor[0x1a] = &MemoryController::store_NR30;
+	this->io_registers_load[0x1a] = &MemoryController::load_NR30;
+	this->io_registers_stor[0x1b] = &MemoryController::store_NR31;
+	this->io_registers_load[0x1b] = &MemoryController::load_NR31;
+	this->io_registers_stor[0x1c] = &MemoryController::store_NR32;
+	this->io_registers_load[0x1c] = &MemoryController::load_NR32;
+	this->io_registers_stor[0x1d] = &MemoryController::store_NR33;
+	this->io_registers_load[0x1d] = &MemoryController::load_NR33;
+	this->io_registers_stor[0x1e] = &MemoryController::store_NR34;
+	this->io_registers_load[0x1e] = &MemoryController::load_NR30;
 
 	//Unused:
 	//this->io_registers_stor[0x1f] = &MemoryController::stor_not_implemented;
@@ -224,38 +224,10 @@ void MemoryController::initialize_io_register_functions(){
 	}
 
 	//Audio:
-	//this->io_registers_stor[0x30] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x30] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x31] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x31] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x32] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x32] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x33] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x33] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x34] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x34] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x35] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x35] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x36] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x36] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x37] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x37] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x38] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x38] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x39] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x39] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x3a] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x3a] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x3b] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x3b] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x3c] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x3c] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x3d] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x3d] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x3e] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x3e] = &MemoryController::load_not_implemented;
-	//this->io_registers_stor[0x3f] = &MemoryController::stor_not_implemented;
-	//this->io_registers_load[0x3f] = &MemoryController::load_not_implemented;
+	for (unsigned i = 0x30; i < 0x40; i++){
+		this->io_registers_stor[i] = &MemoryController::store_WAVE;
+		this->io_registers_load[i] = &MemoryController::load_WAVE;
+	}
 
 	this->io_registers_stor[0x40] = &MemoryController::store_LCDC;
 	this->io_registers_load[0x40] = &MemoryController::load_LCDC;
@@ -649,37 +621,81 @@ void MemoryController::store_NR14(main_integer_t, byte_t b){
 	this->sound->square1.set_register4(b);
 }
 
-byte_t MemoryController::load_NR16(main_integer_t) const{
+byte_t MemoryController::load_NR21(main_integer_t) const{
 	return this->sound->square2.get_register1();
 }
 
-void MemoryController::store_NR16(main_integer_t, byte_t b){
+void MemoryController::store_NR21(main_integer_t, byte_t b){
 	this->sound->square2.set_register1(b);
 }
 
-byte_t MemoryController::load_NR17(main_integer_t) const{
+byte_t MemoryController::load_NR22(main_integer_t) const{
 	return this->sound->square2.get_register2();
 }
 
-void MemoryController::store_NR17(main_integer_t, byte_t b){
+void MemoryController::store_NR22(main_integer_t, byte_t b){
 	this->sound->square2.set_register2(b);
 }
 
-byte_t MemoryController::load_NR18(main_integer_t) const{
+byte_t MemoryController::load_NR23(main_integer_t) const{
 	return this->sound->square2.get_register3();
 }
 
-void MemoryController::store_NR18(main_integer_t, byte_t b){
+void MemoryController::store_NR23(main_integer_t, byte_t b){
 	this->sound->square2.set_register3(b);
 }
 
-byte_t MemoryController::load_NR19(main_integer_t) const{
+byte_t MemoryController::load_NR24(main_integer_t) const{
 	return this->sound->square2.get_register4();
 }
 
-void MemoryController::store_NR19(main_integer_t, byte_t b){
+void MemoryController::store_NR24(main_integer_t, byte_t b){
 	this->sound->square2.set_register4(b);
 }
+
+
+
+byte_t MemoryController::load_NR30(main_integer_t) const{
+	return this->sound->wave.get_register0();
+}
+
+void MemoryController::store_NR30(main_integer_t, byte_t b){
+	this->sound->wave.set_register0(b);
+}
+
+byte_t MemoryController::load_NR31(main_integer_t) const{
+	return this->sound->wave.get_register1();
+}
+
+void MemoryController::store_NR31(main_integer_t, byte_t b){
+	this->sound->wave.set_register1(b);
+}
+
+byte_t MemoryController::load_NR32(main_integer_t) const{
+	return this->sound->wave.get_register2();
+}
+
+void MemoryController::store_NR32(main_integer_t, byte_t b){
+	this->sound->wave.set_register2(b);
+}
+
+byte_t MemoryController::load_NR33(main_integer_t) const{
+	return this->sound->wave.get_register3();
+}
+
+void MemoryController::store_NR33(main_integer_t, byte_t b){
+	this->sound->wave.set_register3(b);
+}
+
+byte_t MemoryController::load_NR34(main_integer_t) const{
+	return this->sound->wave.get_register4();
+}
+
+void MemoryController::store_NR34(main_integer_t, byte_t b){
+	this->sound->wave.set_register4(b);
+}
+
+
 
 byte_t MemoryController::load_NR41(main_integer_t) const{
 	return this->sound->noise.get_register1();
@@ -735,6 +751,14 @@ byte_t MemoryController::load_NR52(main_integer_t) const{
 
 void MemoryController::store_NR52(main_integer_t, byte_t b){
 	this->sound->set_NR52(b);
+}
+
+byte_t MemoryController::load_WAVE(main_integer_t) const{
+	return 0xFF;
+}
+
+void MemoryController::store_WAVE(main_integer_t address, byte_t b){
+	this->sound->wave.set_wave_table((unsigned)address - 0xFF30, b);
 }
 
 main_integer_t MemoryController::load8(main_integer_t address) const{
