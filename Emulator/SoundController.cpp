@@ -4,6 +4,15 @@
 #include <cmath>
 #include <type_traits>
 #include <SDL_stdinc.h>
+#include <sstream>
+
+#define OUTPUT_AUDIO_TO_FILE
+
+#define CHANNEL_SELECTION 0xF
+#define CHANNEL1 (1 << 0)
+#define CHANNEL2 (1 << 1)
+#define CHANNEL3 (1 << 2)
+#define CHANNEL4 (1 << 3)
 
 const float tau = (float)(M_PI * 2);
 
@@ -84,9 +93,30 @@ SoundController::SoundController(Gameboy &system):
 
 	this->initialize_new_frame();
 #ifdef OUTPUT_AUDIO_TO_FILE
-	this->output_file.reset(new std::ofstream("output.raw", std::ios::binary));
-	if (!*this->output_file)
+	this->output_file.reset(new std::ofstream("output-0.raw", std::ios::binary));
+	bool abort = false;
+	if (*this->output_file){
+		int i = 0;
+		for (auto &file : this->output_files_by_channel){
+			std::stringstream stream;
+			stream << "output-" << i + 1 << ".raw";
+			file.reset(new std::ofstream(stream.str().c_str(), std::ios::binary));
+			if (!*file){
+				abort = true;
+				break;
+			}
+			this->output_buffers_by_channel[i].reset(new AudioFrame);
+			i++;
+		}
+	}else
+		abort = true;
+	if (abort){
 		this->output_file.reset();
+		for (auto &file : this->output_files_by_channel)
+			file.reset();
+		for (auto &buffer : this->output_buffers_by_channel)
+			buffer.reset();
+	}
 #endif
 }
 
@@ -117,10 +147,18 @@ void SoundController::sample_callback(std::uint64_t sample_no){
 	auto &buffer = this->publishing_frames.get_private_resource()->buffer;
 	auto &dst = buffer[this->current_frame_position];
 	if (this->master_toggle){
-		sample += this->render_square1(sample_no) / 4;
-		sample += this->render_square2(sample_no) / 4;
-		sample += this->render_voluntary(sample_no) / 4;
-		sample += this->render_noise(sample_no) / 4;
+		StereoSampleIntermediate channels[4];
+		channels[0] = this->render_square1(sample_no);
+		channels[1] = this->render_square2(sample_no);
+		channels[2] = this->render_voluntary(sample_no);
+		channels[3] = this->render_noise(sample_no);
+		for (int i = 4; i--;){
+#ifdef OUTPUT_AUDIO_TO_FILE
+			if (this->output_buffers_by_channel[i])
+				this->output_buffers_by_channel[i]->buffer[this->current_frame_position] = convert(channels[i]);
+#endif
+			sample += channels[i] / 4;
+		}
 		sample.left = sample.left * this->left_volume / 15;
 		sample.right = sample.right * this->right_volume / 15;
 		dst = convert(sample);
@@ -132,6 +170,11 @@ void SoundController::sample_callback(std::uint64_t sample_no){
 #ifdef OUTPUT_AUDIO_TO_FILE
 		if (this->output_file)
 			this->output_file->write((const char *)buffer, sizeof(buffer));
+		for (int i = 4; i--;){
+			auto &buffer2 = this->output_buffers_by_channel[i]->buffer;
+			if (this->output_files_by_channel[i])
+				this->output_files_by_channel[i]->write((const char *)buffer2, sizeof(buffer2));
+		}
 #endif
 		this->current_frame_position = 0;
 		this->publishing_frames.publish();
@@ -183,12 +226,6 @@ StereoSampleIntermediate compute_channel_panning_and_silence(const T1 &generator
 
 	return ret;
 }
-
-#define CHANNEL_SELECTION 0xF
-#define CHANNEL1 (1 << 0)
-#define CHANNEL2 (1 << 1)
-#define CHANNEL3 (1 << 2)
-#define CHANNEL4 (1 << 3)
 
 StereoSampleIntermediate SoundController::render_square1(std::uint64_t time){
 	this->square1.update_state_before_render(time);
@@ -246,6 +283,12 @@ void EnvelopedGenerator::trigger_event(){
 	this->load_volume_from_register();
 	if (!this->sound_length)
 		this->sound_length = 64;
+}
+
+void Square2Generator::trigger_event(){
+	EnvelopedGenerator::trigger_event();
+	this->cycle_position = 0;
+	this->reset_references();
 }
 
 void Square1Generator::trigger_event(){
@@ -411,6 +454,10 @@ void FrequenciedGenerator::frequency_change(unsigned old_frequency){
 	if (this->frequency == old_frequency)
 		return;
 	this->period = 0;
+	this->reset_references();
+}
+
+void FrequenciedGenerator::reset_references(){
 	this->reference_time = this->undefined_reference_time;
 	this->reference_cycle_position = this->undefined_reference_cycle_position;
 }
@@ -623,6 +670,7 @@ void NoiseGenerator::trigger_event(){
 void VoluntaryWaveGenerator::trigger_event(){
 	WaveformGenerator::trigger_event();
 	this->cycle_position = 0;
+	this->reset_references();
 	if (!this->sound_length)
 		this->sound_length = 256;
 	this->dac_power = true;

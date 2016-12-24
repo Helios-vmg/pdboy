@@ -4,8 +4,6 @@
 #include "PublishingResource.h"
 #include <fstream>
 
-//#define OUTPUT_AUDIO_TO_FILE
-
 class Gameboy;
 class SoundController;
 
@@ -182,6 +180,7 @@ protected:
 	virtual unsigned get_period() = 0;
 	void write_register3_frequency(byte_t value);
 	void write_register4_frequency(byte_t value);
+	void reset_references();
 public:
 	virtual ~FrequenciedGenerator(){}
 };
@@ -193,6 +192,7 @@ protected:
 
 	unsigned get_period() override;
 	virtual bool enabled() const override;
+	void trigger_event() override;
 public:
 	Square2Generator(SoundController &parent) :
 		EnvelopedGenerator(parent){}
@@ -296,9 +296,9 @@ class SoundController{
 	unsigned left_volume = 0,
 		right_volume = 0;
 
-#ifdef OUTPUT_AUDIO_TO_FILE
 	std::unique_ptr<std::ofstream> output_file;
-#endif
+	std::unique_ptr<std::ofstream> output_files_by_channel[4];
+	std::unique_ptr<AudioFrame> output_buffers_by_channel[4];
 
 	StereoSampleIntermediate render_square1(std::uint64_t time);
 	StereoSampleIntermediate render_square2(std::uint64_t time);
