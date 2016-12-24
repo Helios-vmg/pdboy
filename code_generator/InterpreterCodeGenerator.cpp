@@ -960,7 +960,7 @@ uintptr_t InterpreterCodeGenerator::sign_extend8(uintptr_t val){
 	auto &n = back.temporary_index;
 	auto result_name = get_temp_name(n++);
 
-	s << TEMPDECL << result_name << " = sign_extend8(" << temp_to_string(val) << ");\n";
+	s << TEMPDECL << result_name << " = sign_extend8<" TEMPTYPE ">(" << temp_to_string(val) << ");\n";
 
 	auto ret = copy(result_name);
 	this->temporary_values.push_back(ret);

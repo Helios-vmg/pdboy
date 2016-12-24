@@ -99,14 +99,14 @@ public:
 	std::uint64_t get_clock() const;
 };
 
-template <typename T>
-T sign_extend8(T n){
+template <typename T2, typename T1>
+T2 sign_extend8(T1 n){
 #if 0
 	if (n & 0x80)
-		n |= ~(T)0xFF;
+		n |= ~(T2)0xFF;
 	return n;
 #else
-	return (T)(typename std::make_signed<T>::type)(char)n;
+	return (T2)(typename std::make_signed<T2>::type)(char)n;
 #endif
 }
 
