@@ -106,8 +106,8 @@ SoundController::SoundController(Gameboy &system):
 		audio_sample_clock(gb_cpu_frequency_power, sampling_frequency, [this](std::uint64_t n){ this->sample_callback(n); }),
 		frame_sequencer_clock(gb_cpu_frequency_power, 512, [this](std::uint64_t n){ this->frame_sequencer_callback(n); }),
 #else
-		audio_sample_clock(gb_cpu_frequency, sampling_frequency, SoundController::sample_callback, this),
-		frame_sequencer_clock(gb_cpu_frequency, 512, SoundController::frame_sequencer_callback, this),
+		audio_sample_clock(gb_cpu_frequency_power, sampling_frequency, SoundController::sample_callback, this),
+		frame_sequencer_clock(gb_cpu_frequency_power, 512, SoundController::frame_sequencer_callback, this),
 #endif
 		square1(*this),
 		square2(*this),
