@@ -6,7 +6,7 @@
 #include <SDL_stdinc.h>
 #include <sstream>
 
-#define OUTPUT_AUDIO_TO_FILE
+//#define OUTPUT_AUDIO_TO_FILE
 
 #define CHANNEL_SELECTION 0xF
 #define CHANNEL1 (1 << 0)
