@@ -11,6 +11,7 @@ class Cartridge;
 struct RenderedFrame;
 struct InputState;
 class HostSystem;
+struct AudioFrame;
 
 enum class SaveFileType{
 	Ram,
@@ -94,18 +95,81 @@ public:
 	virtual void write_frame_to_disk(std::string &path, const RenderedFrame &){}
 };
 
-class NetworkProtocol{
+class AudioOutputProvider{
 public:
-	virtual ~NetworkProtocol(){}
-	virtual void initiate_as_master() = 0;
-	virtual void initiate_as_slave() = 0;
+	typedef std::function<AudioFrame *()> get_data_callback_t;
+	typedef std::function<void(AudioFrame *)> return_data_callback_t;
+protected:
+	get_data_callback_t get_data_callback;
+	return_data_callback_t return_data_callback;
+	std::mutex mutex;
+public:
+	virtual ~AudioOutputProvider(){}
+	void set_callbacks(get_data_callback_t gdc, return_data_callback_t rdc);
+	virtual void stop_audio() = 0;
 };
 
+enum class DisconnectionCause{
+	ConnectionAborted,
+	LocalUserInitiated,
+	RemoteUserInitiated,
+	ConnectionDropped,
+};
+
+class NetworkProviderConnection;
+
 class NetworkProvider{
-	std::unique_ptr<NetworkProtocol> protocol;
+protected:
+	std::vector<std::unique_ptr<NetworkProviderConnection>> connections;
 public:
-	NetworkProvider(std::unique_ptr<NetworkProtocol> &protocol): protocol(std::move(protocol)){}
 	virtual ~NetworkProvider(){}
-	virtual void initiate_as_master() = 0;
-	virtual void initiate_as_slave() = 0;
+	virtual NetworkProviderConnection *create_connection() = 0;
+	static std::uint32_t little_endian_to_native_endian(std::uint32_t);
+	static std::uint32_t native_endian_to_little_endian(std::uint32_t);
+};
+
+class NetworkProviderConnection{
+	NetworkProvider *provider;
+	std::function<void()> on_accept;
+	std::function<void(DisconnectionCause)> on_disconnection;
+	std::function<size_t(const std::vector<byte_t> &)> on_data_receive;
+public:
+	NetworkProviderConnection(NetworkProvider &provider): provider(&provider){}
+	virtual ~NetworkProviderConnection(){}
+	virtual bool open() = 0;
+	virtual void abort() = 0;
+	virtual void send_data(const std::vector<byte_t> &) = 0;
+	virtual void send_data(const void *, size_t) = 0;
+
+#define DEFINE_SETTER(x) void set_##x(const decltype(x) &y){ this->x = y; }
+	DEFINE_SETTER(on_accept);
+	DEFINE_SETTER(on_disconnection);
+	DEFINE_SETTER(on_data_receive);
+};
+
+class NetworkProtocol{
+protected:
+	NetworkProviderConnection *connection;
+public:
+	struct transfer_data{
+		bool passive_mode;
+		//When operating in DMG mode, this is always false.
+		bool fast_mode;
+		//When operating in DMG mode, this is always false.
+		bool double_speed_mode;
+		byte_t data;
+	};
+
+	NetworkProtocol(NetworkProviderConnection *connection): connection(connection){}
+	virtual ~NetworkProtocol(){}
+	virtual int get_default_port() const{
+		return -1;
+	}
+	virtual void send_data(transfer_data) = 0;
+	//Warning: This callback may be called from a different thread!
+	virtual void set_on_connected(const std::function<void()> &) = 0;
+	//Warning: This callback may be called from a different thread!
+	virtual void set_on_disconnected(const std::function<void(DisconnectionCause)> &) = 0;
+	//Warning: This callback may be called from a different thread!
+	virtual void set_on_data_received(const std::function<void(transfer_data)> &) = 0;
 };

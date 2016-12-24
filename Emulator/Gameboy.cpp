@@ -12,6 +12,7 @@ Gameboy::Gameboy(HostSystem &host):
 		host(&host),
 		cpu(*this),
 		display_controller(*this),
+		sound_controller(*this),
 		input_controller(*this),
 		storage_controller(*this, host),
 		clock(*this),
@@ -111,6 +112,7 @@ void Gameboy::run_until_next_frame(bool force){
 		this->cpu.run_one_instruction();
 		if (this->input_controller.get_button_down())
 			this->cpu.joystick_irq();
+		this->sound_controller.update();
 	}while (!this->display_controller.update() && (this->continue_running || force));
 }
 
@@ -136,8 +138,7 @@ void Gameboy::execute_pause(){
 void Gameboy::stop_and_dump_vram(const char *path){
 	this->continue_running = false;
 	if (std::this_thread::get_id() != this->interpreter_thread->get_id()){
-		this->interpreter_thread->join();
-		this->interpreter_thread.reset();
+		join_thread(this->interpreter_thread);
 	}
 	auto vram = &this->display_controller.access_vram(0x8000);
 	std::unique_ptr<byte_t[]> temp(new byte_t[0x8000]);
@@ -154,8 +155,7 @@ void Gameboy::stop(){
 	if (this->interpreter_thread){
 		this->periodic_notification.signal();
 		this->pause_requested.signal();
-		this->interpreter_thread->join();
-		this->interpreter_thread.reset();
+		join_thread(this->interpreter_thread);
 	}
 }
 

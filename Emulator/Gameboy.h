@@ -4,6 +4,7 @@
 #include "UserInputController.h"
 #include "SystemClock.h"
 #include "StorageController.h"
+#include "SoundController.h"
 #include "threads.h"
 #include "HostSystemServiceProviders.h"
 
@@ -20,6 +21,7 @@ class Gameboy{
 	DisplayController display_controller;
 	UserInputController input_controller;
 	StorageController storage_controller;
+	SoundController sound_controller;
 	SystemClock clock;
 	double accumulated_time = -1;
 	std::uint64_t current_timer_start;
@@ -58,6 +60,9 @@ public:
 	}
 	StorageController &get_storage_controller(){
 		return this->storage_controller;
+	}
+	SoundController &get_sound_controller(){
+		return this->sound_controller;
 	}
 	GameboyCpu &get_cpu(){
 		return this->cpu;

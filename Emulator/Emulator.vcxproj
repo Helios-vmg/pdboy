@@ -168,6 +168,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\generated_files\cpu.generated.cpp" />
+    <ClCompile Include="BgbProtocol.cpp" />
     <ClCompile Include="Cart.cpp" />
     <ClCompile Include="CartMbc1.cpp" />
     <ClCompile Include="CartMbc2.cpp" />
@@ -183,13 +184,16 @@
     <ClCompile Include="MemoryController.cpp" />
     <ClCompile Include="RegisterStore.cpp" />
     <ClCompile Include="SdlProvider.cpp" />
+    <ClCompile Include="SoundController.cpp" />
     <ClCompile Include="StorageController.cpp" />
     <ClCompile Include="SystemClock.cpp" />
     <ClCompile Include="threads.cpp" />
     <ClCompile Include="timer.cpp" />
     <ClCompile Include="UserInputController.cpp" />
+    <ClCompile Include="WinSockNetworking.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="BgbProtocol.h" />
     <ClInclude Include="Cart.h" />
     <ClInclude Include="CartMbc1.h" />
     <ClInclude Include="CartMbc2.h" />
@@ -200,7 +204,9 @@
     <ClInclude Include="MemorySection.h" />
     <ClInclude Include="GeneralString.h" />
     <ClInclude Include="point.h" />
+    <ClInclude Include="PublishingResource.h" />
     <ClInclude Include="SdlProvider.h" />
+    <ClInclude Include="SoundController.h" />
     <ClInclude Include="StorageController.h" />
     <ClInclude Include="SystemClock.h" />
     <ClInclude Include="CommonTypes.h" />
@@ -215,6 +221,9 @@
     <ClInclude Include="timer.h" />
     <ClInclude Include="UserInputController.h" />
     <ClInclude Include="utility.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="WinSockNetworking.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

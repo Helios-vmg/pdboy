@@ -23,7 +23,8 @@ void RegisterStore::set_flags(main_integer_t mode_mask, main_integer_t value_mas
 }
 
 #ifdef DEBUG_REGISTERS
-void RegisterStore::set_last_set(std::uint16_t &dst){
-	dst = (std::uint16_t)this->cpu->get_current_pc();
+void RegisterStore::set_last_set(std::uint32_t &dst_pc, std::uint64_t &dst_time){
+	dst_pc = this->cpu->get_full_pc();
+	dst_time = this->cpu->get_clock();
 }
 #endif

@@ -10,11 +10,13 @@ HostSystem::HostSystem(
 			StorageProvider *storage_provider,
 			TimingProvider *timing_provider,
 			GraphicsOutputProvider *graphics_provider,
+			AudioOutputProvider *audio_provider,
 			EventProvider *event_provider,
 			DateTimeProvider *datetime_provider):
 		storage_provider(storage_provider),
 		timing_provider(timing_provider),
 		graphics_provider(graphics_provider),
+		audio_provider(audio_provider),
 		event_provider(event_provider),
 		datetime_provider(datetime_provider){
 
@@ -25,9 +27,15 @@ HostSystem::HostSystem(
 	if (this->event_provider)
 		this->event_provider->set_host(*this);
 	this->reinit();
+	if (this->audio_provider)
+		this->audio_provider->set_callbacks(
+			[this](){ return this->gameboy->get_sound_controller().get_current_frame(); },
+			[this](AudioFrame *frame){ this->gameboy->get_sound_controller().return_used_frame(frame); }
+		);
 }
 
 HostSystem::~HostSystem(){
+	this->audio_provider->stop_audio();
 	this->gameboy.reset();
 }
 

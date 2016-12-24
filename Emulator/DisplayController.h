@@ -6,6 +6,7 @@
 #include <atomic>
 #include <mutex>
 #include "point.h"
+#include "PublishingResource.h"
 #include "utility.h"
 
 class Gameboy;

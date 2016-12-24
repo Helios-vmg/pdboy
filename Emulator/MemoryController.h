@@ -7,6 +7,7 @@
 
 class GameboyCpu;
 class DisplayController;
+class SoundController;
 
 #define DECLARE_IO_REGISTER(x) \
 	byte_t load_##x(main_integer_t) const; \
@@ -45,6 +46,7 @@ class MemoryController{
 	Gameboy *system;
 	GameboyCpu *cpu;
 	DisplayController *display;
+	SoundController *sound;
 	UserInputController *joypad;
 	StorageController *storage;
 
@@ -125,6 +127,30 @@ class MemoryController{
 	DECLARE_IO_REGISTER(TIMA);
 	DECLARE_IO_REGISTER(TMA);
 	DECLARE_IO_REGISTER(TAC);
+	DECLARE_IO_REGISTER(NR10);
+	DECLARE_IO_REGISTER(NR11);
+	DECLARE_IO_REGISTER(NR12);
+	DECLARE_IO_REGISTER(NR13);
+	DECLARE_IO_REGISTER(NR14);
+	DECLARE_IO_REGISTER(NR21);
+	DECLARE_IO_REGISTER(NR22);
+	DECLARE_IO_REGISTER(NR23);
+	DECLARE_IO_REGISTER(NR24);
+
+	DECLARE_IO_REGISTER(NR30);
+	DECLARE_IO_REGISTER(NR31);
+	DECLARE_IO_REGISTER(NR32);
+	DECLARE_IO_REGISTER(NR33);
+	DECLARE_IO_REGISTER(NR34);
+
+	DECLARE_IO_REGISTER(NR41);
+	DECLARE_IO_REGISTER(NR42);
+	DECLARE_IO_REGISTER(NR43);
+	DECLARE_IO_REGISTER(NR44);
+	DECLARE_IO_REGISTER(NR50);
+	DECLARE_IO_REGISTER(NR51);
+	DECLARE_IO_REGISTER(NR52);
+	DECLARE_IO_REGISTER(WAVE);
 public:
 	MemoryController(Gameboy &, GameboyCpu &);
 	~MemoryController();
