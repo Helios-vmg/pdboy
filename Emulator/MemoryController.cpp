@@ -767,6 +767,10 @@ main_integer_t MemoryController::load8(main_integer_t address) const{
 	return (this->*fp)(address);
 }
 
+main_integer_t MemoryController::load8_io(main_integer_t offset) const{
+	return this->read_io_registers_and_high_ram(0xFF00 | offset);
+}
+
 void MemoryController::store8(main_integer_t address, main_integer_t value){
 	address &= 0xFFFF;
 #ifdef DEBUG_MEMORY_STORES
@@ -775,6 +779,15 @@ void MemoryController::store8(main_integer_t address, main_integer_t value){
 #endif
 	auto fp = this->memory_map_store[address >> 8];
 	(this->*fp)(address, (byte_t)value);
+}
+
+void MemoryController::store8_io(main_integer_t offset, main_integer_t value){
+#ifdef DEBUG_MEMORY_STORES
+	auto address = offset | 0xFF00;
+	this->last_store_at[address] = (std::uint16_t)this->cpu->get_current_pc();
+	this->last_store_at_clock[address] = this->system->get_system_clock().get_clock_value();
+#endif
+	this->write_io_registers_and_high_ram(0xFF00 | offset, (byte_t)value);
 }
 
 main_integer_t MemoryController::load16(main_integer_t address) const{

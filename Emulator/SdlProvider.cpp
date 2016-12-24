@@ -3,6 +3,7 @@
 #include "timer.h"
 #include "DisplayController.h"
 #include "SoundController.h"
+#include "HostSystem.h"
 #include <algorithm>
 #include <cassert>
 #include <iostream>
@@ -85,6 +86,7 @@ Uint32 SDLCALL SdlProvider::timer_callback(Uint32 interval, void *param){
 }
 
 void SDLCALL SdlProvider::audio_callback(void *userdata, Uint8 *stream, int len){
+#ifndef BENCHMARKING
 	auto This = (SdlProvider *)userdata;
 	{
 		std::lock_guard<std::mutex> lg(This->mutex);
@@ -108,6 +110,7 @@ void SDLCALL SdlProvider::audio_callback(void *userdata, Uint8 *stream, int len)
 			}
 		}
 	}
+#endif
 	memset(stream, 0, len);
 }
 

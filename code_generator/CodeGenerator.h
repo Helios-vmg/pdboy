@@ -38,6 +38,7 @@ public:
 	}
 	virtual uintptr_t load_hl8() = 0;
 	virtual uintptr_t load_mem8(uintptr_t) = 0;
+	virtual uintptr_t load_io_register(uintptr_t) = 0;
 	virtual uintptr_t load_mem16(uintptr_t) = 0;
 	virtual uintptr_t load_sp_offset16(uintptr_t) = 0;
 	virtual void write_register8(Register8, uintptr_t) = 0;
@@ -50,6 +51,7 @@ public:
 	}
 	virtual void store_hl8(uintptr_t) = 0;
 	virtual void store_mem8(uintptr_t mem, uintptr_t val) = 0;
+	virtual void store_io_register(uintptr_t mem, uintptr_t val) = 0;
 	virtual void store_mem16(uintptr_t mem, uintptr_t val) = 0;
 	virtual void take_time(unsigned) = 0;
 	virtual void zero_flags() = 0;

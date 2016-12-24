@@ -50,15 +50,14 @@ T gcd(T a, T b){
 }
 
 ClockDivider::ClockDivider(){
-	this->src_frequency = 0;
+	this->src_frequency_power = 0;
 	this->dst_frequency = 0;
-	this->modulo = 0;
 	this->last_update = 0;
 }
 
 #ifdef USE_STD_FUNCTION
-ClockDivider::ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback){
-	this->configure(src_frequency, dst_frequency, std::move(callback));
+ClockDivider::ClockDivider(unsigned src_frequency_power, std::uint64_t dst_frequency, callback_t &&callback){
+	this->configure(src_frequency_power, dst_frequency, std::move(callback));
 }
 #else
 ClockDivider::ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t callback, void *user_data){
@@ -67,26 +66,24 @@ ClockDivider::ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_freque
 #endif
 
 #ifdef USE_STD_FUNCTION
-void ClockDivider::configure(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback){
+void ClockDivider::configure(unsigned src_frequency_power, std::uint64_t dst_frequency, callback_t &&callback){
 	this->callback = callback;
 #else
 void ClockDivider::configure(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t callback, void *user_data){
 	this->callback = callback;
 	this->user_data = user_data;
 #endif
-	this->src_frequency = src_frequency;
+	this->src_frequency_power = src_frequency_power;
 	this->dst_frequency = dst_frequency;
-	this->modulo = this->dst_frequency * this->src_frequency;
-	this->modulo /= ::gcd(this->dst_frequency, this->src_frequency);
 	this->reset();
 }
 
 void ClockDivider::update(std::uint64_t source_clock){
-	if (!this->src_frequency)
+	if (!this->src_frequency_power)
 		return;
 
-	source_clock %= this->modulo;
-	auto time = source_clock * this->dst_frequency / this->src_frequency;
+	auto time = source_clock * this->dst_frequency;
+	time >>= this->src_frequency_power;
 	if (time == this->last_update)
 		return;
 	auto dst_clock = this->last_update + 1;
@@ -106,8 +103,8 @@ void ClockDivider::reset(){
 SoundController::SoundController(Gameboy &system):
 		system(&system),
 #ifdef USE_STD_FUNCTION
-		audio_sample_clock(gb_cpu_frequency, sampling_frequency, [this](std::uint64_t n){ this->sample_callback(n); }),
-		frame_sequencer_clock(gb_cpu_frequency, 512, [this](std::uint64_t n){ this->frame_sequencer_callback(n); }),
+		audio_sample_clock(gb_cpu_frequency_power, sampling_frequency, [this](std::uint64_t n){ this->sample_callback(n); }),
+		frame_sequencer_clock(gb_cpu_frequency_power, 512, [this](std::uint64_t n){ this->frame_sequencer_callback(n); }),
 #else
 		audio_sample_clock(gb_cpu_frequency, sampling_frequency, SoundController::sample_callback, this),
 		frame_sequencer_clock(gb_cpu_frequency, 512, SoundController::frame_sequencer_callback, this),
@@ -607,7 +604,7 @@ void NoiseGenerator::set_register3(byte_t value){
 	frequency >>= clock_shift + 1;
 
 	this->noise_scheduler.configure(
-		gb_cpu_frequency,
+		gb_cpu_frequency_power,
 		frequency,
 #ifdef USE_STD_FUNCTION
 		[this](std::uint64_t)

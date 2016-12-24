@@ -156,7 +156,9 @@ public:
 	~MemoryController();
 	void initialize();
 	main_integer_t load8(main_integer_t address) const;
+	main_integer_t load8_io(main_integer_t address) const;
 	void store8(main_integer_t address, main_integer_t value);
+	void store8_io(main_integer_t offset, main_integer_t value);
 	main_integer_t load16(main_integer_t address) const;
 	void store16(main_integer_t address, main_integer_t value);
 	//Copies memory while momentarily enabling memory ranges disabled by the display controller.

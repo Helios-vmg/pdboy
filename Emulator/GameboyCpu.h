@@ -10,7 +10,8 @@
 
 //#define GATHER_INSTRUCTION_STATISTICS
 
-const unsigned gb_cpu_frequency = 1 << 22; //4194304
+const unsigned gb_cpu_frequency_power = 22;
+const unsigned gb_cpu_frequency = 1 << gb_cpu_frequency_power; //4194304
 const double gb_cpu_clock_period_us = 1.0 / ((double)gb_cpu_frequency * 1e-6);
 const int dmg_dma_transfer_length_clocks = 640;
 

@@ -61,7 +61,7 @@ struct basic_StereoSample{
 };
 
 //#define USE_FLOAT_AUDIO
-#define USE_STD_FUNCTION
+//#define USE_STD_FUNCTION
 
 #ifdef USE_FLOAT_AUDIO
 typedef float intermediate_audio_type;
@@ -91,15 +91,14 @@ private:
 #ifndef USE_STD_FUNCTION
 	void *user_data;
 #endif
-	std::uint64_t src_frequency,
-		dst_frequency;
-	std::uint64_t modulo;
+	unsigned src_frequency_power;
+	std::uint64_t dst_frequency;
 	std::uint64_t last_update;
 public:
 	ClockDivider();
 #ifdef USE_STD_FUNCTION
-	ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback);
-	void configure(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback);
+	ClockDivider(unsigned src_frequency_power, std::uint64_t dst_frequency, callback_t &&callback);
+	void configure(unsigned src_frequency_power, std::uint64_t dst_frequency, callback_t &&callback);
 #else
 	ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t callback, void *user_data);
 	void configure(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t callback, void *user_data);

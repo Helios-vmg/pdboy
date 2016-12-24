@@ -311,6 +311,17 @@ uintptr_t InterpreterCodeGenerator::load_mem8(uintptr_t val){
 	return (uintptr_t)ret;
 }
 
+uintptr_t InterpreterCodeGenerator::load_io_register(uintptr_t val){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	auto &n = back.temporary_index;
+	auto result_name = get_temp_name(n++);
+	s << TEMPDECL << result_name << " = this->memory_controller.load8_io(" << temp_to_string(val) << ");\n";
+	auto ret = copy(result_name);
+	this->temporary_values.push_back(ret);
+	return (uintptr_t)ret;
+}
+
 uintptr_t InterpreterCodeGenerator::load_mem16(uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
@@ -357,6 +368,12 @@ void InterpreterCodeGenerator::store_mem8(uintptr_t mem, uintptr_t val){
 	auto &back = this->definition_stack.back();
 	auto &s = *back.function_contents;
 	s << "\tthis->memory_controller.store8(" << temp_to_string(mem) << ", " << temp_to_string(val) << ");\n";
+}
+
+void InterpreterCodeGenerator::store_io_register(uintptr_t mem, uintptr_t val){
+	auto &back = this->definition_stack.back();
+	auto &s = *back.function_contents;
+	s << "\tthis->memory_controller.store8_io(" << temp_to_string(mem) << ", " << temp_to_string(val) << ");\n";
 }
 
 void InterpreterCodeGenerator::store_mem16(uintptr_t mem, uintptr_t val){

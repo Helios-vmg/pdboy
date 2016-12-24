@@ -46,12 +46,14 @@ public:
 	uintptr_t get_register_value16(Register16) override;
 	uintptr_t load_hl8() override;
 	uintptr_t load_mem8(uintptr_t) override;
+	uintptr_t load_io_register(uintptr_t) override;
 	uintptr_t load_mem16(uintptr_t) override;
 	uintptr_t load_sp_offset16(uintptr_t) override;
 	void write_register8(Register8, uintptr_t) override;
 	void write_register16(Register16, uintptr_t) override;
 	void store_hl8(uintptr_t) override;
 	void store_mem8(uintptr_t mem, uintptr_t val) override;
+	void store_io_register(uintptr_t mem, uintptr_t val) override;
 	void store_mem16(uintptr_t mem, uintptr_t val) override;
 	void take_time(unsigned) override;
 	void zero_flags() override;
