@@ -270,6 +270,12 @@ public:
 	byte_t get_register3() const override;
 };
 
+class CapacitorFilter{
+	intermediate_audio_type state = 0;
+public:
+	intermediate_audio_type update(intermediate_audio_type in);
+};
+
 class SoundController{
 	Gameboy *system;
 	unsigned current_frame_position = 0;
@@ -279,6 +285,8 @@ class SoundController{
 	std::uint64_t current_clock;
 	ClockDivider frame_sequencer_clock,
 		audio_sample_clock;
+	CapacitorFilter filter_left,
+		filter_right;
 
 	//Control registers.
 	byte_t NR50 = 0;

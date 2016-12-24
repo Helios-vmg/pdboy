@@ -159,6 +159,8 @@ void SoundController::sample_callback(std::uint64_t sample_no){
 #endif
 			sample += channels[i] / 4;
 		}
+		sample.left = this->filter_left.update(sample.left);
+		sample.right = this->filter_left.update(sample.right);
 		sample.left = sample.left * this->left_volume / 15;
 		sample.right = sample.right * this->right_volume / 15;
 		dst = convert(sample);
@@ -674,4 +676,13 @@ void VoluntaryWaveGenerator::trigger_event(){
 	if (!this->sound_length)
 		this->sound_length = 256;
 	this->dac_power = true;
+}
+
+intermediate_audio_type CapacitorFilter::update(intermediate_audio_type in){
+	auto ret = in - this->state;
+	const float multiplier = 0.999958f; // use 0.998943 for MGB&CGB
+	//Note: multiplier2 = multiplier ^ (2^22 / 44100)
+	const float multiplier2 = 0.996013f;
+	this->state = in - ret * multiplier2;
+	return ret;
 }
