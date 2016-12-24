@@ -17,9 +17,7 @@
 const float tau = (float)(M_PI * 2);
 
 const unsigned sampling_frequency = 44100;
-const float AudioTypeProperties<float>::max = 1;
-const float AudioTypeProperties<float>::max_absolute = 1;
-const float AudioTypeProperties<float>::min = -1;
+const int int16_max = (1 << 15) - 1;
 const byte_t Square2Generator::duties[4] = {
 	0x80,
 	0x81,
@@ -27,11 +25,18 @@ const byte_t Square2Generator::duties[4] = {
 	0x7E,
 };
 
-basic_StereoSample<std::int16_t> convert(const basic_StereoSample<float> &src){
+basic_StereoSample<std::int16_t> convert(const basic_StereoSample<intermediate_audio_type> &src){
+#ifdef USE_FLOAT_AUDIO
 	basic_StereoSample<std::int16_t> ret;
-	ret.left = (std::int16_t)(src.left * AudioTypeProperties<std::int16_t>::max_absolute);
-	ret.right = (std::int16_t)(src.right * AudioTypeProperties<std::int16_t>::max_absolute);
+	ret.left = (std::int16_t)(src.left * int16_max);
+	ret.right = (std::int16_t)(src.right * int16_max);
 	return ret;
+#else
+	basic_StereoSample<std::int16_t> ret;
+	ret.left = (std::int16_t)src.left;
+	ret.right = (std::int16_t)src.right;
+	return ret;
+#endif
 }
 
 template <typename T>
@@ -51,14 +56,26 @@ ClockDivider::ClockDivider(){
 	this->last_update = 0;
 }
 
+#ifdef USE_STD_FUNCTION
 ClockDivider::ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback){
 	this->configure(src_frequency, dst_frequency, std::move(callback));
 }
+#else
+ClockDivider::ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t callback, void *user_data){
+	this->configure(src_frequency, dst_frequency, callback, user_data);
+}
+#endif
 
+#ifdef USE_STD_FUNCTION
 void ClockDivider::configure(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback){
+	this->callback = callback;
+#else
+void ClockDivider::configure(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t callback, void *user_data){
+	this->callback = callback;
+	this->user_data = user_data;
+#endif
 	this->src_frequency = src_frequency;
 	this->dst_frequency = dst_frequency;
-	this->callback = std::move(callback);
 	this->modulo = this->dst_frequency * this->src_frequency;
 	this->modulo /= ::gcd(this->dst_frequency, this->src_frequency);
 	this->reset();
@@ -74,7 +91,11 @@ void ClockDivider::update(std::uint64_t source_clock){
 		return;
 	auto dst_clock = this->last_update + 1;
 	for (; dst_clock <= time; dst_clock++)
+#ifdef USE_STD_FUNCTION
 		this->callback(dst_clock);
+#else
+		this->callback(this->user_data, dst_clock);
+#endif
 	this->last_update = time;
 }
 
@@ -84,8 +105,13 @@ void ClockDivider::reset(){
 
 SoundController::SoundController(Gameboy &system):
 		system(&system),
+#ifdef USE_STD_FUNCTION
 		audio_sample_clock(gb_cpu_frequency, sampling_frequency, [this](std::uint64_t n){ this->sample_callback(n); }),
 		frame_sequencer_clock(gb_cpu_frequency, 512, [this](std::uint64_t n){ this->frame_sequencer_callback(n); }),
+#else
+		audio_sample_clock(gb_cpu_frequency, sampling_frequency, SoundController::sample_callback, this),
+		frame_sequencer_clock(gb_cpu_frequency, 512, SoundController::frame_sequencer_callback, this),
+#endif
 		square1(*this),
 		square2(*this),
 		noise(*this),
@@ -141,6 +167,14 @@ void SoundController::frame_sequencer_callback(std::uint64_t clock){
 		this->sweep_event();
 }
 
+void SoundController::sample_callback(void *This, std::uint64_t sample_no){
+	((SoundController *)This)->sample_callback(sample_no);
+}
+
+void SoundController::frame_sequencer_callback(void *This, std::uint64_t clock){
+	((SoundController *)This)->frame_sequencer_callback(clock);
+}
+
 void SoundController::sample_callback(std::uint64_t sample_no){
 	StereoSampleIntermediate sample;
 	sample.left = sample.right = 0;
@@ -149,6 +183,8 @@ void SoundController::sample_callback(std::uint64_t sample_no){
 	if (this->master_toggle){
 		StereoSampleIntermediate channels[4];
 		channels[0] = this->render_square1(sample_no);
+		//if (channels[0].left)
+		//	__debugbreak();
 		channels[1] = this->render_square2(sample_no);
 		channels[2] = this->render_voluntary(sample_no);
 		channels[3] = this->render_noise(sample_no);
@@ -157,12 +193,21 @@ void SoundController::sample_callback(std::uint64_t sample_no){
 			if (this->output_buffers_by_channel[i])
 				this->output_buffers_by_channel[i]->buffer[this->current_frame_position] = convert(channels[i]);
 #endif
+#ifdef USE_FLOAT_AUDIO
 			sample += channels[i] / 4;
+#else
+			sample += channels[i];
+#endif
 		}
+#ifndef USE_FLOAT_AUDIO
+		sample /= 4;
+#endif
 		sample.left = this->filter_left.update(sample.left);
 		sample.right = this->filter_left.update(sample.right);
-		sample.left = sample.left * this->left_volume / 15;
-		sample.right = sample.right * this->right_volume / 15;
+
+		sample *= this->left_volume;
+		sample /= 15;
+
 		dst = convert(sample);
 	}else
 		dst.left = dst.right = 0;
@@ -337,8 +382,13 @@ intermediate_audio_type Square2Generator::render(std::uint64_t time) const{
 }
 
 intermediate_audio_type EnvelopedGenerator::render_from_bit(bool signal) const{
+#ifdef USE_FLOAT_AUDIO
 	auto y = (signal * 2 - 1) * this->volume;
 	return (intermediate_audio_type)y * (1.f / 15.f);
+#else
+	auto y = (signal * 2 - 1) * this->volume;
+	return y * int16_max / 15;
+#endif
 }
 
 bool WaveformGenerator::enabled() const{
@@ -559,10 +609,18 @@ void NoiseGenerator::set_register3(byte_t value){
 	this->noise_scheduler.configure(
 		gb_cpu_frequency,
 		frequency,
-		[this](std::uint64_t t)
+#ifdef USE_STD_FUNCTION
+		[this](std::uint64_t)
 		{
-			this->noise_update_event(t);
+			this->noise_update_event();
 		}
+#else
+		[](void *This, std::uint64_t)
+		{
+			((NoiseGenerator *)This)->noise_update_event();
+		},
+		this
+#endif
 	);
 }
 
@@ -577,7 +635,7 @@ void NoiseGenerator::update_state_before_render(std::uint64_t time){
 	this->noise_scheduler.update(time);
 }
 
-void NoiseGenerator::noise_update_event(std::uint64_t){
+void NoiseGenerator::noise_update_event(){
 	auto output = this->noise_register;
 	this->noise_register >>= 1;
 	output ^= this->noise_register;
@@ -651,7 +709,15 @@ intermediate_audio_type VoluntaryWaveGenerator::render(std::uint64_t time) const
 	if (!this->enabled())
 		return 0;
 
+#ifdef USE_FLOAT_AUDIO
 	return (this->sample_register >> this->volume_shift) * (2.f / 15.f) - 1;
+#else
+	auto ret = this->sample_register >> this->volume_shift;
+	ret *= 2 * int16_max;
+	ret /= 15;
+	ret -= int16_max;
+	return ret;
+#endif
 }
 
 unsigned VoluntaryWaveGenerator::get_period(){
@@ -680,9 +746,19 @@ void VoluntaryWaveGenerator::trigger_event(){
 
 intermediate_audio_type CapacitorFilter::update(intermediate_audio_type in){
 	auto ret = in - this->state;
+#ifdef USE_FLOAT_AUDIO
 	const float multiplier = 0.999958f; // use 0.998943 for MGB&CGB
 	//Note: multiplier2 = multiplier ^ (2^22 / 44100)
 	const float multiplier2 = 0.996013f;
 	this->state = in - ret * multiplier2;
 	return ret;
+#else
+	//Note: 15/16 + 61355/65536 is approximately equal to 0.996013.
+	const int multiplier1 = 15;
+	const int multiplier2 = 61355;
+	const int shift1 = 4;
+	const int shift2 = 20;
+	this->state = in - (((ret * multiplier1) >> shift1) + ((ret * multiplier2) >> shift2));
+	return ret;
+#endif
 }

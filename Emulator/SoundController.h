@@ -60,29 +60,18 @@ struct basic_StereoSample{
 	}
 };
 
+//#define USE_FLOAT_AUDIO
+#define USE_STD_FUNCTION
+
+#ifdef USE_FLOAT_AUDIO
 typedef float intermediate_audio_type;
+#else
+typedef std::int32_t intermediate_audio_type;
+#endif
 typedef basic_StereoSample<std::int16_t> StereoSampleFinal;
 typedef basic_StereoSample<intermediate_audio_type> StereoSampleIntermediate;
 
-template <typename T>
-struct AudioTypeProperties{
-};
-
-template <>
-struct AudioTypeProperties<std::int16_t>{
-	static const std::int16_t max = std::numeric_limits<std::int16_t>::max();
-	static const std::int16_t min = std::numeric_limits<std::int16_t>::min();
-	static const std::int16_t max_absolute = (std::int32_t)max <= -(std::int32_t)min ? max : -min;
-};
-
-template <>
-struct AudioTypeProperties<float>{
-	static const float max;
-	static const float min;
-	static const float max_absolute;
-};
-
-basic_StereoSample<std::int16_t> convert(const basic_StereoSample<float> &);
+basic_StereoSample<std::int16_t> convert(const basic_StereoSample<intermediate_audio_type> &);
 
 struct AudioFrame{
 	static const unsigned length = 1024;
@@ -92,17 +81,29 @@ struct AudioFrame{
 
 class ClockDivider{
 public:
+#ifdef USE_STD_FUNCTION
 	typedef std::function<void(std::uint64_t)> callback_t;
+#else
+	typedef void(*callback_t)(void *, std::uint64_t);
+#endif
 private:
 	callback_t callback;
+#ifndef USE_STD_FUNCTION
+	void *user_data;
+#endif
 	std::uint64_t src_frequency,
 		dst_frequency;
 	std::uint64_t modulo;
 	std::uint64_t last_update;
 public:
 	ClockDivider();
+#ifdef USE_STD_FUNCTION
 	ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback);
 	void configure(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t &&callback);
+#else
+	ClockDivider(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t callback, void *user_data);
+	void configure(std::uint64_t src_frequency, std::uint64_t dst_frequency, callback_t callback, void *user_data);
+#endif
 	void update(std::uint64_t);
 	void reset();
 };
@@ -233,7 +234,8 @@ class NoiseGenerator : public EnvelopedGenerator{
 
 	ClockDivider noise_scheduler;
 
-	void noise_update_event(std::uint64_t);
+	static void noise_update_event(void *, std::uint64_t);
+	void noise_update_event();
 	void trigger_event() override;
 public:
 	NoiseGenerator(SoundController &parent) :
@@ -313,6 +315,8 @@ class SoundController{
 	StereoSampleIntermediate render_voluntary(std::uint64_t time);
 	StereoSampleIntermediate render_noise(std::uint64_t time);
 	void initialize_new_frame();
+	static void sample_callback(void *, std::uint64_t);
+	static void frame_sequencer_callback(void *, std::uint64_t);
 	void sample_callback(std::uint64_t);
 	void frame_sequencer_callback(std::uint64_t);
 	void length_counter_event();
