@@ -247,31 +247,35 @@ bool SdlProvider::handle_events(HandleEventsResult &result){
 			case SDL_QUIT:
 				return false;
 			case SDL_KEYDOWN:
-				handle_event<true>(state, event, 0xFF, button_down);
-				{
-					switch (event.key.keysym.sym){
-						case SDLK_p:
-							this->toggle_pause(-1);
-							break;
-						case SDLK_SPACE:
-							this->toggle_fastforward(true);
-							break;
-						case SDLK_LCTRL:
-							this->toggle_slowdown(true);
-							break;
+				if (!event.key.repeat){
+					handle_event<true>(state, event, 0xFF, button_down);
+					{
+						switch (event.key.keysym.sym){
+							case SDLK_p:
+								this->toggle_pause(-1);
+								break;
+							case SDLK_SPACE:
+								this->toggle_fastforward(true);
+								break;
+							case SDLK_LCTRL:
+								this->toggle_slowdown(true);
+								break;
+						}
 					}
 				}
 				break;
 			case SDL_KEYUP:
-				handle_event<false>(state, event, 0x00, button_up);
-				{
-					switch (event.key.keysym.sym){
-						case SDLK_SPACE:
-							this->toggle_fastforward(false);
-							break;
-						case SDLK_LCTRL:
-							this->toggle_slowdown(false);
-							break;
+				if (!event.key.repeat){
+					handle_event<false>(state, event, 0x00, button_up);
+					{
+						switch (event.key.keysym.sym){
+							case SDLK_SPACE:
+								this->toggle_fastforward(false);
+								break;
+							case SDLK_LCTRL:
+								this->toggle_slowdown(false);
+								break;
+						}
 					}
 				}
 				break;
