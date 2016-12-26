@@ -31,6 +31,7 @@ class Gameboy{
 	std::uint64_t time_waiting = 0;
 	double real_time_multiplier;
 	double speed_multiplier = 1;
+	bool speed_changed = false;
 	GameboyMode mode = GameboyMode::DMG;
 	std::atomic<bool> continue_running,
 		paused;
@@ -86,8 +87,12 @@ public:
 	void stop_and_dump_vram(const char *path);
 	bool toggle_pause(int) NOEXCEPT;
 	//Must be called while the CPU is paused!
+	double get_speed_multiplier() const NOEXCEPT{
+		return this->speed_multiplier;
+	}
 	void set_speed_multiplier(double speed) NOEXCEPT{
 		this->speed_multiplier = speed;
+		this->speed_changed = true;
 	}
 	HostSystem *get_host() const{
 		return this->host;

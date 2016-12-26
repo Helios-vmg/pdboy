@@ -1,5 +1,6 @@
 #include "SoundController.h"
 #include "Gameboy.h"
+#include "timer.h"
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include <type_traits>
@@ -24,6 +25,20 @@ const byte_t Square2Generator::duties[4] = {
 	0xE1,
 	0x7E,
 };
+
+const unsigned fixed_point_unit = 1 << 16;
+
+template <typename T>
+T fixed_point_to_integer(T n){
+	return n >> 16;
+}
+
+template <typename T>
+T fixed_ceil(T n){
+	const T mask = fixed_point_unit - 1;
+	return (n + mask) & ~mask;
+}
+
 
 basic_StereoSample<std::int16_t> convert(const basic_StereoSample<intermediate_audio_type> &src){
 #ifdef USE_FLOAT_AUDIO
@@ -116,6 +131,8 @@ SoundController::SoundController(Gameboy &system):
 		noise(*this),
 		wave(*this){
 
+	this->last_sample *= 0;
+
 	this->initialize_new_frame();
 #ifdef OUTPUT_AUDIO_TO_FILE
 	this->output_file.reset(new std::ofstream("output-0.raw", std::ios::binary));
@@ -145,7 +162,11 @@ SoundController::SoundController(Gameboy &system):
 #endif
 }
 
-void SoundController::update(bool required){
+void SoundController::update(double speed_multiplier, bool speed_changed){
+	if (speed_changed){
+		this->speed_multiplier = (std::uint64_t)(speed_multiplier * fixed_point_unit);
+		this->publishing_frames.clear_public_resource();
+	}
 	this->current_clock = this->system->get_system_clock().get_clock_value();
 	auto t = this->current_clock - this->audio_turned_on_at;
 
@@ -174,42 +195,48 @@ void SoundController::frame_sequencer_callback(void *This, std::uint64_t clock){
 	((SoundController *)This)->frame_sequencer_callback(clock);
 }
 
-void SoundController::sample_callback(std::uint64_t sample_no){
+StereoSampleFinal SoundController::compute_sample(){
+	std::uint64_t sample_no = this->internal_sample_counter++;
+	if (!this->master_toggle){
+		StereoSampleFinal ret;
+		ret.left = ret.right = 0;
+		return ret;
+	}
+
+	StereoSampleIntermediate channels[4];
+	channels[0] = this->render_square1(sample_no);
+	channels[1] = this->render_square2(sample_no);
+	channels[2] = this->render_voluntary(sample_no);
+	channels[3] = this->render_noise(sample_no);
+
 	StereoSampleIntermediate sample;
 	sample.left = sample.right = 0;
-	auto &buffer = this->publishing_frames.get_private_resource()->buffer;
-	auto &dst = buffer[this->current_frame_position];
-	if (this->master_toggle){
-		StereoSampleIntermediate channels[4];
-		channels[0] = this->render_square1(sample_no);
-		channels[1] = this->render_square2(sample_no);
-		channels[2] = this->render_voluntary(sample_no);
-		channels[3] = this->render_noise(sample_no);
-		for (int i = 4; i--;){
+
+	for (int i = 4; i--;){
 #ifdef OUTPUT_AUDIO_TO_FILE
-			if (this->output_buffers_by_channel[i])
-				this->output_buffers_by_channel[i]->buffer[this->current_frame_position] = convert(channels[i]);
+		if (this->output_buffers_by_channel[i])
+			this->output_buffers_by_channel[i]->buffer[this->current_frame_position] = convert(channels[i]);
 #endif
-			sample += channels[i];
-		}
-#ifndef USE_FLOAT_AUDIO
-		sample /= 4;
-#endif
-		sample.left = this->filter_left.update(sample.left);
-		sample.right = this->filter_left.update(sample.right);
+		sample += channels[i];
+	}
+	sample /= 4;
+	sample.left = this->filter_left.update(sample.left);
+	sample.right = this->filter_left.update(sample.right);
 
-		sample *= this->left_volume;
-		sample /= 15;
+	sample.left *= this->left_volume;
+	sample.right *= this->right_volume;
+	sample /= 15;
 
-		dst = convert(sample);
-	}else
-		dst.left = dst.right = 0;
+	return convert(sample);
+}
 
-	this->current_frame_position++;
+void SoundController::write_sample(StereoSampleFinal *&buffer){
+	buffer[this->current_frame_position++] = this->last_sample;
 	if (this->current_frame_position >= AudioFrame::length){
+		//std::cout << "write\n";
 #ifdef OUTPUT_AUDIO_TO_FILE
 		if (this->output_file)
-			this->output_file->write((const char *)buffer, sizeof(buffer));
+			this->output_file->write((const char *)buffer, AudioFrame::length * sizeof(StereoSampleFinal));
 		for (int i = 4; i--;){
 			auto &buffer2 = this->output_buffers_by_channel[i]->buffer;
 			if (this->output_files_by_channel[i])
@@ -219,7 +246,36 @@ void SoundController::sample_callback(std::uint64_t sample_no){
 		this->current_frame_position = 0;
 		this->publishing_frames.publish();
 		this->initialize_new_frame();
+		buffer = this->publishing_frames.get_private_resource()->buffer;
 	}
+}
+
+void SoundController::sample_callback(std::uint64_t sample_no){
+	StereoSampleFinal *buffer = this->publishing_frames.get_private_resource()->buffer;
+	if (this->speed_multiplier == fixed_point_unit){
+		this->last_sample = this->compute_sample();
+		this->write_sample(buffer);
+		return;
+	}
+	
+	if (this->speed_multiplier < fixed_point_unit){
+		//this->speed_counter_a = fixed_ceil(this->speed_counter_b);
+		while (this->speed_counter_a >= this->speed_counter_b){
+			this->write_sample(buffer);
+			this->speed_counter_b += this->speed_multiplier;
+		}
+		this->last_sample = this->compute_sample();
+		this->speed_counter_a += fixed_point_unit;
+		return;
+	}
+
+	this->last_sample = this->compute_sample();
+	bool ret = this->speed_counter_a <= this->speed_counter_b;
+	this->speed_counter_a += fixed_point_unit;
+	if (ret)
+		return;
+	this->write_sample(buffer);
+	this->speed_counter_b += this->speed_multiplier;
 }
 
 void SoundController::length_counter_event(){
@@ -573,6 +629,10 @@ void SoundController::set_NR52(byte_t value){
 		this->audio_turned_on_at = this->system->get_system_clock().get_clock_value();
 		this->frame_sequencer_clock.reset();
 		this->audio_sample_clock.reset();
+		this->internal_sample_counter = 0;
+		this->speed_counter_a = 0;
+		this->speed_counter_b = 0;
+		this->last_sample *= 0;
 	}
 }
 

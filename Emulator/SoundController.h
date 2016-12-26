@@ -308,6 +308,11 @@ class SoundController{
 	std::unique_ptr<std::ofstream> output_file;
 	std::unique_ptr<std::ofstream> output_files_by_channel[4];
 	std::unique_ptr<AudioFrame> output_buffers_by_channel[4];
+	std::uint64_t speed_multiplier = 0x10000;
+	std::uint64_t speed_counter_a = 0;
+	std::uint64_t speed_counter_b = 0;
+	std::uint64_t internal_sample_counter = 0;
+	StereoSampleFinal last_sample;
 
 	StereoSampleIntermediate render_square1(std::uint64_t time);
 	StereoSampleIntermediate render_square2(std::uint64_t time);
@@ -316,6 +321,8 @@ class SoundController{
 	void initialize_new_frame();
 	static void sample_callback(void *, std::uint64_t);
 	static void frame_sequencer_callback(void *, std::uint64_t);
+	StereoSampleFinal compute_sample();
+	void write_sample(StereoSampleFinal *&buffer);
 	void sample_callback(std::uint64_t);
 	void frame_sequencer_callback(std::uint64_t);
 	void length_counter_event();
@@ -328,7 +335,7 @@ public:
 	NoiseGenerator noise;
 
 	SoundController(Gameboy &);
-	void update(bool required = false);
+	void update(double speed_multiplier, bool speed_changed);
 	AudioFrame *get_current_frame();
 	void return_used_frame(AudioFrame *);
 	std::uint64_t get_current_clock() const{

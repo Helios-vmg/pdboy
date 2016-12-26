@@ -112,7 +112,8 @@ void Gameboy::run_until_next_frame(bool force){
 		this->cpu.run_one_instruction();
 		if (this->input_controller.get_button_down())
 			this->cpu.joystick_irq();
-		this->sound_controller.update();
+		this->sound_controller.update(this->speed_multiplier, this->speed_changed);
+		this->speed_changed = false;
 	}while (!this->display_controller.update() && (this->continue_running || force));
 }
 
