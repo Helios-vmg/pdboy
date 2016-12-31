@@ -175,7 +175,7 @@ public:
 	void use_recording(const char *path, bool record);
 #endif
 #ifdef DEBUG_MEMORY_STORES
-	std::unique_ptr<std::uint16_t[]> last_store_at;
+	std::unique_ptr<std::uint32_t[]> last_store_at;
 	std::unique_ptr<std::uint64_t[]> last_store_at_clock;
 #endif
 };
