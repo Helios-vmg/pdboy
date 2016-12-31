@@ -447,10 +447,8 @@ void DisplayController::render_current_scanline(unsigned y){
 			tile_offset_x ^= 7 * !sprite.flipped_x();
 			tile_offset_y ^= 7 * sprite.flipped_y();
 
-			if (tall_sprites){
+			if (tall_sprites)
 				tile_no &= 0xFE;
-				tile_no |= tile_offset_y / 8;
-			}
 			tile_offset_y <<= 1;
 			auto tile = sprite_tile_vram + tile_no * 16;
 			auto src_pixelA = tile[tile_offset_y | 0];
