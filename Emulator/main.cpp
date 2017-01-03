@@ -10,7 +10,10 @@ int main(int argc, char **argv){
 	HostSystem system(nullptr, sdl.get(), sdl.get(), sdl.get(), sdl.get(), dtp.get());
 	auto &storage_controller = system.get_guest().get_storage_controller();
 	try{
-		storage_controller.load_cartridge(path_t(new StdBasicString<char>(argv[1])));
+		if (!storage_controller.load_cartridge(path_t(new StdBasicString<char>(argv[1])))){
+			std::cerr << "File not found: " << argv[1] << std::endl;
+			return 0;
+		}
 #ifdef IO_REGISTERS_RECORDING
 		bool record = argc >= 3 && !strcmp(argv[2], "-r");
 		system.get_guest().get_cpu().get_memory_controller().use_recording("io_recording.bin", record);

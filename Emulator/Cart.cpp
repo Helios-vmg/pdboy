@@ -252,7 +252,10 @@ byte_t StandardCartridge::read8(main_integer_t address){
 }
 
 void StandardCartridge::commit_ram(){
-	this->host->save_ram(*this, this->ram);
+	if (this->ram.is_modified()){
+		this->host->get_guest().save_ram(this->ram);
+		this->ram.reset_modified();
+	}
 }
 
 void StandardCartridge::load_ram(){

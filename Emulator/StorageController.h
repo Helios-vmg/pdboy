@@ -22,4 +22,7 @@ public:
 		return this->cartridge->read8(address);
 	}
 	int get_current_rom_bank();
+	Cartridge &get_cart(){
+		return *this->cartridge;
+	}
 };

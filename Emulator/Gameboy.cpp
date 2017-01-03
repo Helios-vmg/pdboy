@@ -27,6 +27,7 @@ Gameboy::~Gameboy(){
 		this->host->get_timing_provider()->unregister_periodic_notification();
 	this->stop();
 	this->report_time_statistics();
+	this->ram_to_save.try_save(*this->host, true);
 }
 
 void Gameboy::report_time_statistics(){
@@ -83,6 +84,7 @@ void Gameboy::interpreter_thread_function(){
 
 				auto t0 = get_timer_count();
 				this->run_until_next_frame();
+				this->ram_to_save.try_save(*this->host);
 				auto t1 = get_timer_count();
 #ifndef BENCHMARKING
 				this->sync_with_real_time();
@@ -174,4 +176,9 @@ bool Gameboy::toggle_pause(int pause) NOEXCEPT{
 	if (!ret)
 		std::cout << "Warning: Gameboy::toggle_pause() is returning without having received the pause acknowledgement from the thread.\n";
 	return ret;
+}
+
+void Gameboy::save_ram(const ExternalRamBuffer &ram){
+	this->ram_to_save = ram;
+	this->ram_to_save.request_save(this->storage_controller.get_cart());
 }

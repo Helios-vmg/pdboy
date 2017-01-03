@@ -67,13 +67,13 @@ byte_t Mbc1Cartridge::read8_switchable_rom_bank(StandardCartridge *sc, main_inte
 
 byte_t Mbc1Cartridge::read8_small_ram(StandardCartridge *sc, main_integer_t address){
 	auto This = static_cast<Mbc1Cartridge *>(sc);
-	return This->ram[address & 0x7FFF];
+	return This->ram.read(address & 0x7FFF);
 }
 
 byte_t Mbc1Cartridge::read8_switchable_ram_bank(StandardCartridge *sc, main_integer_t address){
 	auto This = static_cast<Mbc1Cartridge *>(sc);
 	auto offset = This->compute_ram_offset(address);
-	return This->ram[offset];
+	return This->ram.read(offset);
 }
 
 void Mbc1Cartridge::write8_ram_enable(StandardCartridge *sc, main_integer_t address, byte_t value){
@@ -108,10 +108,7 @@ void Mbc1Cartridge::write8_switch_rom_ram_banking_mode(StandardCartridge *sc, ma
 void Mbc1Cartridge::write8_switchable_ram_bank(StandardCartridge *sc, main_integer_t address, byte_t value){
 	auto This = static_cast<Mbc1Cartridge *>(sc);
 	auto offset = This->compute_ram_offset(address);
-	auto &position = This->ram[offset];
-	if (position != value)
-		This->ram_modified = true;
-	position = value;
+	This->ram.write(offset, value);
 }
 
 byte_t Mbc1Cartridge::read8_invalid_ram(StandardCartridge *, main_integer_t){
@@ -122,10 +119,7 @@ void Mbc1Cartridge::write8_small_ram(StandardCartridge *sc, main_integer_t addre
 	auto This = static_cast<Mbc1Cartridge *>(sc);
 	//address -= 0xA000; (Unnecessary due to bitwise AND.)
 	auto offset = address & 0x7FF;
-	auto &position = This->ram[offset];
-	if (position != value)
-		This->ram_modified = true;
-	position = value;
+	This->ram.write(offset, value);
 }
 
 void Mbc1Cartridge::write8_invalid_ram(StandardCartridge *, main_integer_t, byte_t){
@@ -144,7 +138,7 @@ main_integer_t Mbc1Cartridge::compute_ram_offset(main_integer_t address){
 void Mbc1Cartridge::toggle_ram(bool enable){
 	if (!(this->ram_enabled ^ enable))
 		return;
-	if (this->ram_enabled && this->ram_modified)
+	if (this->ram_enabled)
 		this->commit_ram();
 	this->ram_enabled = enable;
 	this->set_ram_functions();

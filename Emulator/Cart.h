@@ -3,6 +3,7 @@
 #include "utility.h"
 #include "CommonTypes.h"
 #include "GeneralString.h"
+#include "ExternalRamBuffer.h"
 #include <vector>
 #include <memory>
 
@@ -80,6 +81,7 @@ public:
 	virtual void write8(main_integer_t address, byte_t value) = 0;
 	virtual byte_t read8(main_integer_t address) = 0;
 	virtual void post_initialization(){}
+	virtual void try_save(){}
 	path_t get_path() const{
 		return this->path;
 	}
@@ -142,9 +144,8 @@ protected:
 	unsigned ram_bank_bits_copy = 0;
 	write8_f *write_callbacks;
 	read8_f *read_callbacks;
-	std::vector<byte_t> ram;
+	ExternalRamBuffer ram;
 	bool ram_banking_mode = false;
-	bool ram_modified = false;
 	bool ram_enabled = false;
 
 	static void write8_do_nothing(StandardCartridge *, main_integer_t, byte_t){}

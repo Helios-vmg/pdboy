@@ -14,7 +14,7 @@ std::unique_ptr<std::vector<byte_t>> StorageProvider::load_file(const path_t &pa
 		return ret;
 
 	auto string = casted_path->get_std_basic_string();
-	std::cout << "Requested file load: \"" << string << "\", maximum size: " << maximum_size << " bytes.\n";
+	//std::cout << "Requested file load: \"" << string << "\", maximum size: " << maximum_size << " bytes.\n";
 
 	std::ifstream file(string.c_str(), std::ios::binary);
 	if (!file)
@@ -38,7 +38,7 @@ bool StorageProvider::save_file(const path_t &path, const void *buffer, size_t s
 		return false;
 
 	auto string = casted_path->get_std_basic_string();
-	std::cout << "Requested file save: \"" << string << "\", size: " << size << " bytes.\n";
+	//std::cout << "Requested file save: \"" << string << "\", size: " << size << " bytes.\n";
 
 	std::ofstream file(string.c_str(), std::ios::binary);
 	if (!file)

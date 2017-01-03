@@ -7,6 +7,7 @@
 #include "SoundController.h"
 #include "threads.h"
 #include "HostSystemServiceProviders.h"
+#include "ExternalRamBuffer.h"
 
 class HostSystem;
 
@@ -42,6 +43,7 @@ class Gameboy{
 	Event pause_accepted;
 	//Stores a timestamp of the first time interpreter_thread_function() was called.
 	Maybe<posix_time_t> start_time;
+	ExternalRamBuffer ram_to_save;
 
 	void interpreter_thread_function();
 	void sync_with_real_time();
@@ -100,4 +102,5 @@ public:
 	posix_time_t get_start_time() const{
 		return *this->start_time;
 	}
+	void save_ram(const ExternalRamBuffer &);
 };
