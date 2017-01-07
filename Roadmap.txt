@@ -1,16 +1,14 @@
 CPU instruction set:    DONE
 DMG display controller: DONE
 Link cable:             Not implemented
-Sound:                  Not implemented
+Sound:                  DONE
 CGB-DMG differences:    Partially implemented
 CGB display controller: Not implemented
 Save states:            Not implemented
 
 ROM-only cart:          DONE
-MBC1 cart:              Done?
-    External RAM:       Done!
+MBC1 cart:              DONE
 MBC2 cart:              Not implemented
     Mini external RAM:  Not implemented
-MBC3 cart:              Done!
-    RTC module:         Done!
+MBC3 cart:              DONE
 MBC5 cart:              Not implemented
