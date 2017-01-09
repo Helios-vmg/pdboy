@@ -30,3 +30,4 @@ public:
 	bool handle_events(HandleEventsResult &) override;
 	void write_frame_to_disk(std::string &path, const RenderedFrame &) override;
 };
+

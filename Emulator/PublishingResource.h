@@ -44,7 +44,7 @@ public:
 		return this->private_resource;
 	}
 	T *get_public_resource(){
-		return (T *)std::atomic_exchange(&this->public_resource, nullptr);
+		return (T *)std::atomic_exchange(&this->public_resource, (T *)nullptr);
 	}
 	void return_resource_as_ready(T *r){
 		std::lock_guard<std::mutex> lg(this->ready_mutex);
@@ -57,7 +57,7 @@ public:
 		this->return_resource_as_ready(r);
 	}
 	void clear_public_resource(){
-		auto frame = (T *)std::atomic_exchange(&this->public_resource, nullptr);
+		auto frame = (T *)std::atomic_exchange(&this->public_resource, (T *)nullptr);
 		if (frame){
 			std::lock_guard<std::mutex> lg(this->ready_mutex);
 			this->ready.push_back(frame);

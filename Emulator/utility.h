@@ -35,7 +35,7 @@ public:
 	}
 	const T &value() const{
 		if (!this->initialized)
-			throw std::exception("!Maybe<T>::is_initialized()");
+			throw std::runtime_error("!Maybe<T>::is_initialized()");
 		return this->data;
 	}
 	const T &value_or(const T &v) const{

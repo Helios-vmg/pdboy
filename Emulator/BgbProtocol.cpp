@@ -1,6 +1,7 @@
 #include "BgbProtocol.h"
 #include <cassert>
 #include <iostream>
+#include <cstring>
 
 BgbNetworkProtocol::BgbNetworkProtocol(NetworkProviderConnection *connection): NetworkProtocol(connection){
 	auto This = this;

@@ -1,6 +1,8 @@
 #include "CodeGenerator.h"
 #include "CpuDefinition.h"
 
+CodeGenerator::~CodeGenerator(){}
+
 void CodeGenerator::generate(){
 	for (int i = 0; i < 0x100; i++){
 		this->begin_opcode_definition(i);

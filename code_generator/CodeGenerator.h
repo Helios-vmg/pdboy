@@ -17,7 +17,7 @@ protected:
 	virtual void opcode_cb_branching() = 0;
 public:
 	CodeGenerator(std::shared_ptr<CpuDefinition> definition): definition(definition){}
-	virtual ~CodeGenerator() = 0{}
+	virtual ~CodeGenerator() = 0;
 	void generate();
 	void double_opcode(unsigned first);
 

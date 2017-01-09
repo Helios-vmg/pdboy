@@ -2,6 +2,7 @@
 #include "FlagSetting.h"
 #include <iomanip>
 #include <type_traits>
+#include <algorithm>
 
 #define TEMPTYPE "main_integer_t"
 #define TEMPDECL "\t" TEMPTYPE " "

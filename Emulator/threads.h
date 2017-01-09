@@ -2,6 +2,7 @@
 
 #include <condition_variable>
 #include <mutex>
+#include <thread>
 
 typedef std::lock_guard<std::mutex> automutex_t;
 

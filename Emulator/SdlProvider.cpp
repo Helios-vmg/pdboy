@@ -10,7 +10,7 @@
 
 #define X old = (old * 11 + current) / 12
 const int lcd_fade_period = 0;
-const int lcd_fade = 0xFF / lcd_fade_period;
+const int lcd_fade = lcd_fade_period ? 0xFF / lcd_fade_period : 0;
 
 SdlProvider::SdlProvider(){
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER);

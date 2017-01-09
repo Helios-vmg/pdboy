@@ -3,6 +3,7 @@
 #include <mutex>
 #include <memory>
 #include <atomic>
+#include <cstring>
 
 class Gameboy;
 
