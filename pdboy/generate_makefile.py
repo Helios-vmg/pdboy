@@ -31,7 +31,7 @@ def main():
 	cxx = 'c++'
 	cxxflags = '-O3 -std=c++14 ' + os.environ['INCLUDES']
 	libs = os.environ['LIBS']
-	output_file = 'Emulator'
+	output_file = 'pdboy'
 
 	objects = concat([x[1] for x in files])
 

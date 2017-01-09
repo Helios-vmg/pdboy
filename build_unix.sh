@@ -7,7 +7,7 @@ cd code_generator
 make -j $cpu_count
 cd ../generated_files
 ../code_generator/code_generator cpu.generated.h cpu.generated.cpp
-cd ../Emulator
+cd ../pdboy
 
 LIBS=$(pkg-config --libs sdl2)
 INCLUDES=$(pkg-config --cflags-only-I sdl2)
