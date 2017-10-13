@@ -6,8 +6,11 @@
 
 class SdlProvider : public EventProvider, public TimingProvider, public GraphicsOutputProvider, public AudioOutputProvider{
 	SDL_Window *window;
+	SDL_Window *memory_window;
 	SDL_Renderer *renderer;
+	SDL_Renderer *memory_renderer;
 	SDL_Texture *main_texture;
+	SDL_Texture *memory_texture;
 	SDL_TimerID timer_id = 0;
 	SDL_AudioDeviceID audio_device = 0;
 	static const std::uint64_t invalid_time = std::numeric_limits<std::uint64_t>::max();

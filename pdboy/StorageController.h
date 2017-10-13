@@ -18,8 +18,8 @@ public:
 	void write8(main_integer_t address, byte_t value){
 		this->cartridge->write8(address, value);
 	}
-	byte_t read8(main_integer_t address){
-		return this->cartridge->read8(address);
+	byte_t read8(main_integer_t address, bool force){
+		return this->cartridge->read8(address, force);
 	}
 	int get_current_rom_bank();
 	Cartridge &get_cart(){

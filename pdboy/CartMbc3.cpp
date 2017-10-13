@@ -90,7 +90,7 @@ void Mbc3Cartridge::write8_latch_rtc_registers(StandardCartridge *sc, main_integ
 	This->rtc_latch = value;
 }
 
-byte_t Mbc3Cartridge::read8_rtc_register(StandardCartridge *sc, main_integer_t address){
+byte_t Mbc3Cartridge::read8_rtc_register(StandardCartridge *sc, main_integer_t address, bool force){
 	auto This = static_cast<Mbc3Cartridge *>(sc);
 	switch (This->current_rtc_register){
 		case 0x08:

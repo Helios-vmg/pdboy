@@ -4,6 +4,6 @@ RomOnlyCartridge::RomOnlyCartridge(HostSystem &host, std::unique_ptr<std::vector
 	StandardCartridge(host, std::move(buffer), cc){
 }
 
-byte_t RomOnlyCartridge::read8(main_integer_t address){
+byte_t RomOnlyCartridge::read8(main_integer_t address, bool force){
 	return this->data[address & 0x7FFF];
 }

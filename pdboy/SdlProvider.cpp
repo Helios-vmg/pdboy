@@ -20,8 +20,10 @@ SdlProvider::SdlProvider(){
 
 SdlProvider::~SdlProvider(){
 	SdlProvider::unregister_periodic_notification();
+	SDL_DestroyTexture(this->memory_texture);
 	SDL_DestroyTexture(this->main_texture);
 	SDL_DestroyRenderer(this->renderer);
+	SDL_DestroyWindow(this->memory_window);
 	SDL_DestroyWindow(this->window);
 	SDL_Quit();
 }
@@ -36,6 +38,17 @@ void SdlProvider::initialize_graphics(){
 	this->main_texture = SDL_CreateTexture(this->renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, lcd_width, lcd_height);
 	if (!this->main_texture)
 		throw GenericException("Failed to create main texture.");
+	
+	this->memory_window = SDL_CreateWindow("Memory", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 256 * 2, 256 * 2, 0);
+	if (!this->memory_window)
+		throw GenericException("Failed to initialize SDL window.");
+	this->memory_renderer = SDL_CreateRenderer(this->memory_window, -1, SDL_RENDERER_PRESENTVSYNC);
+	if (!this->memory_renderer)
+		throw GenericException("Failed to initialize SDL renderer.");
+	this->memory_texture = SDL_CreateTexture(this->memory_renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, 256, 256);
+	if (!this->memory_texture)
+		throw GenericException("Failed to create memory texture.");
+
 	this->realtime_counter_frequency = get_timer_resolution();
 
 	{
@@ -140,63 +153,76 @@ void SdlProvider::render(const RenderedFrame *current_frame){
 	void *void_pixels;
 	int pitch;
 
-	if (SDL_LockTexture(this->main_texture, nullptr, &void_pixels, &pitch) < 0)
-		return;
-	auto pixels = (byte_t *)void_pixels;
-	assert(pitch == lcd_width * 4);
-	if (current_frame){
-		if (!lcd_fade_period)
-			memcpy(pixels, current_frame->pixels, sizeof(current_frame->pixels));
-		else{
-			auto src = (byte_t *)current_frame->pixels;
-			for (unsigned i = sizeof(current_frame->pixels); i--;){
-				auto mod = i % 4;
-				if (mod == 3){
-					pixels[i] = 0xFF;
-					continue;
+	if (SDL_LockTexture(this->main_texture, nullptr, &void_pixels, &pitch) >= 0){
+		auto pixels = (byte_t *)void_pixels;
+		assert(pitch == lcd_width * 4);
+		if (current_frame){
+			if (!lcd_fade_period)
+				memcpy(pixels, current_frame->pixels, sizeof(current_frame->pixels));
+			else{
+				auto src = (byte_t *)current_frame->pixels;
+				for (unsigned i = sizeof(current_frame->pixels); i--;){
+					auto mod = i % 4;
+					if (mod == 3){
+						pixels[i] = 0xFF;
+						continue;
+					}
+					int old = pixels[i];
+					int current = src[i];
+					if (current <= old){
+						pixels[i] = current;
+						continue;
+					}
+					old += lcd_fade;
+					if (old >= current){
+						pixels[i] = current;
+						continue;
+					}
+					pixels[i] = old;
 				}
-				int old = pixels[i];
-				int current = src[i];
-				if (current <= old){
-					pixels[i] = current;
-					continue;
+			}
+		}else{
+			if (!lcd_fade_period)
+				memset(void_pixels, 0xFF, sizeof(current_frame->pixels));
+			else{
+				for (unsigned i = sizeof(current_frame->pixels); i--;){
+					auto mod = i % 4;
+					if (mod == 3){
+						pixels[i] = 0xFF;
+						continue;
+					}
+					int old = pixels[i];
+					int current = 0xFF;
+					if (current <= old){
+						pixels[i] = current;
+						continue;
+					}
+					old += lcd_fade;
+					if (old >= current){
+						pixels[i] = current;
+						continue;
+					}
+					pixels[i] = old;
 				}
-				old += lcd_fade;
-				if (old >= current){
-					pixels[i] = current;
-					continue;
-				}
-				pixels[i] = old;
 			}
 		}
-	}else{
-		if (!lcd_fade_period)
-			memset(void_pixels, 0xFF, sizeof(current_frame->pixels));
-		else{
-			for (unsigned i = sizeof(current_frame->pixels); i--;){
-				auto mod = i % 4;
-				if (mod == 3){
-					pixels[i] = 0xFF;
-					continue;
-				}
-				int old = pixels[i];
-				int current = 0xFF;
-				if (current <= old){
-					pixels[i] = current;
-					continue;
-				}
-				old += lcd_fade;
-				if (old >= current){
-					pixels[i] = current;
-					continue;
-				}
-				pixels[i] = old;
-			}
-		}
+		SDL_UnlockTexture(this->main_texture);
 	}
-	SDL_UnlockTexture(this->main_texture);
+
+	if (SDL_LockTexture(this->memory_texture, nullptr, &void_pixels, &pitch) >= 0){
+		if (current_frame){
+			auto pixels = (RGB *)void_pixels;
+			int offset = 0;
+			for (auto byte : current_frame->memory_dump)
+				pixels[offset++] = { byte, byte, byte, 0xFF };
+		}
+		SDL_UnlockTexture(this->memory_texture);
+	}
+
 	SDL_RenderCopy(this->renderer, this->main_texture, nullptr, nullptr);
+	SDL_RenderCopy(this->memory_renderer, this->memory_texture, nullptr, nullptr);
 	SDL_RenderPresent(this->renderer);
+	SDL_RenderPresent(this->memory_renderer);
 }
 
 template <bool DOWN>

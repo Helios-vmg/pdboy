@@ -247,8 +247,8 @@ void StandardCartridge::write8(main_integer_t address, byte_t value){
 	this->write_callbacks[address >> 8](this, address, value);
 }
 
-byte_t StandardCartridge::read8(main_integer_t address){
-	return this->read_callbacks[address >> 8](this, address);
+byte_t StandardCartridge::read8(main_integer_t address, bool force){
+	return this->read_callbacks[address >> 8](this, address, force);
 }
 
 void StandardCartridge::commit_ram(){

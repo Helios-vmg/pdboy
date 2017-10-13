@@ -79,7 +79,7 @@ public:
 	virtual ~Cartridge() = 0;
 	static std::unique_ptr<Cartridge> construct_from_buffer(HostSystem &host, const path_t &, std::unique_ptr<std::vector<byte_t>> &&);
 	virtual void write8(main_integer_t address, byte_t value) = 0;
-	virtual byte_t read8(main_integer_t address) = 0;
+	virtual byte_t read8(main_integer_t address, bool force) = 0;
 	virtual void post_initialization(){}
 	virtual void try_save(){}
 	path_t get_path() const{
@@ -97,7 +97,7 @@ public:
 			throw NotImplementedException(); \
 		} \
 		void write8(main_integer_t, byte_t) override{} \
-		byte_t read8(main_integer_t address) override{ \
+		byte_t read8(main_integer_t address, bool force) override{ \
 			return 0; \
 		} \
 	}
@@ -109,7 +109,7 @@ public:
 			throw NotImplementedException(); \
 		} \
 		void write8(main_integer_t, byte_t) override{} \
-		byte_t read8(main_integer_t) override{ \
+		byte_t read8(main_integer_t, bool) override{ \
 			return 0; \
 		} \
 	}
@@ -122,7 +122,7 @@ DECLARE_UNSUPPORTED_CARTRIDGE_CLASS(Hudson1Cartridge, Cartridge);
 class StandardCartridge : public Cartridge{
 protected:
 	typedef void(*write8_f)(StandardCartridge *, main_integer_t, byte_t);
-	typedef byte_t(*read8_f)(StandardCartridge *, main_integer_t);
+	typedef byte_t(*read8_f)(StandardCartridge *, main_integer_t, bool);
 private:
 	std::unique_ptr<write8_f[]> write_callbacks_unique;
 	std::unique_ptr<read8_f[]> read_callbacks_unique;
@@ -149,14 +149,14 @@ protected:
 	bool ram_enabled = false;
 
 	static void write8_do_nothing(StandardCartridge *, main_integer_t, byte_t){}
-	static byte_t read8_do_nothing(StandardCartridge *, main_integer_t){ return 0; }
+	static byte_t read8_do_nothing(StandardCartridge *, main_integer_t, bool){ return 0; }
 	virtual void init_functions_derived(){}
 public:
 	StandardCartridge(HostSystem &host, std::unique_ptr<std::vector<byte_t>> &&, const CartridgeCapabilities &);
 	virtual ~StandardCartridge() = 0;
 	void post_initialization() override;
 	virtual void write8(main_integer_t, byte_t) override;
-	virtual byte_t read8(main_integer_t) override;
+	virtual byte_t read8(main_integer_t, bool force) override;
 	void commit_ram();
 	void load_ram();
 	int get_current_rom_bank() override{

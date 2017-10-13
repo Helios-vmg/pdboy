@@ -54,23 +54,23 @@ void Mbc1Cartridge::set_ram_functions(){
 	}
 }
 
-byte_t Mbc1Cartridge::read8_simple(StandardCartridge *sc, main_integer_t address){
+byte_t Mbc1Cartridge::read8_simple(StandardCartridge *sc, main_integer_t address, bool force){
 	auto This = static_cast<Mbc1Cartridge *>(sc);
 	return This->data[address];
 }
 
-byte_t Mbc1Cartridge::read8_switchable_rom_bank(StandardCartridge *sc, main_integer_t address){
+byte_t Mbc1Cartridge::read8_switchable_rom_bank(StandardCartridge *sc, main_integer_t address, bool force){
 	auto This = static_cast<Mbc1Cartridge *>(sc);
 	auto offset = This->compute_rom_offset(address);
 	return This->data[offset];
 }
 
-byte_t Mbc1Cartridge::read8_small_ram(StandardCartridge *sc, main_integer_t address){
+byte_t Mbc1Cartridge::read8_small_ram(StandardCartridge *sc, main_integer_t address, bool force){
 	auto This = static_cast<Mbc1Cartridge *>(sc);
 	return This->ram.read(address & 0x7FFF);
 }
 
-byte_t Mbc1Cartridge::read8_switchable_ram_bank(StandardCartridge *sc, main_integer_t address){
+byte_t Mbc1Cartridge::read8_switchable_ram_bank(StandardCartridge *sc, main_integer_t address, bool force){
 	auto This = static_cast<Mbc1Cartridge *>(sc);
 	auto offset = This->compute_ram_offset(address);
 	return This->ram.read(offset);
@@ -111,7 +111,9 @@ void Mbc1Cartridge::write8_switchable_ram_bank(StandardCartridge *sc, main_integ
 	This->ram.write(offset, value);
 }
 
-byte_t Mbc1Cartridge::read8_invalid_ram(StandardCartridge *, main_integer_t){
+byte_t Mbc1Cartridge::read8_invalid_ram(StandardCartridge *, main_integer_t, bool force){
+	if (force)
+		return 0;
 	throw GenericException("Attempt to read from invalid cartridge RAM.");
 }
 

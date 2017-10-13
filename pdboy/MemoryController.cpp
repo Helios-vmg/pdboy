@@ -258,32 +258,32 @@ void MemoryController::initialize_io_register_functions(){
 	this->io_registers_load[0xFF] = &MemoryController::load_interrupt_enable;
 }
 
-byte_t MemoryController::read_storage(main_integer_t address) const{
-	return this->storage->read8(address);
+byte_t MemoryController::read_storage(main_integer_t address, bool force) const{
+	return this->storage->read8(address, force);
 }
 
 void MemoryController::write_storage(main_integer_t address, byte_t value){
 	this->storage->write8(address, value);
 }
 
-byte_t MemoryController::read_storage_ram(main_integer_t address) const{
-	return this->read_storage(address);
+byte_t MemoryController::read_storage_ram(main_integer_t address, bool force) const{
+	return this->read_storage(address, force);
 }
 
 void MemoryController::write_storage_ram(main_integer_t address, byte_t value){
 	return this->write_storage(address, value);
 }
 
-byte_t MemoryController::read_ram_mirror1(main_integer_t address) const{
-	return this->read_fixed_ram(address - 0x2000);
+byte_t MemoryController::read_ram_mirror1(main_integer_t address, bool force) const{
+	return this->read_fixed_ram(address - 0x2000, force);
 }
 
 void MemoryController::write_ram_mirror1(main_integer_t address, byte_t value){
 	this->write_fixed_ram(address - 0x2000, value);
 }
 
-byte_t MemoryController::read_ram_mirror2(main_integer_t address) const{
-	return this->read_switchable_ram(address - 0x2000);
+byte_t MemoryController::read_ram_mirror2(main_integer_t address, bool force) const{
+	return this->read_switchable_ram(address - 0x2000, force);
 }
 
 void MemoryController::write_ram_mirror2(main_integer_t address, byte_t value){
@@ -294,10 +294,10 @@ void MemoryController::write_ram_mirror2(main_integer_t address, byte_t value){
 bool recording_exhausted = false;
 #endif
 
-byte_t MemoryController::read_io_registers_and_high_ram(main_integer_t address) const{
+byte_t MemoryController::read_io_registers_and_high_ram(main_integer_t address, bool force) const{
 	std::uint8_t truncated_address = address & 0xFF;
 	auto fp = this->io_registers_load[truncated_address];
-	auto ret = (this->*fp)(address);
+	auto ret = (this->*fp)(address, force);
 #ifdef IO_REGISTERS_RECORDING
 	if (!(truncated_address & 0x80)){
 		std::uint64_t clock_value = this->system->get_system_clock().get_clock_value();
@@ -334,11 +334,11 @@ void MemoryController::write_io_registers_and_high_ram(main_integer_t address, b
 		(this->*fp)(address, value);
 }
 
-byte_t MemoryController::read_dmg_bootstrap(main_integer_t address) const{
+byte_t MemoryController::read_dmg_bootstrap(main_integer_t address, bool force) const{
 	return gb_bootstrap_rom[address];
 }
 
-byte_t MemoryController::read_vram(main_integer_t address) const{
+byte_t MemoryController::read_vram(main_integer_t address, bool force) const{
 	if (!this->vram_enabled)
 		return 0xFF;
 	return this->display->access_vram(address);
@@ -350,7 +350,7 @@ void MemoryController::write_vram(main_integer_t address, byte_t value){
 	this->display->access_vram(address) = value;
 }
 
-byte_t MemoryController::read_fixed_ram(main_integer_t address) const{
+byte_t MemoryController::read_fixed_ram(main_integer_t address, bool force) const{
 	return this->fixed_ram.access(address);
 }
 
@@ -358,7 +358,7 @@ void MemoryController::write_fixed_ram(main_integer_t address, byte_t value){
 	this->fixed_ram.access(address) = value;
 }
 
-byte_t MemoryController::read_switchable_ram(main_integer_t address) const{
+byte_t MemoryController::read_switchable_ram(main_integer_t address, bool force) const{
 	return this->switchable_ram.access(address + (this->selected_ram_bank << 12));
 }
 
@@ -366,14 +366,14 @@ void MemoryController::write_switchable_ram(main_integer_t address, byte_t value
 	this->switchable_ram.access(address + (this->selected_ram_bank << 12)) = value;
 }
 
-byte_t MemoryController::read_oam(main_integer_t address) const{
+byte_t MemoryController::read_oam(main_integer_t address, bool force) const{
 	if (address >= 0xFEA0)
 		return 0;
 
 	return this->display->access_oam(address);
 }
 
-byte_t MemoryController::read_disabled_oam(main_integer_t address) const{
+byte_t MemoryController::read_disabled_oam(main_integer_t address, bool force) const{
 	return (address < 0xFEA0) * 0xFF;
 }
 
@@ -391,7 +391,7 @@ void MemoryController::write_disabled_oam(main_integer_t address, byte_t value){
 void MemoryController::store_nothing(main_integer_t, byte_t){
 }
 
-byte_t MemoryController::load_nothing(main_integer_t) const{
+byte_t MemoryController::load_nothing(main_integer_t, bool force) const{
 	return 0xFF;
 }
 
@@ -399,14 +399,16 @@ void MemoryController::store_not_implemented(main_integer_t, byte_t){
 	throw NotImplementedException();
 }
 
-byte_t MemoryController::load_not_implemented(main_integer_t) const{
+byte_t MemoryController::load_not_implemented(main_integer_t, bool force) const{
+	if (force)
+		return 0;
 	throw NotImplementedException();
 }
 
 void MemoryController::store_no_io(main_integer_t, byte_t){
 }
 
-byte_t MemoryController::load_no_io(main_integer_t) const{
+byte_t MemoryController::load_no_io(main_integer_t, bool force) const{
 	return 0xFF;
 }
 
@@ -414,7 +416,7 @@ void MemoryController::store_bootstrap_rom_enable(main_integer_t, byte_t value){
 	this->toggle_boostrap_rom(!value);
 }
 
-byte_t MemoryController::load_bootstrap_rom_enable(main_integer_t) const{
+byte_t MemoryController::load_bootstrap_rom_enable(main_integer_t, bool force) const{
 	return 0xFF;
 }
 
@@ -422,7 +424,7 @@ void MemoryController::store_high_ram(main_integer_t address, byte_t value){
 	this->high_ram.access(address) = value;
 }
 
-byte_t MemoryController::load_high_ram(main_integer_t address) const{
+byte_t MemoryController::load_high_ram(main_integer_t address, bool force) const{
 	return this->high_ram.access(address);
 }
 
@@ -430,11 +432,11 @@ void MemoryController::store_interrupt_enable(main_integer_t, byte_t value){
 	this->cpu->set_interrupt_enable_flag(value);
 }
 
-byte_t MemoryController::load_interrupt_enable(main_integer_t) const{
+byte_t MemoryController::load_interrupt_enable(main_integer_t, bool force) const{
 	return this->cpu->get_interrupt_enable_flag();
 }
 
-byte_t MemoryController::load_STAT(main_integer_t) const{
+byte_t MemoryController::load_STAT(main_integer_t, bool force) const{
 	return this->display->get_status();
 }
 
@@ -442,7 +444,7 @@ void MemoryController::store_STAT(main_integer_t, byte_t b){
 	this->display->set_status(b);
 }
 
-byte_t MemoryController::load_LY(main_integer_t) const{
+byte_t MemoryController::load_LY(main_integer_t, bool force) const{
 	return this->display->get_y_coordinate();
 }
 
@@ -450,7 +452,7 @@ void MemoryController::store_LY(main_integer_t, byte_t b){
 	this->display->set_y_coordinate_compare(b);
 }
 
-byte_t MemoryController::load_LYC(main_integer_t) const{
+byte_t MemoryController::load_LYC(main_integer_t, bool force) const{
 	return this->display->get_y_coordinate_compare();
 }
 
@@ -458,7 +460,7 @@ void MemoryController::store_LYC(main_integer_t, byte_t b){
 	this->display->set_y_coordinate_compare(b);
 }
 
-byte_t MemoryController::load_WY(main_integer_t) const{
+byte_t MemoryController::load_WY(main_integer_t, bool force) const{
 	return this->display->get_window_y_position();
 }
 
@@ -466,7 +468,7 @@ void MemoryController::store_WY(main_integer_t, byte_t b){
 	this->display->set_window_y_position(b);
 }
 
-byte_t MemoryController::load_WX(main_integer_t) const{
+byte_t MemoryController::load_WX(main_integer_t, bool force) const{
 	return this->display->get_window_x_position();
 }
 
@@ -474,7 +476,7 @@ void MemoryController::store_WX(main_integer_t, byte_t b){
 	this->display->set_window_x_position(b);
 }
 
-byte_t MemoryController::load_BGP(main_integer_t) const{
+byte_t MemoryController::load_BGP(main_integer_t, bool force) const{
 	return this->display->get_background_palette();
 }
 
@@ -482,7 +484,7 @@ void MemoryController::store_BGP(main_integer_t, byte_t b){
 	this->display->set_background_palette(b);
 }
 
-byte_t MemoryController::load_SCY(main_integer_t) const{
+byte_t MemoryController::load_SCY(main_integer_t, bool force) const{
 	return this->display->get_scroll_y();
 }
 
@@ -490,7 +492,7 @@ void MemoryController::store_SCY(main_integer_t, byte_t b){
 	this->display->set_scroll_y(b);
 }
 
-byte_t MemoryController::load_SCX(main_integer_t) const{
+byte_t MemoryController::load_SCX(main_integer_t, bool force) const{
 	return this->display->get_scroll_x();
 }
 
@@ -498,7 +500,7 @@ void MemoryController::store_SCX(main_integer_t, byte_t b){
 	this->display->set_scroll_x(b);
 }
 
-byte_t MemoryController::load_LCDC(main_integer_t) const{
+byte_t MemoryController::load_LCDC(main_integer_t, bool force) const{
 	return this->display->get_lcd_control();
 }
 
@@ -506,7 +508,7 @@ void MemoryController::store_LCDC(main_integer_t, byte_t b){
 	this->display->set_lcd_control(b);
 }
 
-byte_t MemoryController::load_IF(main_integer_t) const{
+byte_t MemoryController::load_IF(main_integer_t, bool force) const{
 	return this->cpu->get_interrupt_flag();
 }
 
@@ -514,7 +516,7 @@ void MemoryController::store_IF(main_integer_t, byte_t b){
 	this->cpu->set_interrupt_flag(b);
 }
 
-byte_t MemoryController::load_P1(main_integer_t) const{
+byte_t MemoryController::load_P1(main_integer_t, bool force) const{
 	return this->joypad->get_requested_input_state();
 }
 
@@ -522,7 +524,7 @@ void MemoryController::store_P1(main_integer_t, byte_t b){
 	this->joypad->request_input_state(b);
 }
 
-byte_t MemoryController::load_OBP0(main_integer_t) const{
+byte_t MemoryController::load_OBP0(main_integer_t, bool force) const{
 	return this->display->get_obj0_palette();
 }
 
@@ -530,7 +532,7 @@ void MemoryController::store_OBP0(main_integer_t, byte_t b){
 	this->display->set_obj0_palette(b);
 }
 
-byte_t MemoryController::load_OBP1(main_integer_t) const{
+byte_t MemoryController::load_OBP1(main_integer_t, bool force) const{
 	return this->display->get_obj1_palette();
 }
 
@@ -538,7 +540,7 @@ void MemoryController::store_OBP1(main_integer_t, byte_t b){
 	this->display->set_obj1_palette(b);
 }
 
-byte_t MemoryController::load_DMA(main_integer_t) const{
+byte_t MemoryController::load_DMA(main_integer_t, bool force) const{
 	return 0;
 }
 
@@ -546,7 +548,7 @@ void MemoryController::store_DMA(main_integer_t, byte_t b){
 	this->cpu->begin_dmg_dma_transfer(b);
 }
 
-byte_t MemoryController::load_DIV(main_integer_t) const{
+byte_t MemoryController::load_DIV(main_integer_t, bool force) const{
 	return this->system->get_system_clock().get_DIV_register();
 }
 
@@ -554,7 +556,7 @@ void MemoryController::store_DIV(main_integer_t, byte_t b){
 	this->system->get_system_clock().reset_DIV_register();
 }
 
-byte_t MemoryController::load_TIMA(main_integer_t) const{
+byte_t MemoryController::load_TIMA(main_integer_t, bool force) const{
 	return this->system->get_system_clock().get_TIMA_register();
 }
 
@@ -562,7 +564,7 @@ void MemoryController::store_TIMA(main_integer_t, byte_t b){
 	this->system->get_system_clock().set_TIMA_register(b);
 }
 
-byte_t MemoryController::load_TMA(main_integer_t) const{
+byte_t MemoryController::load_TMA(main_integer_t, bool force) const{
 	return this->system->get_system_clock().get_TMA_register();
 }
 
@@ -570,7 +572,7 @@ void MemoryController::store_TMA(main_integer_t, byte_t b){
 	this->system->get_system_clock().set_TMA_register(b);
 }
 
-byte_t MemoryController::load_TAC(main_integer_t) const{
+byte_t MemoryController::load_TAC(main_integer_t, bool force) const{
 	return this->system->get_system_clock().get_TAC_register();
 }
 
@@ -578,7 +580,7 @@ void MemoryController::store_TAC(main_integer_t, byte_t b){
 	this->system->get_system_clock().set_TAC_register(b);
 }
 
-byte_t MemoryController::load_NR10(main_integer_t) const{
+byte_t MemoryController::load_NR10(main_integer_t, bool force) const{
 	return this->sound->square1.get_register0();
 }
 
@@ -586,7 +588,7 @@ void MemoryController::store_NR10(main_integer_t, byte_t b){
 	this->sound->square1.set_register0(b);
 }
 
-byte_t MemoryController::load_NR11(main_integer_t) const{
+byte_t MemoryController::load_NR11(main_integer_t, bool force) const{
 	return this->sound->square1.get_register1();
 }
 
@@ -594,7 +596,7 @@ void MemoryController::store_NR11(main_integer_t, byte_t b){
 	this->sound->square1.set_register1(b);
 }
 
-byte_t MemoryController::load_NR12(main_integer_t) const{
+byte_t MemoryController::load_NR12(main_integer_t, bool force) const{
 	return this->sound->square1.get_register2();
 }
 
@@ -602,7 +604,7 @@ void MemoryController::store_NR12(main_integer_t, byte_t b){
 	this->sound->square1.set_register2(b);
 }
 
-byte_t MemoryController::load_NR13(main_integer_t) const{
+byte_t MemoryController::load_NR13(main_integer_t, bool force) const{
 	return this->sound->square1.get_register3();
 }
 
@@ -610,7 +612,7 @@ void MemoryController::store_NR13(main_integer_t, byte_t b){
 	this->sound->square1.set_register3(b);
 }
 
-byte_t MemoryController::load_NR14(main_integer_t) const{
+byte_t MemoryController::load_NR14(main_integer_t, bool force) const{
 	return this->sound->square1.get_register4();
 }
 
@@ -618,7 +620,7 @@ void MemoryController::store_NR14(main_integer_t, byte_t b){
 	this->sound->square1.set_register4(b);
 }
 
-byte_t MemoryController::load_NR21(main_integer_t) const{
+byte_t MemoryController::load_NR21(main_integer_t, bool force) const{
 	return this->sound->square2.get_register1();
 }
 
@@ -626,7 +628,7 @@ void MemoryController::store_NR21(main_integer_t, byte_t b){
 	this->sound->square2.set_register1(b);
 }
 
-byte_t MemoryController::load_NR22(main_integer_t) const{
+byte_t MemoryController::load_NR22(main_integer_t, bool force) const{
 	return this->sound->square2.get_register2();
 }
 
@@ -634,7 +636,7 @@ void MemoryController::store_NR22(main_integer_t, byte_t b){
 	this->sound->square2.set_register2(b);
 }
 
-byte_t MemoryController::load_NR23(main_integer_t) const{
+byte_t MemoryController::load_NR23(main_integer_t, bool force) const{
 	return this->sound->square2.get_register3();
 }
 
@@ -642,7 +644,7 @@ void MemoryController::store_NR23(main_integer_t, byte_t b){
 	this->sound->square2.set_register3(b);
 }
 
-byte_t MemoryController::load_NR24(main_integer_t) const{
+byte_t MemoryController::load_NR24(main_integer_t, bool force) const{
 	return this->sound->square2.get_register4();
 }
 
@@ -652,7 +654,7 @@ void MemoryController::store_NR24(main_integer_t, byte_t b){
 
 
 
-byte_t MemoryController::load_NR30(main_integer_t) const{
+byte_t MemoryController::load_NR30(main_integer_t, bool force) const{
 	return this->sound->wave.get_register0();
 }
 
@@ -660,7 +662,7 @@ void MemoryController::store_NR30(main_integer_t, byte_t b){
 	this->sound->wave.set_register0(b);
 }
 
-byte_t MemoryController::load_NR31(main_integer_t) const{
+byte_t MemoryController::load_NR31(main_integer_t, bool force) const{
 	return this->sound->wave.get_register1();
 }
 
@@ -668,7 +670,7 @@ void MemoryController::store_NR31(main_integer_t, byte_t b){
 	this->sound->wave.set_register1(b);
 }
 
-byte_t MemoryController::load_NR32(main_integer_t) const{
+byte_t MemoryController::load_NR32(main_integer_t, bool force) const{
 	return this->sound->wave.get_register2();
 }
 
@@ -676,7 +678,7 @@ void MemoryController::store_NR32(main_integer_t, byte_t b){
 	this->sound->wave.set_register2(b);
 }
 
-byte_t MemoryController::load_NR33(main_integer_t) const{
+byte_t MemoryController::load_NR33(main_integer_t, bool force) const{
 	return this->sound->wave.get_register3();
 }
 
@@ -684,7 +686,7 @@ void MemoryController::store_NR33(main_integer_t, byte_t b){
 	this->sound->wave.set_register3(b);
 }
 
-byte_t MemoryController::load_NR34(main_integer_t) const{
+byte_t MemoryController::load_NR34(main_integer_t, bool force) const{
 	return this->sound->wave.get_register4();
 }
 
@@ -694,7 +696,7 @@ void MemoryController::store_NR34(main_integer_t, byte_t b){
 
 
 
-byte_t MemoryController::load_NR41(main_integer_t) const{
+byte_t MemoryController::load_NR41(main_integer_t, bool force) const{
 	return this->sound->noise.get_register1();
 }
 
@@ -702,7 +704,7 @@ void MemoryController::store_NR41(main_integer_t, byte_t b){
 	this->sound->noise.set_register1(b);
 }
 
-byte_t MemoryController::load_NR42(main_integer_t) const{
+byte_t MemoryController::load_NR42(main_integer_t, bool force) const{
 	return this->sound->noise.get_register2();
 }
 
@@ -710,7 +712,7 @@ void MemoryController::store_NR42(main_integer_t, byte_t b){
 	this->sound->noise.set_register2(b);
 }
 
-byte_t MemoryController::load_NR43(main_integer_t) const{
+byte_t MemoryController::load_NR43(main_integer_t, bool force) const{
 	return this->sound->noise.get_register3();
 }
 
@@ -718,7 +720,7 @@ void MemoryController::store_NR43(main_integer_t, byte_t b){
 	this->sound->noise.set_register3(b);
 }
 
-byte_t MemoryController::load_NR44(main_integer_t) const{
+byte_t MemoryController::load_NR44(main_integer_t, bool force) const{
 	return this->sound->noise.get_register4();
 }
 
@@ -726,7 +728,7 @@ void MemoryController::store_NR44(main_integer_t, byte_t b){
 	this->sound->noise.set_register4(b);
 }
 
-byte_t MemoryController::load_NR50(main_integer_t) const{
+byte_t MemoryController::load_NR50(main_integer_t, bool force) const{
 	return this->sound->get_NR50();
 }
 
@@ -734,7 +736,7 @@ void MemoryController::store_NR50(main_integer_t, byte_t b){
 	this->sound->set_NR50(b);
 }
 
-byte_t MemoryController::load_NR51(main_integer_t) const{
+byte_t MemoryController::load_NR51(main_integer_t, bool force) const{
 	return this->sound->get_NR51();
 }
 
@@ -742,7 +744,7 @@ void MemoryController::store_NR51(main_integer_t, byte_t b){
 	this->sound->set_NR51(b);
 }
 
-byte_t MemoryController::load_NR52(main_integer_t) const{
+byte_t MemoryController::load_NR52(main_integer_t, bool force) const{
 	return this->sound->get_NR52();
 }
 
@@ -750,7 +752,7 @@ void MemoryController::store_NR52(main_integer_t, byte_t b){
 	this->sound->set_NR52(b);
 }
 
-byte_t MemoryController::load_WAVE(main_integer_t) const{
+byte_t MemoryController::load_WAVE(main_integer_t, bool force) const{
 	return 0xFF;
 }
 
@@ -758,14 +760,14 @@ void MemoryController::store_WAVE(main_integer_t address, byte_t b){
 	this->sound->wave.set_wave_table((unsigned)address - 0xFF30, b);
 }
 
-main_integer_t MemoryController::load8(main_integer_t address) const{
+main_integer_t MemoryController::load8(main_integer_t address, bool force) const{
 	address &= 0xFFFF;
 	auto fp = this->memory_map_load[address >> 8];
-	return (this->*fp)(address);
+	return (this->*fp)(address, force);
 }
 
-main_integer_t MemoryController::load8_io(main_integer_t offset) const{
-	return this->read_io_registers_and_high_ram(0xFF00 | offset);
+main_integer_t MemoryController::load8_io(main_integer_t offset, bool force) const{
+	return this->read_io_registers_and_high_ram(0xFF00 | offset, force);
 }
 
 void MemoryController::store8(main_integer_t address, main_integer_t value){
@@ -787,8 +789,8 @@ void MemoryController::store8_io(main_integer_t offset, main_integer_t value){
 	this->write_io_registers_and_high_ram(0xFF00 | offset, (byte_t)value);
 }
 
-main_integer_t MemoryController::load16(main_integer_t address) const{
-	return (this->load8(address + 1) << 8) | this->load8(address);
+main_integer_t MemoryController::load16(main_integer_t address, bool force) const{
+	return (this->load8(address + 1, force) << 8) | this->load8(address, force);
 }
 
 void MemoryController::store16(main_integer_t address, main_integer_t value){
@@ -810,7 +812,7 @@ void MemoryController::copy_memory_force(main_integer_t src, main_integer_t dst,
 	//this->toggle_palette_access(true);
 
 	for (size_t i = 0; i < length; i++)
-		this->store8(dst + i, this->load8(src + i));
+		this->store8(dst + i, this->load8(src + i, false));
 
 	this->toggle_oam_access(oam);
 	this->toggle_vram_access(vram);

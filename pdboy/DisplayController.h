@@ -49,6 +49,7 @@ struct RenderedFrame{
 	static const size_t size = lcd_width * lcd_height;
 	static const size_t bytes_size = lcd_width * lcd_height * sizeof(RGB);
 	RGB pixels[size];
+	byte_t memory_dump[0x10000];
 };
 
 struct PixelDetails{

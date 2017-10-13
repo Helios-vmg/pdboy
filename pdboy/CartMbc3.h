@@ -28,7 +28,7 @@ protected:
 	void stop_rtc();
 	void resume_rtc();
 
-	static byte_t read8_rtc_register(StandardCartridge *, main_integer_t);
+	static byte_t read8_rtc_register(StandardCartridge *, main_integer_t, bool);
 	static void write8_switch_rom_bank(StandardCartridge *, main_integer_t, byte_t);
 	static void write8_switch_ram_bank(StandardCartridge *, main_integer_t, byte_t);
 	static void write8_latch_rtc_registers(StandardCartridge *, main_integer_t, byte_t);

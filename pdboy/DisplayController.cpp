@@ -312,6 +312,12 @@ void DisplayController::switch_to_row_state_3(unsigned row){
 			this->system->get_host()->write_frame_to_disk(path.str(), *this->frame_being_drawn);
 		}
 #endif
+		main_integer_t address = 0;
+		auto frame = this->publishing_frames.get_private_resource();
+		for (auto &dst : frame->memory_dump){
+			frame->memory_dump[address] = (byte_t)this->system->get_cpu().get_memory_controller().load8(address, true);
+			address++;
+		}
 		this->publishing_frames.publish();
 		frames_drawn++;
 	}else

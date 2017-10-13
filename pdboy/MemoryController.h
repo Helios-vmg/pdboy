@@ -10,7 +10,7 @@ class DisplayController;
 class SoundController;
 
 #define DECLARE_IO_REGISTER(x) \
-	byte_t load_##x(main_integer_t) const; \
+	byte_t load_##x(main_integer_t, bool) const; \
 	void store_##x(main_integer_t, byte_t)
 
 class Gameboy;
@@ -41,7 +41,7 @@ enum class MemoryOperationMode{
 
 class MemoryController{
 	typedef void (MemoryController::*store_func_t)(main_integer_t, byte_t);
-	typedef byte_t(MemoryController::*load_func_t)(main_integer_t) const;
+	typedef byte_t(MemoryController::*load_func_t)(main_integer_t, bool) const;
 
 	Gameboy *system;
 	GameboyCpu *cpu;
@@ -72,39 +72,39 @@ class MemoryController{
 	void initialize_memory_map_functions();
 	void initialize_io_register_functions();
 	void store_nothing(main_integer_t, byte_t);
-	byte_t load_nothing(main_integer_t) const;
+	byte_t load_nothing(main_integer_t, bool) const;
 	void store_not_implemented(main_integer_t, byte_t);
-	byte_t load_not_implemented(main_integer_t) const;
+	byte_t load_not_implemented(main_integer_t, bool) const;
 	void store_no_io(main_integer_t, byte_t);
-	byte_t load_no_io(main_integer_t) const;
+	byte_t load_no_io(main_integer_t, bool) const;
 	void store_bootstrap_rom_enable(main_integer_t, byte_t);
-	byte_t load_bootstrap_rom_enable(main_integer_t) const;
+	byte_t load_bootstrap_rom_enable(main_integer_t, bool) const;
 	void store_high_ram(main_integer_t, byte_t);
-	byte_t load_high_ram(main_integer_t) const;
+	byte_t load_high_ram(main_integer_t, bool) const;
 	void store_interrupt_enable(main_integer_t, byte_t);
-	byte_t load_interrupt_enable(main_integer_t) const;
+	byte_t load_interrupt_enable(main_integer_t, bool) const;
 
-	byte_t read_storage(main_integer_t) const;
+	byte_t read_storage(main_integer_t, bool) const;
 	void write_storage(main_integer_t, byte_t);
-	byte_t read_storage_ram(main_integer_t) const;
+	byte_t read_storage_ram(main_integer_t, bool) const;
 	void write_storage_ram(main_integer_t, byte_t);
-	byte_t read_ram_mirror1(main_integer_t) const;
+	byte_t read_ram_mirror1(main_integer_t, bool) const;
 	void write_ram_mirror1(main_integer_t, byte_t);
-	byte_t read_ram_mirror2(main_integer_t) const;
+	byte_t read_ram_mirror2(main_integer_t, bool) const;
 	void write_ram_mirror2(main_integer_t, byte_t);
-	byte_t read_io_registers_and_high_ram(main_integer_t) const;
+	byte_t read_io_registers_and_high_ram(main_integer_t, bool) const;
 	void write_io_registers_and_high_ram(main_integer_t, byte_t);
-	byte_t read_dmg_bootstrap(main_integer_t) const;
+	byte_t read_dmg_bootstrap(main_integer_t, bool) const;
 
 	//Real RAM:
-	byte_t read_vram(main_integer_t) const;
+	byte_t read_vram(main_integer_t, bool) const;
 	void write_vram(main_integer_t, byte_t);
-	byte_t read_fixed_ram(main_integer_t) const;
+	byte_t read_fixed_ram(main_integer_t, bool) const;
 	void write_fixed_ram(main_integer_t, byte_t);
-	byte_t read_switchable_ram(main_integer_t) const;
+	byte_t read_switchable_ram(main_integer_t, bool) const;
 	void write_switchable_ram(main_integer_t, byte_t);
-	byte_t read_oam(main_integer_t) const;
-	byte_t read_disabled_oam(main_integer_t) const;
+	byte_t read_oam(main_integer_t, bool) const;
+	byte_t read_disabled_oam(main_integer_t, bool) const;
 	void write_oam(main_integer_t, byte_t);
 	void write_disabled_oam(main_integer_t, byte_t);
 
@@ -155,11 +155,11 @@ public:
 	MemoryController(Gameboy &, GameboyCpu &);
 	~MemoryController();
 	void initialize();
-	main_integer_t load8(main_integer_t address) const;
-	main_integer_t load8_io(main_integer_t address) const;
+	main_integer_t load8(main_integer_t address, bool force = false) const;
+	main_integer_t load8_io(main_integer_t address, bool force = false) const;
 	void store8(main_integer_t address, main_integer_t value);
 	void store8_io(main_integer_t offset, main_integer_t value);
-	main_integer_t load16(main_integer_t address) const;
+	main_integer_t load16(main_integer_t address, bool force = false) const;
 	void store16(main_integer_t address, main_integer_t value);
 	//Copies memory while momentarily enabling memory ranges disabled by the display controller.
 	void copy_memory_force(main_integer_t src, main_integer_t dst, size_t length);
