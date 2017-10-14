@@ -37,3 +37,4 @@ code_generator/My Amplifier XE Results - code_generator/
 *.db
 *.o
 include/
+*.idb

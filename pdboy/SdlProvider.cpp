@@ -1,12 +1,10 @@
 #include "SdlProvider.h"
 #include "exceptions.h"
 #include "timer.h"
-#include "DisplayController.h"
-#include "SoundController.h"
-#include "HostSystem.h"
 #include <algorithm>
 #include <cassert>
 #include <iostream>
+#include <mutex>
 
 #define X old = (old * 11 + current) / 12
 const int lcd_fade_period = 0;
@@ -27,13 +25,13 @@ SdlProvider::~SdlProvider(){
 }
 
 void SdlProvider::initialize_graphics(){
-	this->window = SDL_CreateWindow("Gameboy", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, lcd_width * 4, lcd_height * 4, 0);
+	this->window = SDL_CreateWindow("Gameboy", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, libpdboy_screen_width * 4, libpdboy_screen_height * 4, 0);
 	if (!this->window)
 		throw GenericException("Failed to initialize SDL window.");
 	this->renderer = SDL_CreateRenderer(this->window, -1, SDL_RENDERER_PRESENTVSYNC);
 	if (!this->renderer)
 		throw GenericException("Failed to initialize SDL renderer.");
-	this->main_texture = SDL_CreateTexture(this->renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, lcd_width, lcd_height);
+	this->main_texture = SDL_CreateTexture(this->renderer, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING, libpdboy_screen_width, libpdboy_screen_height);
 	if (!this->main_texture)
 		throw GenericException("Failed to create main texture.");
 	this->realtime_counter_frequency = get_timer_resolution();
@@ -42,8 +40,8 @@ void SdlProvider::initialize_graphics(){
 		void *void_pixels;
 		int pitch;
 		if (SDL_LockTexture(this->main_texture, nullptr, &void_pixels, &pitch) >= 0){
-			assert(pitch == lcd_width * 4);
-			memset(void_pixels, 0xFF, RenderedFrame::bytes_size);
+			assert(pitch == libpdboy_screen_width * 4);
+			memset(void_pixels, 0xFF, libpdboy_screen_size * sizeof(libpdboy_rgba));
 			SDL_UnlockTexture(this->main_texture);
 		}
 	}
@@ -63,7 +61,7 @@ void SdlProvider::initialize_audio(){
 	desired.freq = 44100;
 	desired.format = AUDIO_S16SYS;
 	desired.channels = 2;
-	desired.samples = AudioFrame::length;
+	desired.samples = 1024;
 	desired.callback = SdlProvider::audio_callback;
 	desired.userdata = this;
 	this->audio_device = SDL_OpenAudioDevice(nullptr, false, &desired, &actual, 0);
@@ -79,49 +77,25 @@ Uint32 SDLCALL SdlProvider::timer_callback(Uint32 interval, void *param){
 	auto This = (SdlProvider *)param;
 	{
 		std::lock_guard<std::mutex> lg(This->periodic_event_mutex);
-		if (This->periodic_event)
-			This->periodic_event->signal();
+		This->event_callback();
 	}
 	return interval;
 }
 
 void SDLCALL SdlProvider::audio_callback(void *userdata, Uint8 *stream, int len){
 	auto This = (SdlProvider *)userdata;
-	{
-		std::lock_guard<std::mutex> lg(This->mutex);
-		if (This->get_data_callback){
-			auto frame = This->get_data_callback();
-			if (frame){
-				if (frame->frame_no < This->next_frame){
-					if (This->return_data_callback)
-						This->return_data_callback(frame);
-				}else{
-					This->next_frame = frame->frame_no + 1;
-#ifndef BENCHMARKING
-					auto n = std::min<size_t>(len, sizeof(frame->buffer));
-					memcpy(stream, frame->buffer, n);
-					if (len - n)
-						memset(stream + n, 0, len - n);
-#else
-					memset(stream, 0, len);
-#endif
-					if (This->return_data_callback)
-						This->return_data_callback(frame);
-					return;
-				}
-			}
-		}
-	}
-	memset(stream, 0, len);
+	std::lock_guard<std::mutex> lg(This->mutex);
+	if (This->get_audio_data_callback)
+		This->get_audio_data_callback(stream, len);
 }
 
-void SdlProvider::register_periodic_notification(Event &event){
+void SdlProvider::register_periodic_notification(const std::function<void()> &callback){
 	if (!this->timer_id){
-		this->periodic_event = &event;
+		this->event_callback = callback;
 		this->timer_id = SDL_AddTimer(1, timer_callback, this);
 	}else{
 		std::lock_guard<std::mutex> lg(this->periodic_event_mutex);
-		this->periodic_event = &event;
+		this->event_callback = callback;
 	}
 }
 
@@ -132,75 +106,28 @@ void SdlProvider::unregister_periodic_notification(){
 	this->timer_id = 0;
 	{
 		std::lock_guard<std::mutex> lg(this->periodic_event_mutex);
-		this->periodic_event = nullptr;
+		this->event_callback = decltype(this->event_callback)();
 	}
 }
 
-void SdlProvider::render(const RenderedFrame *current_frame){
+SdlProvider::render_t SdlProvider::render(){
 	void *void_pixels;
 	int pitch;
 
 	if (SDL_LockTexture(this->main_texture, nullptr, &void_pixels, &pitch) < 0)
-		return;
-	auto pixels = (byte_t *)void_pixels;
-	assert(pitch == lcd_width * 4);
-	if (current_frame){
-		if (!lcd_fade_period)
-			memcpy(pixels, current_frame->pixels, sizeof(current_frame->pixels));
-		else{
-			auto src = (byte_t *)current_frame->pixels;
-			for (unsigned i = sizeof(current_frame->pixels); i--;){
-				auto mod = i % 4;
-				if (mod == 3){
-					pixels[i] = 0xFF;
-					continue;
-				}
-				int old = pixels[i];
-				int current = src[i];
-				if (current <= old){
-					pixels[i] = current;
-					continue;
-				}
-				old += lcd_fade;
-				if (old >= current){
-					pixels[i] = current;
-					continue;
-				}
-				pixels[i] = old;
-			}
+		return render_t();
+	return render_t(
+		(libpdboy_rgba *)void_pixels,
+		[this](libpdboy_rgba *){
+			SDL_UnlockTexture(this->main_texture);
+			SDL_RenderCopy(this->renderer, this->main_texture, nullptr, nullptr);
+			SDL_RenderPresent(this->renderer);
 		}
-	}else{
-		if (!lcd_fade_period)
-			memset(void_pixels, 0xFF, sizeof(current_frame->pixels));
-		else{
-			for (unsigned i = sizeof(current_frame->pixels); i--;){
-				auto mod = i % 4;
-				if (mod == 3){
-					pixels[i] = 0xFF;
-					continue;
-				}
-				int old = pixels[i];
-				int current = 0xFF;
-				if (current <= old){
-					pixels[i] = current;
-					continue;
-				}
-				old += lcd_fade;
-				if (old >= current){
-					pixels[i] = current;
-					continue;
-				}
-				pixels[i] = old;
-			}
-		}
-	}
-	SDL_UnlockTexture(this->main_texture);
-	SDL_RenderCopy(this->renderer, this->main_texture, nullptr, nullptr);
-	SDL_RenderPresent(this->renderer);
+	);
 }
 
 template <bool DOWN>
-static void handle_event(InputState &state, SDL_Event &event, byte_t new_state, bool &flag){
+static void handle_event(libpdboy_inputstate &state, SDL_Event &event, byte_t new_state, bool &flag){
 	switch (event.key.keysym.sym){
 		case SDLK_UP:
 			flag = true;
@@ -249,6 +176,7 @@ bool SdlProvider::handle_events(HandleEventsResult &result){
 			case SDL_KEYDOWN:
 				if (!event.key.repeat){
 					handle_event<true>(state, event, 0xFF, button_down);
+#if 0
 					{
 						switch (event.key.keysym.sym){
 							case SDLK_p:
@@ -262,11 +190,13 @@ bool SdlProvider::handle_events(HandleEventsResult &result){
 								break;
 						}
 					}
+#endif
 				}
 				break;
 			case SDL_KEYUP:
 				if (!event.key.repeat){
 					handle_event<false>(state, event, 0x00, button_up);
+#if 0
 					{
 						switch (event.key.keysym.sym){
 							case SDLK_SPACE:
@@ -277,6 +207,7 @@ bool SdlProvider::handle_events(HandleEventsResult &result){
 								break;
 						}
 					}
+#endif
 				}
 				break;
 			default:
@@ -284,21 +215,21 @@ bool SdlProvider::handle_events(HandleEventsResult &result){
 		}
 	}
 	if (button_down || button_up){
-		result.input_state = new InputState(state);
+		result.input_state = new libpdboy_inputstate(state);
 		result.button_down = button_down;
 		result.button_up = button_up;
 	}
 	return true;
 }
 
-void SdlProvider::write_frame_to_disk(std::string &path, const RenderedFrame &frame){
-	auto surface = SDL_CreateRGBSurface(0, lcd_width, lcd_height, 32, 0xFF, 0xFF00, 0xFF0000, 0xFF000000);
-	SDL_LockSurface(surface);
-	memcpy(surface->pixels, frame.pixels, sizeof(frame.pixels));
-	SDL_UnlockSurface(surface);
-	SDL_SaveBMP(surface, path.c_str());
-	SDL_FreeSurface(surface);
-}
+//void SdlProvider::write_frame_to_disk(std::string &path, const RenderedFrame &frame){
+//	auto surface = SDL_CreateRGBSurface(0, libpdboy_screen_width, libpdboy_screen_height, 32, 0xFF, 0xFF00, 0xFF0000, 0xFF000000);
+//	SDL_LockSurface(surface);
+//	memcpy(surface->pixels, frame.pixels, sizeof(frame.pixels));
+//	SDL_UnlockSurface(surface);
+//	SDL_SaveBMP(surface, path.c_str());
+//	SDL_FreeSurface(surface);
+//}
 
 void SdlProvider::stop_audio(){
 	if (!this->audio_device)

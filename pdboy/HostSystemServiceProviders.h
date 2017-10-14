@@ -1,11 +1,12 @@
 #pragma once
 
 #include "CommonTypes.h"
-#include "GeneralString.h"
-#include "threads.h"
+#include <libpdboy.h>
 #include <memory>
 #include <vector>
 #include <atomic>
+#include <functional>
+#include <mutex>
 
 class Cartridge;
 struct RenderedFrame;
@@ -13,60 +14,12 @@ struct InputState;
 class HostSystem;
 struct AudioFrame;
 
-enum class SaveFileType{
-	Ram,
-	Rtc,
-};
-
-class StorageProvider{
-public:
-	virtual ~StorageProvider() = 0;
-	virtual std::unique_ptr<std::vector<byte_t>> load_file(const path_t &path, size_t maximum_size);;
-	bool save_file(const path_t &path, const std::vector<byte_t> &buffer){
-		return this->save_file(path, &buffer[0], buffer.size());
-	}
-	virtual bool save_file(const path_t &path, const void *, size_t);
-	virtual path_t get_save_location(Cartridge &, SaveFileType);
-};
-
-class StdStorageProvider : public StorageProvider{
-public:
-};
-
-struct DateTime{
-	std::uint16_t year;
-	std::uint8_t month;
-	std::uint8_t day;
-	std::uint8_t hour;
-	std::uint8_t minute;
-	std::uint8_t second;
-
-	static DateTime from_posix(posix_time_t);
-	posix_time_t to_posix() const;
-};
-
-class DateTimeProvider{
-public:
-	virtual DateTime local_now() = 0;
-	double get_double_timestamp(){
-		return this->date_to_double_timestamp(this->local_now());
-	}
-	static DateTime double_timestamp_to_date(double);
-	static posix_time_t double_timestamp_to_posix(double);
-	static double date_to_double_timestamp(DateTime);
-};
-
-class StdDateTimeProvider : public DateTimeProvider{
-public:
-	DateTime local_now() override;
-};
-
 class TimingProvider{
 protected:
-	Event *periodic_event = nullptr;
+	std::function<void()> event_callback;
 public:
 	virtual ~TimingProvider(){}
-	virtual void register_periodic_notification(Event &) = 0;
+	virtual void register_periodic_notification(const std::function<void()> &) = 0;
 	virtual void unregister_periodic_notification() = 0;
 };
 
@@ -75,7 +28,7 @@ class EventProvider{
 public:
 	virtual ~EventProvider(){}
 	struct HandleEventsResult{
-		InputState *input_state = nullptr;
+		libpdboy_inputstate *input_state = nullptr;
 		bool button_down = false;
 		bool button_up = false;
 	};
@@ -83,29 +36,24 @@ public:
 	void set_host(HostSystem &host){
 		this->host = &host;
 	}
-	void toggle_fastforward(bool);
-	void toggle_slowdown(bool);
-	void toggle_pause(int);
 };
 
 class GraphicsOutputProvider{
 public:
 	virtual ~GraphicsOutputProvider(){}
-	virtual void render(const RenderedFrame *) = 0;
+	virtual std::unique_ptr<libpdboy_rgba, std::function<void(libpdboy_rgba *)>> render() = 0;
 	virtual void write_frame_to_disk(std::string &path, const RenderedFrame &){}
 };
 
 class AudioOutputProvider{
 public:
-	typedef std::function<AudioFrame *()> get_data_callback_t;
-	typedef std::function<void(AudioFrame *)> return_data_callback_t;
+	typedef std::function<void(void *, size_t)> get_audio_data_callback_t;
 protected:
-	get_data_callback_t get_data_callback;
-	return_data_callback_t return_data_callback;
+	get_audio_data_callback_t get_audio_data_callback;
 	std::mutex mutex;
 public:
 	virtual ~AudioOutputProvider(){}
-	void set_callbacks(get_data_callback_t gdc, return_data_callback_t rdc);
+	void set_callback(get_audio_data_callback_t &&f);
 	virtual void stop_audio() = 0;
 };
 
