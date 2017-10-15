@@ -99,6 +99,7 @@ class DisplayController{
 	int last_row_state = -1;
 	unsigned swallow_frames = 0;
 	bool clock_start_scheduled = false;
+	std::atomic<bool> processing_enabled;
 
 	PublishingResource<RenderedFrame> publishing_frames;
 
@@ -206,5 +207,8 @@ public:
 	bool update();
 	bool get_display_enabled() const{
 		return this->display_enabled;
+	}
+	void set_enable_processing(bool enabled){
+		this->processing_enabled = enabled;
 	}
 };

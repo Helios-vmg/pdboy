@@ -26,7 +26,7 @@ Gameboy::~Gameboy(){
 		this->host->unregister_periodic_notification();
 	this->stop();
 	this->report_time_statistics();
-	this->ram_to_save.try_save(*this->host, true);
+	this->ram_to_save.try_save(*this, true);
 }
 
 void Gameboy::report_time_statistics(){
@@ -83,7 +83,7 @@ void Gameboy::interpreter_thread_function(){
 
 				auto t0 = get_timer_count();
 				this->run_until_next_frame();
-				this->ram_to_save.try_save(*this->host);
+				this->ram_to_save.try_save(*this);
 				auto t1 = get_timer_count();
 #ifndef BENCHMARKING
 				this->sync_with_real_time();

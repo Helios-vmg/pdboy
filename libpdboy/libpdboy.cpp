@@ -75,6 +75,10 @@ void libpdboy::public_set_timing_provider(libpdboy_register_periodic_notificatio
 void libpdboy::public_configure(bool enable_video, bool enable_audio){
 	this->enable_video = enable_video;
 	this->enable_audio = enable_audio;
+	if (this->gameboy){
+		this->gameboy->get_display_controller().set_enable_processing(this->enable_video);
+		this->gameboy->get_sound_controller().set_enable_processing(this->enable_audio);
+	}
 }
 
 void libpdboy::public_load(const char *path){
@@ -84,6 +88,8 @@ void libpdboy::public_load(const char *path){
 		std::cerr << "File not found: " << path << std::endl;
 		return;
 	}
+	this->gameboy->get_display_controller().set_enable_processing(this->enable_video);
+	this->gameboy->get_sound_controller().set_enable_processing(this->enable_audio);
 	this->gameboy->run();
 }
 

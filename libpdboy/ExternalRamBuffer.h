@@ -4,7 +4,7 @@
 #include <vector>
 #include <chrono>
 
-class libpdboy;
+class Gameboy;
 class Cartridge;
 
 class ExternalRamBuffer{
@@ -23,7 +23,7 @@ public:
 	void write(size_t position, byte_t data);
 	void resize(size_t);
 	void request_save(Cartridge &cart);
-	void try_save(libpdboy &, bool force = false);
+	void try_save(Gameboy &, bool force = false);
 	size_t size() const{
 		if (!this->internal)
 			return 0;

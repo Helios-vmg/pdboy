@@ -127,7 +127,8 @@ SoundController::SoundController(Gameboy &system):
 		square1(*this),
 		square2(*this),
 		noise(*this),
-		wave(*this){
+		wave(*this),
+		processing_enabled(true){
 
 	this->last_sample *= 0;
 
@@ -207,6 +208,12 @@ StereoSampleFinal SoundController::compute_sample(){
 	channels[2] = this->render_voluntary(sample_no);
 	channels[3] = this->render_noise(sample_no);
 
+	if (!this->processing_enabled){
+		StereoSampleFinal ret;
+		ret.left = ret.right = 0;
+		return ret;
+	}
+
 	StereoSampleIntermediate sample;
 	sample.left = sample.right = 0;
 
@@ -242,9 +249,11 @@ void SoundController::write_sample(StereoSampleFinal *&buffer){
 		}
 #endif
 		this->current_frame_position = 0;
-		this->publishing_frames.publish();
-		this->initialize_new_frame();
-		buffer = this->publishing_frames.get_private_resource()->buffer;
+		if (this->processing_enabled){
+			this->publishing_frames.publish();
+			this->initialize_new_frame();
+			buffer = this->publishing_frames.get_private_resource()->buffer;
+		}
 	}
 }
 
@@ -293,6 +302,8 @@ void SoundController::sweep_event(){
 }
 
 void SoundController::initialize_new_frame(){
+	if (!this->processing_enabled)
+		return;
 	auto frame = this->publishing_frames.get_private_resource();
 	frame->frame_no = this->frame_no++;
 	auto &buffer = frame->buffer;
@@ -324,44 +335,44 @@ StereoSampleIntermediate compute_channel_panning_and_silence(const T1 &generator
 StereoSampleIntermediate SoundController::render_square1(std::uint64_t time){
 	this->square1.update_state_before_render(time);
 #if CHANNEL_SELECTION & CHANNEL1
-	return compute_channel_panning_and_silence(this->square1, time, this->stereo_panning[0]);
-#else
+	if (this->processing_enabled)
+		return compute_channel_panning_and_silence(this->square1, time, this->stereo_panning[0]);
+#endif
 	StereoSampleIntermediate ret;
 	ret.left = ret.right = 0;
 	return ret;
-#endif
 }
 
 StereoSampleIntermediate SoundController::render_square2(std::uint64_t time){
 	this->square2.update_state_before_render(time);
 #if CHANNEL_SELECTION & CHANNEL2
-	return compute_channel_panning_and_silence(this->square2, time, this->stereo_panning[1]);
-#else
+	if (this->processing_enabled)
+		return compute_channel_panning_and_silence(this->square2, time, this->stereo_panning[1]);
+#endif
 	StereoSampleIntermediate ret;
 	ret.left = ret.right = 0;
 	return ret;
-#endif
 }
 
 StereoSampleIntermediate SoundController::render_voluntary(std::uint64_t time){
 	this->wave.update_state_before_render(time);
 #if CHANNEL_SELECTION & CHANNEL3
-	return compute_channel_panning_and_silence(this->wave, time, this->stereo_panning[2]);
-#else
+	if (this->processing_enabled)
+		return compute_channel_panning_and_silence(this->wave, time, this->stereo_panning[2]);
+#endif
 	StereoSampleIntermediate ret;
 	ret.left = ret.right = 0;
 	return ret;
-#endif
 }
 
 StereoSampleIntermediate SoundController::render_noise(std::uint64_t time){
 #if CHANNEL_SELECTION & CHANNEL4
-	return compute_channel_panning_and_silence(this->noise, time, this->stereo_panning[3]);
-#else
+	if (this->processing_enabled)
+		return compute_channel_panning_and_silence(this->noise, time, this->stereo_panning[3]);
+#endif
 	StereoSampleIntermediate ret;
 	ret.left = ret.right = 0;
 	return ret;
-#endif
 }
 
 WaveformGenerator::WaveformGenerator(SoundController &parent): parent(&parent){

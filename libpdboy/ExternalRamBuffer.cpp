@@ -48,7 +48,7 @@ void ExternalRamBuffer::request_save(Cartridge &cart){
 	this->cart = &cart;
 }
 
-void ExternalRamBuffer::try_save(libpdboy &host, bool force){
+void ExternalRamBuffer::try_save(Gameboy &system, bool force){
 	if (!this->write_requested)
 		return;
 	if (!force){
@@ -57,6 +57,6 @@ void ExternalRamBuffer::try_save(libpdboy &host, bool force){
 		if (seconds < 20)
 			return;
 	}
-	host.get_guest().save_ram(*this->cart, *this->internal);
+	system.save_ram(*this->cart, *this->internal);
 	this->write_requested = false;
 }

@@ -288,6 +288,7 @@ class SoundController{
 		audio_sample_clock;
 	CapacitorFilter filter_left,
 		filter_right;
+	std::atomic<bool> processing_enabled;
 
 	//Control registers.
 	byte_t NR50 = 0;
@@ -352,4 +353,7 @@ public:
 		return this->NR51;
 	}
 	byte_t get_NR52() const;
+	void set_enable_processing(bool enabled){
+		this->processing_enabled = enabled;
+	}
 };

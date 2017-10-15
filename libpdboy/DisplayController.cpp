@@ -11,8 +11,6 @@
 #include <algorithm>
 #include <cassert>
 
-unsigned frames_drawn = 0;
-
 struct SpriteDescription{
 	byte_t y, x, tile_no, attributes;
 	int get_y() const{
@@ -39,13 +37,16 @@ DisplayController::DisplayController(Gameboy &system):
 		system(&system),
 		vram(0x2000),
 		oam(0xA0),
-		display_enabled(false){
+		display_enabled(false),
+		processing_enabled(true){
 	this->set_background_palette(0);
 	this->set_obj0_palette(0);
 	this->set_obj1_palette(0);
 }
 
 RenderedFrame *DisplayController::get_current_frame(){
+	if (!this->processing_enabled)
+		return nullptr;
 	return this->publishing_frames.get_public_resource();
 }
 
@@ -305,15 +306,8 @@ void DisplayController::enable_memories(){
 
 void DisplayController::switch_to_row_state_3(unsigned row){
 	if (!this->swallow_frames){
-#ifdef DUMP_FRAMES
-		{
-			std::stringstream path;
-			path << "graphics_output/" << std::setw(5) << std::setfill('0') << frames_drawn << ".bmp";
-			this->system->get_host()->write_frame_to_disk(path.str(), *this->frame_being_drawn);
-		}
-#endif
-		this->publishing_frames.publish();
-		frames_drawn++;
+		if (this->processing_enabled)
+			this->publishing_frames.publish();
 	}else
 		this->swallow_frames--;
 	if (check_flag(this->lcd_status, stat_vblank_interrupt_mask))
@@ -339,6 +333,8 @@ struct FullSprite{
 };
 
 void DisplayController::render_current_scanline(unsigned y){
+	if (!this->processing_enabled)
+		return;
 	auto *pixels = this->publishing_frames.get_private_resource()->pixels;
 	const unsigned pitch = lcd_width;
 
