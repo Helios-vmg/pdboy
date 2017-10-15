@@ -49,6 +49,23 @@ bool HostSystem::handle_events(){
 	auto ret = this->event_provider->handle_events(result);
 	if (result.input_state)
 		libpdboy_set_input_state(this->libpdboy.get(), result.input_state, result.button_down, result.button_up);
+	
+	bool toggle_fast = result.fast_mode >= 0;
+	bool toggle_slow = result.slow_mode >= 0;
+	if (result.pause_toggled)
+		libpdboy_toggle_pause(this->libpdboy.get());
+
+	if (toggle_fast | toggle_slow)
+		libpdboy_set_pause(this->libpdboy.get(), true);
+
+	if (toggle_fast)
+		libpdboy_set_speed_multiplier(this->libpdboy.get(), result.fast_mode ? 5.0 : 1.0);
+	else if (toggle_slow)
+		libpdboy_set_speed_multiplier(this->libpdboy.get(), result.slow_mode ? 0.1 : 1.0);
+
+	if (toggle_fast | toggle_slow)
+		libpdboy_set_pause(this->libpdboy.get(), false);
+
 	return ret;
 }
 

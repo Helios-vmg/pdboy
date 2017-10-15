@@ -31,6 +31,9 @@ public:
 		libpdboy_inputstate *input_state = nullptr;
 		bool button_down = false;
 		bool button_up = false;
+		bool pause_toggled = false;
+		int fast_mode = -1;
+		int slow_mode = -1;
 	};
 	virtual bool handle_events(HandleEventsResult &) = 0;
 	void set_host(HostSystem &host){

@@ -176,38 +176,34 @@ bool SdlProvider::handle_events(HandleEventsResult &result){
 			case SDL_KEYDOWN:
 				if (!event.key.repeat){
 					handle_event<true>(state, event, 0xFF, button_down);
-#if 0
 					{
 						switch (event.key.keysym.sym){
 							case SDLK_p:
-								this->toggle_pause(-1);
+								result.pause_toggled = true;
 								break;
 							case SDLK_SPACE:
-								this->toggle_fastforward(true);
+								result.fast_mode = 1;
 								break;
 							case SDLK_LCTRL:
-								this->toggle_slowdown(true);
+								result.slow_mode = 1;
 								break;
 						}
 					}
-#endif
 				}
 				break;
 			case SDL_KEYUP:
 				if (!event.key.repeat){
 					handle_event<false>(state, event, 0x00, button_up);
-#if 0
 					{
 						switch (event.key.keysym.sym){
 							case SDLK_SPACE:
-								this->toggle_fastforward(false);
+								result.fast_mode = 0;
 								break;
 							case SDLK_LCTRL:
-								this->toggle_slowdown(false);
+								result.slow_mode = 0;
 								break;
 						}
 					}
-#endif
 				}
 				break;
 			default:

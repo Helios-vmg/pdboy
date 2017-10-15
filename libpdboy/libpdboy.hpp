@@ -54,6 +54,8 @@ public:
 	void public_set_input_state(libpdboy_inputstate *istate, int any_button_down, int any_button_up);
 	void public_set_stdout_provider(libpdboy_stdout_f callback);
 	const char *public_get_exception_message();
+	void public_toggle_pause(int value = -1);
+	void public_set_speed_multiplier(double speed);
 
 	bool load_file(const path_t &path, std::vector<byte_t> &dst, size_t max_size);
 	void register_periodic_notification(Event &);

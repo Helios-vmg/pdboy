@@ -49,6 +49,18 @@ LIBPDBOY_API const char *libpdboy_get_exception_message(libpdboy_state *state){
 	return ((libpdboy *)state)->public_get_exception_message();
 }
 
+LIBPDBOY_API void libpdboy_toggle_pause(libpdboy_state *state){
+	((libpdboy *)state)->public_toggle_pause();
+}
+
+LIBPDBOY_API void libpdboy_set_pause(libpdboy_state *state, int value){
+	((libpdboy *)state)->public_toggle_pause(value);
+}
+
+LIBPDBOY_API void libpdboy_set_speed_multiplier(libpdboy_state *state, double speed){
+	((libpdboy *)state)->public_set_speed_multiplier(speed);
+}
+
 libpdboy::libpdboy(void *user_data): user_data(user_data){}
 
 libpdboy::~libpdboy(){
@@ -166,6 +178,18 @@ const char *libpdboy::public_get_exception_message(){
 	if (!this->exception_message_copy.size())
 		return nullptr;
 	return this->exception_message_copy.c_str();
+}
+
+void libpdboy::public_toggle_pause(int value){
+	if (!this->gameboy)
+		return;
+	this->gameboy->toggle_pause(value);
+}
+
+void libpdboy::public_set_speed_multiplier(double speed){
+	if (!this->gameboy)
+		return;
+	this->gameboy->set_speed_multiplier(speed);
 }
 
 bool libpdboy::load_file(const path_t &path, std::vector<byte_t> &dst, size_t max_size){
