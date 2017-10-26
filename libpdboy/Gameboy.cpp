@@ -7,6 +7,10 @@
 #include <iostream>
 #include <fstream>
 
+struct BreakpointStruct{
+	libpdboy_breakpoint_callback callbacks[0x10000];
+};
+
 Gameboy::Gameboy(libpdboy &host):
 		host(&host),
 		cpu(*this),

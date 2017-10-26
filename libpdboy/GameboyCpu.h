@@ -17,6 +17,8 @@ const int dmg_dma_transfer_length_clocks = 640;
 
 class Gameboy;
 
+struct BreakpointStruct;
+
 class GameboyCpu{
 	Gameboy *system;
 	RegisterStore registers;
@@ -32,6 +34,7 @@ class GameboyCpu{
 	bool halted = false;
 	bool dmg_halt_bug = false;
 	bool interrupt_enable_scheduled = false;
+	std::unique_ptr<BreakpointStruct> breakpoints;
 
 	static const unsigned vblank_flag_bit = 0;
 	static const unsigned lcd_stat_flag_bit = 1;
