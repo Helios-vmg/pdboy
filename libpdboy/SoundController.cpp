@@ -226,7 +226,7 @@ StereoSampleFinal SoundController::compute_sample(){
 	}
 	sample /= 4;
 	sample.left = this->filter_left.update(sample.left);
-	sample.right = this->filter_left.update(sample.right);
+	sample.right = this->filter_right.update(sample.right);
 
 	sample.left *= this->left_volume;
 	sample.right *= this->right_volume;
